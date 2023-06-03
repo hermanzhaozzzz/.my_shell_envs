@@ -1,0 +1,10 @@
+channels:
+  - bioconda
+  - conda-forge
+  - r
+  - microsoft
+  - defaults
+show_channel_urls: true
+disable_lockfile: true
+
+auto_activate_base: true

@@ -1,0 +1,35 @@
+##############
+# common project
+##############
+# python cache
+**/__pycache__/
+# spyder
+**/.spyproject/
+# jupyterlab meta
+**/.ipynb_checkpoints/
+# pycharm meta
+**/.idea/
+# vscode
+**/.vscode/
+# Rstudio history
+**/.Rhistory
+# macos meta
+**/.DS_Store
+**/.Trash/
+
+# snakemake configure
+**/.snakemake/
+samples.json
+# HEXO public
+/public/
+/.deploy_git/
+# TexPad temp
+/.texpadtmp/
+# Polaris slurm system
+sna*.err
+sna*.out
+job.srp*
+slurm-*.out
+# Others
+/tmpdir_*/
+.localized

@@ -14,6 +14,12 @@ if [[ "$platform" == "Linux" ]]; then
     platform="Linux"
 elif [[ "$platform" == "Darwin" ]]; then
     platform="MacOS"
+
+    if [[ "`uname -p`" == "i386" ]]; then
+        platform="MacOS/x86_64"
+    elif [[ "`uname -p`" == "arm" ]]; then
+        platform="MacOS/arm64"
+    fi
 elif [[ "$platform" == "WindowsNT" ]]; then
     platform="Windows"
 else
@@ -24,11 +30,8 @@ fi
 echo "platform detected: $platform"
 
 for yml in `ls $REPO_PATH/conda/$platform/*.yml`; do
-    ln -s $yml $CONDA_ENVS/`basename $yml`
+    ln -sf $yml $CONDA_ENVS/`basename $yml`
 done
 
 echo "$CONDA_ENVS settings done"
-
-
 echo "all done"
-

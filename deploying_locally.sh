@@ -1,12 +1,8 @@
 # get repo path
 REPO_PATH=`pwd` 
+echo -e "---------------------------------|\nset conda panels..."
 
-echo "set conda panels..."
 mv $HOME/.condarc $HOME/.condarc_bak && ln -s $REPO_PATH/conda/condarc $HOME/.condarc
-
-# make softlink directory
-CONDA_ENVS=$REPO_PATH/conda_local_env_settings
-mkdir -p $CONDA_ENVS
 
 platform="`uname`"
 
@@ -26,14 +22,23 @@ else
     echo "unsupported OS: $platform!"
     exit 1
 fi
-echo "---------------------------------|"
-echo "platform detected: $platform"
-echo "---------------------------------|"
+echo -e "---------------------------------|\nplatform detected: $platform"
+
+echo -e "---------------------------------|\nset conda env config files..."
+# make softlink directory
+CONDA_ENVS=$REPO_PATH/conda_local_env_settings
+mkdir -p $CONDA_ENVS
 
 for yml in `ls $REPO_PATH/conda/$platform/*.yml`; do
     ln -sf $yml $CONDA_ENVS/`basename $yml`
 done
-echo "---------------------------------|"
 echo "conda config files @: $CONDA_ENVS "
-echo "---------------------------------|"
-echo "all done"
+
+
+echo -e "---------------------------------|\nset zsh config file"
+
+platform="`echo $platform | awk -F '/' '{printf $1}'`"  # fix "MacOS/x86_64" or "MacOS/arm64" to "MacOS"
+mv $HOME/.zshrc $HOME/.zshrc_bak && ln -s $REPO_PATH/zsh/$platform/zshrc $HOME/.zshrc
+echo "zsh config file @: $REPO_PATH/zsh/$platform/zshrc"
+
+echo -e "---------------------------------|\nall done"

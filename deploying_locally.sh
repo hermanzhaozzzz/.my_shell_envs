@@ -26,12 +26,14 @@ else
     echo "unsupported OS: $platform!"
     exit 1
 fi
-
+echo "---------------------------------|"
 echo "platform detected: $platform"
+echo "---------------------------------|"
 
 for yml in `ls $REPO_PATH/conda/$platform/*.yml`; do
     ln -sf $yml $CONDA_ENVS/`basename $yml`
 done
-
-echo "$CONDA_ENVS settings done"
+echo "---------------------------------|"
+echo "conda config files @: $CONDA_ENVS "
+echo "---------------------------------|"
 echo "all done"

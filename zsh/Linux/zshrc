@@ -111,12 +111,19 @@ source ~/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting/zsh-syntax-highlighti
 # ------------------------------------------------------------------->>>>>>>>>>
 # 基本环境变量
 # ------------------------------------------------------------------->>>>>>>>>>
-export HOME=/lustre1/chengqiyi_pkuhpc/zhaohn
+# HOME 变量在zsh_profile中完成设置
+# export HOME=/lustre1/chengqiyi_pkuhpc/zhaohn
+
 # for rust
 . "$HOME/.cargo/env" 
+
 # for R
 unset R_HOME
-export TMUX_TMPDIR=/lustre1/chengqiyi_pkuhpc/zhaohn/.tmux_tmp_dir
+
+# for tmux
+export TMUX_TMPDIR=$HOME/.tmux_tmp_dir
+
+
 export MY_APPS="vim git bat exa"
 # ------------------------------------------------------------------->>>>>>>>>>
 # PATH 环境变量
@@ -140,22 +147,26 @@ export PATH=$PATH:${HOME}/0.apps/bedops/bin
 # ------------------------------------------------------------------->>>>>>>>>>
 # 自定义函数命令
 # ------------------------------------------------------------------->>>>>>>>>>
+# 为tabby设置返回远程shell当前cwd位置
+precmd () { echo -n "\x1b]1337;CurrentDir=$(pwd)\x07" }
+
+
 # mv命令覆盖rm命令
 trash()
 {
-    mv $@ ~/4.trash/
+    mv $@ $HOME/4.trash/
 }
 
 # 显示回收站中垃圾清单
 trashlist()
 {
-    ls -alt ~/4.trash/*
+    ls -alt $HOME/4.trash/*
 }
 
 # 找回回收站相应文件
 undelfile()
 {
-    mv -i ~/4.trash/* ./
+    mv -i $HOME/4.trash/* ./
 }
 # 清空回收站
 cleartrash()
@@ -177,14 +188,11 @@ alias del='trash'
 alias dellist='trashlist'
 alias delback='undelfile'
 alias delclear='cleartrash'
-alias proxy.start='ssh -qTnN -D 7070 zhaohuanan@162.105.250.169'
+
+# RPOXY
+alias proxy.start='ssh -qTnN -D 7070 zhaohuanan@zhaohuanan.cc'
 alias proxy.on='export http_proxy="socks5://127.0.0.1:7070"; export https_proxy="socks5://127.0.0.1:7070"; export all_proxy="socks5://127.0.0.1:7070"; git config --global http.proxy "socks5://127.0.0.1:7070"; git config --global https.proxy "socks5://127.0.0.1:7070"'
 alias proxy.off='export http_proxy=""; export https_proxy=""; export all_proxy="";git config --global --unset http.proxy; git config --global --unset https.proxy'
-
-
-
-
-
 
 # 内置命令别名
 alias sshabyss.ssh="ssh zhaohuanan@162.105.250.207"
@@ -193,15 +201,16 @@ alias sshknight.ssh2="ssh menghw@202.205.131.33"
 # 第三方命令别名
 alias ll="exa -lh"
 alias l="exa -lha"
+
 # slurm系统别名
 # alias squeue="squeue -o \"%.18i %.8u %.8a %.9P %q %.8j %.8T %.12M %.12l %.5C %.10R %p\""
-alias squeuekillall="squeue | grep \"ZhnSnake\" | awk -F \" \" '{print \"scancel \"\$1}' | sh"
 alias squeuez="for i in \`squeue | grep chengqi| grep -v 'QOS not permitted' | awk '{print \$1}'\`; do (pkujob | grep \$i | xargs echo); done | grep zhaohn | awk -F '=' '{print \$2}' | awk '{print \$1}'"
 alias squeuey="squeue | grep chengqi | grep -v 'QOS not permitted'"
 alias ps-ef="ps -ef | grep chengqi | grep zhaohn"
 
 alias salloc_fat4way="salloc -N 1 --job-name=notebook_zhn  --partition=fat4way --account=chengqiyi_g1 --qos=chengqiyif4w --cpus-per-task=24"
 alias salloc_cnnl="salloc -N 1 --job-name=notebook_zhn --partition=cn_nl --account=chengqiyi_g1 --qos=chengqiyicnnl --cpus-per-task=28"
+
 # Bioinformatic tools
 alias checkbam="for i in *.bam ;do (samtools quickcheck \$i && echo \"ok    \" \$i || echo \"error    \" \$i);done"
 
@@ -212,20 +221,19 @@ alias conda=micromamba
 alias mamba=micromamba
 # >>> mamba initialize >>>
 # !! Contents within this block are managed by 'mamba init' !!
-export MAMBA_EXE="/lustre1/chengqiyi_pkuhpc/zhaohn/0.apps/micromamba/bin/micromamba";
-export MAMBA_ROOT_PREFIX="/lustre1/chengqiyi_pkuhpc/zhaohn/0.apps/micromamba";
+export MAMBA_EXE="$HOME/0.apps/micromamba/bin/micromamba";
+export MAMBA_ROOT_PREFIX="$HOME/0.apps/micromamba";
 __mamba_setup="$("$MAMBA_EXE" shell hook --shell zsh --prefix "$MAMBA_ROOT_PREFIX" 2> /dev/null)"
 if [ $? -eq 0 ]; then
     eval "$__mamba_setup"
 else
-    if [ -f "/lustre1/chengqiyi_pkuhpc/zhaohn/0.apps/micromamba/etc/profile.d/micromamba.sh" ]; then
-        . "/lustre1/chengqiyi_pkuhpc/zhaohn/0.apps/micromamba/etc/profile.d/micromamba.sh"
+    if [ -f "$HOME/0.apps/micromamba/etc/profile.d/micromamba.sh" ]; then
+        . "$HOME/0.apps/micromamba/etc/profile.d/micromamba.sh"
     else
-        export  PATH="/lustre1/chengqiyi_pkuhpc/zhaohn/0.apps/micromamba/bin:$PATH"  # extra space after export prevents interference from conda init
+        export  PATH="$HOME/0.apps/micromamba/bin:$PATH"  # extra space after export prevents interference from conda init
     fi
 fi
 unset __mamba_setup
 # <<< mamba initialize <<<
 
-# fix tmux
 conda activate base

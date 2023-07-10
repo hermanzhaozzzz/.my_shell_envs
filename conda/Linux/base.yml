@@ -108,6 +108,7 @@ dependencies:
 - greenlet=2.0.2=py310hc6cd4ac_1
 - grpcio=1.54.2=py310heca2aa9_2
 - gsl=2.7=he838d99_0
+- gunicorn=20.1.0=py310hff52083_3
 - gxx_impl_linux-64=12.2.0=hcc96c02_19
 - harfbuzz=7.3.0=hdb3a94d_0
 - htop=3.2.2=h8228510_0

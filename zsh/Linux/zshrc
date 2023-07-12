@@ -199,8 +199,9 @@ alias sshabyss.ssh="ssh zhaohuanan@162.105.250.207"
 alias sshknight.ssh="ssh menghw@202.205.131.32"
 alias sshknight.ssh2="ssh menghw@202.205.131.33"
 # 第三方命令别名
-alias ll="exa -lh"
-alias l="exa -lha"
+alias lll="exa -lh"
+alias ll="exa -lh --tree -L 1 --no-user"
+alias l="exa -lha --tree -L 1"
 
 # slurm系统别名
 # alias squeue="squeue -o \"%.18i %.8u %.8a %.9P %q %.8j %.8T %.12M %.12l %.5C %.10R %p\""

@@ -5,9 +5,16 @@
 
 # use
 ```shell
+# install
+
 cd $HOME
 git clone git@github.com:hermanzhaozzzz/.my_shell_envs.git
 cd .my_shell_envs
 # deploy
 bash deploying_locally.sh
+
+# update
+cd ~/.my_shell_envs
+git fetch
+git pull --rebase
 ```

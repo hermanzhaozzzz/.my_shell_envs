@@ -41,4 +41,8 @@ platform="`echo $platform | awk -F '/' '{printf $1}'`"  # fix "MacOS/x86_64" or 
 mv $HOME/.zshrc $HOME/.zshrc_bak && ln -s $REPO_PATH/zsh/$platform/zshrc $HOME/.zshrc
 echo "zsh config file @: $REPO_PATH/zsh/$platform/zshrc"
 
+
+echo -e "---------------------------------|\nset vim config file"
+curl https://raw.githubusercontent.com/hermanzhaozzzz/vim-for-coding/master/install.sh | sh
+echo "vim config file @ $HOME/.vim"
 echo -e "---------------------------------|\nall done"

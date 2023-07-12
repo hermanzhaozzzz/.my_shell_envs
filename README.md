@@ -9,5 +9,5 @@ cd $HOME
 git clone git@github.com:hermanzhaozzzz/.my_shell_envs.git
 cd .my_shell_envs
 # deploy
-sh deploying_locally.sh
+bash deploying_locally.sh
 ```

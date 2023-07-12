@@ -1,4 +1,7 @@
+# 设置USER显示
 DEFAULT_USER=$USER
+
+
 
 # If you come from bash you might have to change your $PATH.
 # export PATH=$HOME/bin:/usr/local/bin:$PATH
@@ -73,15 +76,17 @@ ZSH_THEME="agnoster"
 # Example format: plugins=(rails git textmate ruby lighthouse)
 # Add wisely, as too many plugins slow down shell startup.
 plugins=(
-git
-z
-zsh-autosuggestions
-zsh-syntax-highlighting
+	git
+	z
+	zsh-syntax-highlighting
+	zsh-autosuggestions
 )
 
-source $ZSH/oh-my-zsh.sh
-source ~/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 
+source $ZSH/oh-my-zsh.sh
+
+# 高亮插件,需要配置在所有插件之后！
+source ~/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 
 # User configuration
 
@@ -109,19 +114,33 @@ source ~/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting/zsh-syntax-highlighti
 # alias zshconfig="mate ~/.zshrc"
 # alias ohmyzsh="mate ~/.oh-my-zsh"
 
-
-
-
 #############################
-# alias                     #
+# PATH & alias              #
 #############################
+# homebrew
+export PATH=/opt/homebrew/bin/:$PATH
+export PATH=/opt/homebrew/opt/openjdk/bin:$PATH
 
-alias startsc="open -a SafeConnect.app && open -a Step\ Two.app"
+# ide & language
+# alias spyder="/Applications/Spyder.app/Contents/MacOS/Spyder"
+# alias code="/Applications/Visual\ Studio\ Code.app/Contents/MacOS/Electron"
 alias code="/Applications/Visual\ Studio\ Code.app/Contents/Resources/app/bin/code"
+export PATH=$PATH:$HOME/Library/Application\ Support/JetBrains/Toolbox/scripts
+export PATH=$PATH:$HOME/.cargo/bin # rust
+
+# ssh
 alias sshabyss.ssh='ssh zhaohuanan@162.105.250.207'
+alias startsc="open -a SafeConnect.app && open -a Step\ Two.app"
 alias sshpolaris.ssh="ssh chengqiyi_zhn@10.100.1.88"
-alias checkbam="for i in *.bam ;do (samtools quickcheck \$i && echo \"ok    \" \$i || echo \"error    \" \$i);done"
+
+# fix zcat
 alias zcat="gunzip -d -c"
+
+# bioinformatics
+alias checkbam="for i in *.bam ;do (samtools quickcheck \$i && echo \"ok    \" \$i || echo \"error    \" \$i);done"
+export PATH=$PATH:/Volumes/zhaohn_HD/Bio/0.apps/homer/bin
+
+
 
 #创建命令
 alias del='trash'
@@ -169,34 +188,51 @@ export no_proxy="192.168.59.102,192.168.59.103"
 # PATH                      #
 #############################
 # add doom emacs
-export PATH=$PATH:/Users/zhaohuanan/.emacs.d/bin
+export PATH=$PATH:$HOME/.emacs.d/bin
 export PATH=$PATH:$HOME/.cargo/bin
 export PATH=$PATH:/Library/TeX/texbin
-export PATH=$PATH:/Users/zhaohuanan/Bio/0.apps/hisat-3n_allType
+export PATH=$PATH:$HOME/Bio/0.apps/hisat-3n_allType
 export PATH=$PATH:/Applications/VirtualBox.app/Contents/MacOS
 
 
 #############################
-# profile                   #
+# conda setting             #
+#############################
+# doc!!!
+# # for arm64 macos
+# URL=https://micro.mamba.pm/api/micromamba/osx-arm64/latest
+# # for x86_64 macos
+# URL=https://micro.mamba.pm/api/micromamba/osx-64/latest
+
+# ROOT_PATH=$HOME/micromamba
+# mkdir $ROOT_PATH
+# cd $ROOT_PATH
+# curl -Ls $URL | tar -xvj bin/micromamba
+# cd bin
+# ./micromamba shell init -s zsh -p $ROOT_PATH
 #############################
 alias conda=micromamba
 alias mamba=micromamba
-
+# for arm64
+alias echo_conda_rosetta='echo "CONDA_SUBDIR=osx-64 conda create -n rosetta_macs2 python=3.8\nconda activate rosetta\nconda env config vars set CONDA_SUBDIR=osx-64\nconda deactivate\nconda activate rosetta"'
 
 
 # >>> mamba initialize >>>
 # !! Contents within this block are managed by 'mamba init' !!
-export MAMBA_EXE="/usr/local/bin/micromamba";
-export MAMBA_ROOT_PREFIX="/Volumes/Data-w/ForMac/Bio/0.apps/micromamba";
-__mamba_setup="$("$MAMBA_EXE" shell hook --shell zsh --prefix "$MAMBA_ROOT_PREFIX" 2> /dev/null)"
+export MAMBA_EXE="$HOME/micromamba/bin/micromamba";
+export MAMBA_ROOT_PREFIX="$HOME/micromamba";
+__mamba_setup="$("$MAMBA_EXE" shell hook --shell zsh --root-prefix "$MAMBA_ROOT_PREFIX" 2> /dev/null)"
 if [ $? -eq 0 ]; then
     eval "$__mamba_setup"
 else
-    if [ -f "/Volumes/Data-w/ForMac/Bio/0.apps/micromamba/etc/profile.d/micromamba.sh" ]; then
-        . "/Volumes/Data-w/ForMac/Bio/0.apps/micromamba/etc/profile.d/micromamba.sh"
+    if [ -f "$HOME/micromamba/etc/profile.d/micromamba.sh" ]; then
+        . "$HOME/micromamba/etc/profile.d/micromamba.sh"
     else
-        export  PATH="/Volumes/Data-w/ForMac/Bio/0.apps/micromamba/bin:$PATH"  # extra space after export prevents interference from conda init
+        export  PATH="$HOME/micromamba/bin:$PATH"  # extra space after export prevents interference from conda init
     fi
 fi
 unset __mamba_setup
 # <<< mamba initialize <<<
+
+
+conda activate base

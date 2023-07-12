@@ -1,0 +1,36 @@
+name: djangoblog
+channels:
+- conda-forge
+dependencies:
+- _libgcc_mutex=0.1=conda_forge
+- _openmp_mutex=4.5=2_gnu
+- asgiref=3.7.2=pyhd8ed1ab_0
+- bzip2=1.0.8=h7f98852_4
+- ca-certificates=2023.5.7=hbcca054_0
+- django=3.2.5=pyhd8ed1ab_0
+- exa=0.10.1=habb4d0f_0
+- gunicorn=20.1.0=py38h578d9bd_3
+- ld_impl_linux-64=2.40=h41732ed_0
+- libexpat=2.5.0=hcb278e6_1
+- libffi=3.4.2=h7f98852_5
+- libgcc-ng=13.1.0=he5830b7_0
+- libgomp=13.1.0=he5830b7_0
+- libnsl=2.0.0=h7f98852_0
+- libsqlite=3.42.0=h2797004_0
+- libuuid=2.38.1=h0b41bf4_0
+- libzlib=1.2.13=hd590300_5
+- ncurses=6.4=hcb278e6_0
+- openssl=3.1.1=hd590300_1
+- pip=23.1.2=pyhd8ed1ab_0
+- python=3.8.17=he550d4f_0_cpython
+- python_abi=3.8=3_cp38
+- pytz=2023.3=pyhd8ed1ab_0
+- readline=8.2=h8228510_1
+- setuptools=68.0.0=pyhd8ed1ab_0
+- sqlparse=0.4.4=pyhd8ed1ab_0
+- tk=8.6.12=h27826a3_0
+- typing_extensions=4.7.1=pyha770c72_0
+- tzdata=2023c=h71feb2d_0
+- wheel=0.40.0=pyhd8ed1ab_0
+- xz=5.2.6=h166bdaf_0
+

@@ -87,7 +87,8 @@ echo -e "---------------------------------|\nall done"
 # end
 echo "↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓"
 echo -e "well done there! now you should:\n"
-echo -e "\t\t|source ~/.zshrc|"
+echo -e "\t\tsource ~/.zshrc"
+echo -e "\t\tconda install -f $CONDA_ENVS/base.yml"
 echo "and start to use this environment."
 echo "↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑"
 

@@ -6,7 +6,8 @@ REPO_PATH=`pwd`
 
 echo -e "---------------------------------|\nset conda panels..."
 
-mv $HOME/.condarc $HOME/.condarc_bak && ln -s $REPO_PATH/conda/condarc $HOME/.condarc
+mv $HOME/.condarc $HOME/.condarc_bak
+ln -s $REPO_PATH/conda/condarc $HOME/.condarc
 
 platform="`uname`"
 
@@ -71,7 +72,8 @@ echo "conda config files @: $CONDA_ENVS "
 echo -e "---------------------------------|\nset zsh config file"
 
 platform="`echo $platform | awk -F '/' '{printf $1}'`"  # fix "MacOS/x86_64" or "MacOS/arm64" to "MacOS"
-mv $HOME/.zshrc $HOME/.zshrc_bak && ln -s $REPO_PATH/zsh/$platform/zshrc $HOME/.zshrc
+mv $HOME/.zshrc $HOME/.zshrc_bak
+ln -s $REPO_PATH/zsh/$platform/zshrc $HOME/.zshrc
 echo "zsh config file @: $REPO_PATH/zsh/$platform/zshrc"
 
 # ------------------------------------------------------------------->>>>>>>>>>

@@ -138,7 +138,9 @@ alias zcat="gunzip -d -c"
 
 # bioinformatics
 alias checkbam="for i in *.bam ;do (samtools quickcheck \$i && echo \"ok    \" \$i || echo \"error    \" \$i);done"
+export PATH=$PATH:${HOME}/.my_shell_envs/bin
 export PATH=$PATH:/Volumes/zhaohn_HD/Bio/0.apps/homer/bin
+
 
 
 

@@ -139,6 +139,7 @@ export PATH=$PATH:/rm/rm_prog/slurm/18.08.7/bin:/data01/oldbin/newbin
 export PATH=$PATH:${HOME}/.local/bin
 export PATH=$PATH:${HOME}/.cargo/bin
 # 我的可执行文件
+export PATH=$PATH:${HOME}/.my_shell_envs/bin
 export PATH=$PATH:${HOME}/0.apps/bin
 export PATH=$PATH:${HOME}/0.apps/homer/bin
 export PATH=$PATH:${HOME}/0.apps/HiC-Pro_installed/HiC-Pro_3.1.0/bin

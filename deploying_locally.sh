@@ -83,10 +83,26 @@ echo -e "---------------------------------|\nset vim config file"
 rm -rf $HOME/.vim $HOME/.vimrc
 curl https://raw.githubusercontent.com/hermanzhaozzzz/vim-for-coding/master/install.sh | sh
 echo "vim config file @ $HOME/.vim"
-echo -e "---------------------------------|\nall done"
+
+
+# ------------------------------------------------------------------->>>>>>>>>>
+# set external apps 
+# ------------------------------------------------------------------->>>>>>>>>>
+echo -e "---------------------------------|\nset external tools..."
+# jcat
+echo "set jcat"
+cd $REPO_PATH/tools/jcat
+make
+mkdir -p $REPO_PATH/bin
+rm $REPO_PATH/bin/jcat
+ln -s $REPO_PATH/tools/jcat/jcat $REPO_PATH/bin/jcat
+echo "set jcat successful"
+
 
 
 # end
+echo -e "---------------------------------|\nall done"
+
 echo "↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓"
 echo -e "well done there! now you should:\n"
 echo -e "\t\tsource ~/.zshrc"

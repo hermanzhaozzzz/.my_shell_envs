@@ -1,6 +1,7 @@
 # this project
 /conda_local_env_settings/
 /bin/
+tools/jcat/jcat
 ##############
 # common project
 ##############

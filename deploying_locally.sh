@@ -91,10 +91,11 @@ echo "vim config file @ $HOME/.vim"
 echo -e "---------------------------------|\nset external tools..."
 # jcat
 echo "set jcat"
-cd $REPO_PATH/tools/jcat
-make
 mkdir -p $REPO_PATH/bin
 rm $REPO_PATH/bin/jcat
+rm $$REPO_PATH/tools/jcat/jcat
+cd $REPO_PATH/tools/jcat
+make
 ln -s $REPO_PATH/tools/jcat/jcat $REPO_PATH/bin/jcat
 echo "set jcat successful"
 

@@ -112,27 +112,12 @@ source ~/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting/zsh-syntax-highlighti
 # 基本环境变量
 # ------------------------------------------------------------------->>>>>>>>>>
 # HOME 变量在zsh_profile中完成设置
-# export HOME=/lustre1/chengqiyi_pkuhpc/zhaohn
-
-# for rust
-. "$HOME/.cargo/env" 
-
-# for R
-unset R_HOME
-
-# for tmux
-export TMUX_TMPDIR=$HOME/.tmux_tmp_dir
-
-
-export MY_APPS="vim git bat exa"
 # ------------------------------------------------------------------->>>>>>>>>>
 # PATH 环境变量
 # ------------------------------------------------------------------->>>>>>>>>>
 # PATH update
 # 必要系统命令
 export PATH=/usr/bin:/usr/lib:/usr/lib64:/usr/libexec:/usr/sbin:/usr/local/bin:/usr/local/lib:/usr/local/lib64:/usr/local/libexec
-# cuda
-export PATH=$PATH:/usr/local/cuda/bin
 # slurm 系统命令
 export PATH=$PATH:/rm/rm_prog/slurm/18.08.7/bin:/data01/oldbin/newbin
 # 个人系统命令
@@ -144,6 +129,25 @@ export PATH=$PATH:${HOME}/0.apps/homer/bin
 export PATH=$PATH:${HOME}/0.apps/HiC-Pro_installed/HiC-Pro_3.1.0/bin
 export PATH=$PATH:${HOME}/0.apps/hisat-3n_allType
 export PATH=$PATH:${HOME}/0.apps/bedops/bin
+# ------------------------------------------------------------------->>>>>>>>>>
+# 软件环境变量
+# ------------------------------------------------------------------->>>>>>>>>>
+# for rust
+. "$HOME/.cargo/env"
+
+# for R
+unset R_HOME
+
+# for tmux
+export TMUX_TMPDIR=$HOME/.tmux_tmp_dir
+
+# for CUDA
+# cuda (on bioin)
+export PATH=$PATH:${HOME}/0.apps/cuda_12.2.0/bin
+# LIB
+export LD_LIBRARY_PATH=${HOME}/0.apps/cuda_12.2.0/lib64:$LD_LIBRARY_PATH
+# CUDA_HOME
+export CUDA_HOME=${HOME}/0.apps/cuda_12.2.0:$CUDA_HOME:/usr/local/cuda
 # ------------------------------------------------------------------->>>>>>>>>>
 # 自定义函数命令
 # ------------------------------------------------------------------->>>>>>>>>>

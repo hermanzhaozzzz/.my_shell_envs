@@ -1,0 +1,3 @@
+
+/home/zhaohuanan/0.apps/micromamba/share/jupyter/labextensions/jupyterlab-theme-solarized-dark/themes/jupyterlab-theme-solarized-dark
+

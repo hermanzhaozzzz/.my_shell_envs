@@ -114,43 +114,52 @@ source ~/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting/zsh-syntax-highlighti
 # alias zshconfig="mate ~/.zshrc"
 # alias ohmyzsh="mate ~/.oh-my-zsh"
 
-#############################
-# PATH & alias              #
-#############################
-# homebrew
-export PATH=/opt/homebrew/bin/:$PATH
-export PATH=/opt/homebrew/opt/openjdk/bin:$PATH
 
-# ide & language
-# alias spyder="/Applications/Spyder.app/Contents/MacOS/Spyder"
-# alias code="/Applications/Visual\ Studio\ Code.app/Contents/MacOS/Electron"
-alias code="/Applications/Visual\ Studio\ Code.app/Contents/Resources/app/bin/code"
-export PATH=$PATH:$HOME/Library/Application\ Support/JetBrains/Toolbox/scripts
-export PATH=$PATH:$HOME/.cargo/bin # rust
+# TIPS:
+# zsh环境优先级
+# .zshenv → [.zprofile if login] → [.zshrc if interactive] → [.zlogin if login] → [.zlogout sometimes].
+# ------------------------------------------------------------------->>>>>>>>>>
+# 基本环境变量
+# ------------------------------------------------------------------->>>>>>>>>>
+# 需要预设的环境变量： 在zshenv or zsh_profile中完成设置
+# HOME 变量 (如果是Linux下)
+# HomeBrew的PATH (如果是MacOS下)
 
-# ssh
-alias sshabyss.ssh='ssh zhaohuanan@162.105.250.207'
-alias startsc="open -a SafeConnect.app && open -a Step\ Two.app"
-alias sshpolaris.ssh="ssh chengqiyi_zhn@10.100.1.88"
-
-# fix zcat
-alias zcat="gunzip -d -c"
-
-# bioinformatics
-alias checkbam="for i in *.bam ;do (samtools quickcheck \$i && echo \"ok    \" \$i || echo \"error    \" \$i);done"
+# ------------------------------------------------------------------->>>>>>>>>>
+# PATH 环境变量
+# ------------------------------------------------------------------->>>>>>>>>>
+# 个人系统命令
+export PATH=$PATH:${HOME}/.local/bin
+export PATH=$PATH:${HOME}/.cargo/bin
+# 我的可执行文件
 export PATH=$PATH:${HOME}/.my_shell_envs/bin
+export PATH=$PATH:/Library/TeX/texbin
+export PATH=$PATH:${HOME}/Library/Application\ Support/JetBrains/Toolbox/scripts
+# Bioinformatics
 export PATH=$PATH:/Volumes/zhaohn_HD/Bio/0.apps/homer/bin
+export PATH=$PATH:$HOME/Bio/0.apps/hisat-3n_allType
 
 
+# ------------------------------------------------------------------->>>>>>>>>>
+# 软件环境变量
+# ------------------------------------------------------------------->>>>>>>>>>
+# for rust
+. "$HOME/.cargo/env"
+
+# for R
+unset R_HOME
+
+# for tmux
+export TMUX_TMPDIR=$HOME/.tmux_tmp_dir
+
+# ------------------------------------------------------------------->>>>>>>>>>
+# 自定义函数命令
+# ------------------------------------------------------------------->>>>>>>>>>
+# 为tabby设置返回远程shell当前cwd位置
+precmd () { echo -n "\x1b]1337;CurrentDir=$(pwd)\x07" }
 
 
-#创建命令
-alias del='trash'
-alias dellist='trashlist'
-alias delback='undelfile'
-alias delclear='cleartrash'
-
-#mv命令覆盖rm命令
+# mv命令覆盖rm命令
 trash()
 {
     mv $@ ~/Trash/
@@ -178,29 +187,53 @@ if [ ${confirm} = "y" ] ;then
     /bin/rm -rf ~/Trash/.* 2>/dev/null
 fi
 }
-#############################
-# surge代理                  #
-#############################
-export https_proxy=http://127.0.0.1:8234
-export http_proxy=http://127.0.0.1:8234
-export all_proxy=socks5://127.0.0.1:8235;
-export no_proxy="192.168.59.102,192.168.59.103"
 
-#############################
-# PATH                      #
-#############################
-# add doom emacs
-export PATH=$PATH:$HOME/.emacs.d/bin
-export PATH=$PATH:$HOME/.cargo/bin
-export PATH=$PATH:/Library/TeX/texbin
-export PATH=$PATH:$HOME/Bio/0.apps/hisat-3n_allType
-export PATH=$PATH:/Applications/VirtualBox.app/Contents/MacOS
+# ------------------------------------------------------------------->>>>>>>>>>
+# 自定义alias
+# ------------------------------------------------------------------->>>>>>>>>>
+# 函数别名
+alias del='trash'
+alias dellist='trashlist'
+alias delback='undelfile'
+alias delclear='cleartrash'
+
+# RPOXY
+alias proxy.on='export https_proxy=http://127.0.0.1:8234;export http_proxy=http://127.0.0.1:8234;export all_proxy=socks5://127.0.0.1:8235;export no_proxy="192.168.59.102,192.168.59.103";git config --global http.proxy "socks5://127.0.0.1:8234";git config --global https.proxy "socks5://127.0.0.1:8234"'
+alias proxy.off='export https_proxy="";export http_proxy="";export all_proxy="";git config --global --unset https.proxy; git config --global --unset http.proxy'
+
+# 内置命令别名
+alias startsc="open -a SafeConnect.app && open -a Step\ Two.app"
+alias sshabyss.ssh="ssh zhaohuanan@162.105.250.207"
+alias sshknight.ssh="ssh menghw@202.205.131.32"
+alias sshknight.ssh2="ssh menghw@202.205.131.33"
+alias sshpolaris.ssh="ssh chengqiyi_zhn@10.100.1.88"
+alias sshbioin.ssh="ssh zhaohuanan@bioin.vip -p 10006"
+
+# 第三方命令别名
+alias lll="exa -lh"
+alias ll="exa -lh --tree -L 1 --no-user"
+alias l="exa -lha --tree -L 1"
+
+# fix zcat
+alias zcat="gunzip -d -c"
 
 
-#############################
-# conda setting             #
-#############################
-# doc!!!
+# ide & language
+alias spyder="/Applications/Spyder.app/Contents/MacOS/Spyder"
+alias code="/Applications/Visual\ Studio\ Code.app/Contents/Resources/app/bin/code"
+
+
+# Bioinformatic tools
+alias checkbam="for i in *.bam ;do (samtools quickcheck \$i && echo \"ok    \" \$i || echo \"error    \" \$i);done"
+
+# ------------------------------------------------------------------->>>>>>>>>>
+# surge代理
+# ------------------------------------------------------------------->>>>>>>>>>
+proxy.on
+
+# ------------------------------------------------------------------->>>>>>>>>>
+# Conda doc for MacOS arm64!!!!!
+# ------------------------------------------------------------------->>>>>>>>>>
 # # for arm64 macos
 # URL=https://micro.mamba.pm/api/micromamba/osx-arm64/latest
 # # for x86_64 macos
@@ -213,12 +246,14 @@ export PATH=$PATH:/Applications/VirtualBox.app/Contents/MacOS
 # cd bin
 # ./micromamba shell init -s zsh -p $ROOT_PATH
 #############################
-alias conda=micromamba
-alias mamba=micromamba
 # for arm64
 alias echo_conda_rosetta='echo "CONDA_SUBDIR=osx-64 conda create -n rosetta_macs2 python=3.8\nconda activate rosetta\nconda env config vars set CONDA_SUBDIR=osx-64\nconda deactivate\nconda activate rosetta"'
 
-
+# ------------------------------------------------------------------->>>>>>>>>>
+# Conda | Mamba (Must be at the end)
+# ------------------------------------------------------------------->>>>>>>>>>
+alias conda=micromamba
+alias mamba=micromamba
 # >>> mamba initialize >>>
 # !! Contents within this block are managed by 'mamba init' !!
 export MAMBA_EXE="$HOME/micromamba/bin/micromamba";
@@ -235,6 +270,5 @@ else
 fi
 unset __mamba_setup
 # <<< mamba initialize <<<
-
 
 conda activate base

@@ -153,7 +153,7 @@ export TMUX_TMPDIR=$HOME/.tmux_tmp_dir
 # cuda (on bioin)
 export PATH=$PATH:${HOME}/0.apps/cuda_12.2.0/bin
 # LIB
-export LD_LIBRARY_PATH=${HOME}/0.apps/cuda_12.2.0/lib64:$LD_LIBRARY_PATH
+# export LD_LIBRARY_PATH=${HOME}/0.apps/cuda_12.2.0/lib64:$LD_LIBRARY_PATH
 # CUDA_HOME
 export CUDA_HOME=${HOME}/0.apps/cuda_12.2.0:$CUDA_HOME:/usr/local/cuda
 # ------------------------------------------------------------------->>>>>>>>>>

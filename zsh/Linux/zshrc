@@ -1,4 +1,4 @@
-置USER显示
+# 设置USER显示
 DEFAULT_USER=$USER
 
 

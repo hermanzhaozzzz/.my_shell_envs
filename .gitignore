@@ -9,6 +9,13 @@ tools/jcat/jcat
 **/__pycache__/
 # spyder
 **/.spyproject/
+/spyder/MacOS/arm64/spyder-py3/config/backups/
+spyder/MacOS/arm64/spyder-py3/config/spyder.ini
+spyder/MacOS/arm64/spyder-py3/config/transient.ini
+spyder/MacOS/arm64/spyder-py3/history.py
+spyder/MacOS/arm64/spyder-py3/pdb_history.sqlite
+spyder/MacOS/arm64/spyder-py3/workingdir
+spyder/MacOS/arm64/spyder-py3/spyder.lock
 # jupyterlab meta
 **/.ipynb_checkpoints/
 # pycharm meta

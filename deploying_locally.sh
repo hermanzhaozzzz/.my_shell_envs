@@ -71,10 +71,19 @@ echo "conda config files @: $CONDA_ENVS "
 
 echo -e "---------------------------------|\nset zsh config file"
 
-platform="`echo $platform | awk -F '/' '{printf $1}'`"  # fix "MacOS/x86_64" or "MacOS/arm64" to "MacOS"
+platform_fix="`echo $platform | awk -F '/' '{printf $1}'`"  # fix "MacOS/x86_64" or "MacOS/arm64" to "MacOS"
 mv $HOME/.zshrc $HOME/.zshrc_bak
-ln -s $REPO_PATH/zsh/$platform/zshrc $HOME/.zshrc
-echo "zsh config file @: $REPO_PATH/zsh/$platform/zshrc"
+ln -s $REPO_PATH/zsh/$platform_fix/zshrc $HOME/.zshrc
+echo "zsh config file @: $REPO_PATH/zsh/$platform_fix/zshrc"
+
+# ------------------------------------------------------------------->>>>>>>>>>
+# spyder setting (annotate if not use)
+# ------------------------------------------------------------------->>>>>>>>>>
+
+echo -e "---------------------------------|\nset spyder config file"
+mv $HOME/.spyder-py3 $HOME/.spyder-py3_bak
+ln -s $REPO_PATH/spyder/$platform/spyder-py3 $HOME/.spyder-py3
+echo "spyder config file @: $REPO_PATH/spyder/$platform/spyder-py3"
 
 # ------------------------------------------------------------------->>>>>>>>>>
 # vim setting (annotate if not use)

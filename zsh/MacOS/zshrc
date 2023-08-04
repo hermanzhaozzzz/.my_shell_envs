@@ -203,7 +203,7 @@ alias proxy.off='export https_proxy="";export http_proxy="";export all_proxy="";
 
 # 内置命令别名
 alias startsc="open -a SafeConnect.app && open -a Step\ Two.app"
-alias sshabyss.ssh="ssh zhaohuanan@162.105.250.207"
+alias sshveteran.ssh="ssh zhaohuanan@162.105.250.207"
 alias sshknight.ssh="ssh menghw@202.205.131.32"
 alias sshknight.ssh2="ssh menghw@202.205.131.33"
 alias sshpolaris.ssh="ssh chengqiyi_zhn@10.100.1.88"
@@ -219,7 +219,7 @@ alias zcat="gunzip -d -c"
 
 
 # ide & language
-alias spyder="/Applications/Spyder.app/Contents/MacOS/Spyder"
+# alias spyder="/Applications/Spyder.app/Contents/MacOS/Spyder"
 alias code="/Applications/Visual\ Studio\ Code.app/Contents/Resources/app/bin/code"
 
 

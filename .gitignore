@@ -1,21 +1,31 @@
+##############
 # this project
+##############
 /conda_local_env_settings/
 /bin/
 tools/jcat/jcat
+
+##############
+# spyder
+##############
+**/.spyproject/
+# config
+/spyder/MacOS/arm64/spyder-py3/config/backups/
+spyder/MacOS/arm64/spyder-py3/config/spyder.ini
+spyder/MacOS/arm64/spyder-py3/config/transient.ini
+# basic
+spyder/MacOS/arm64/spyder-py3/history.py
+spyder/MacOS/arm64/spyder-py3/pdb_history.sqlite
+spyder/MacOS/arm64/spyder-py3/workingdir
+spyder/MacOS/arm64/spyder-py3/spyder.lock
+# plugins
+spyder/MacOS/arm64/spyder-py3/plugins/notebook/spyder.ini
+
 ##############
 # common project
 ##############
 # python cache
 **/__pycache__/
-# spyder
-**/.spyproject/
-/spyder/MacOS/arm64/spyder-py3/config/backups/
-spyder/MacOS/arm64/spyder-py3/config/spyder.ini
-spyder/MacOS/arm64/spyder-py3/config/transient.ini
-spyder/MacOS/arm64/spyder-py3/history.py
-spyder/MacOS/arm64/spyder-py3/pdb_history.sqlite
-spyder/MacOS/arm64/spyder-py3/workingdir
-spyder/MacOS/arm64/spyder-py3/spyder.lock
 # jupyterlab meta
 **/.ipynb_checkpoints/
 # pycharm meta
@@ -44,3 +54,4 @@ slurm-*.out
 # Others
 /tmpdir_*/
 .localized
+

@@ -20,6 +20,7 @@ spyder/MacOS/arm64/spyder-py3/workingdir
 spyder/MacOS/arm64/spyder-py3/spyder.lock
 # plugins
 spyder/MacOS/arm64/spyder-py3/plugins/notebook/spyder.ini
+spyder/MacOS/arm64/spyder-py3/plugins/notebook/backups/spyder.ini.bak
 
 ##############
 # common project

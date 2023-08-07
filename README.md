@@ -29,3 +29,6 @@ cd ~/.my_shell_envs
 git fetch
 git pull --rebase
 ```
+
+# license
+use my setting for free!

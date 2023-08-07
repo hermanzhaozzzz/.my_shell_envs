@@ -208,6 +208,7 @@ alias sshknight.ssh="ssh menghw@202.205.131.32"
 alias sshknight.ssh2="ssh menghw@202.205.131.33"
 alias sshpolaris.ssh="ssh chengqiyi_zhn@10.100.1.88"
 alias sshbioin.ssh="ssh zhaohuanan@bioin.vip -p 10006"
+alias opena="open -a Sublime\ Text"
 
 # 第三方命令别名
 alias lll="exa -lh"

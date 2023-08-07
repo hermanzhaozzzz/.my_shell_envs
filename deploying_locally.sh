@@ -89,10 +89,18 @@ echo "spyder config file @: $REPO_PATH/spyder/$platform/spyder-py3"
 # vim setting (annotate if not use)
 # ------------------------------------------------------------------->>>>>>>>>>
 echo -e "---------------------------------|\nset vim config file"
-rm -rf $HOME/.vim $HOME/.vimrc
-curl https://raw.githubusercontent.com/hermanzhaozzzz/vim-for-coding/master/install.sh | sh
-echo "vim config file @ $HOME/.vim"
 
+if test -e $HOME/.vim/vimrc; then      
+    echo 'old setting exists, running update steps...'
+    cd $HOME/.vim 
+    git fetch
+    git pull
+else
+    echo 'old setting does not exist, running git clone steps...'
+    rm -rf $HOME/.vim $HOME/.vimrc
+    curl https://raw.githubusercontent.com/hermanzhaozzzz/vim-for-coding/master/install.sh | sh
+    echo "vim config file @ $HOME/.vim"
+fi
 
 # ------------------------------------------------------------------->>>>>>>>>>
 # set external apps 
@@ -100,15 +108,45 @@ echo "vim config file @ $HOME/.vim"
 echo -e "---------------------------------|\nset external tools..."
 # jcat
 echo "set jcat"
-mkdir -p $REPO_PATH/bin
-rm $REPO_PATH/bin/jcat
-rm $REPO_PATH/tools/jcat/jcat
-cd $REPO_PATH/tools/jcat
-make
-ln -s $REPO_PATH/tools/jcat/jcat $REPO_PATH/bin/jcat
+
+if test -e $REPO_PATH/tools/jcat/jcat; then      
+    echo 'old setting exists, nothing to do...'
+else
+    echo 'old setting does not exist, running jcat compiling steps...'
+    mkdir -p $REPO_PATH/bin
+    rm $REPO_PATH/bin/jcat
+    rm $REPO_PATH/tools/jcat/jcat
+    cd $REPO_PATH/tools/jcat
+    make
+    ln -s $REPO_PATH/tools/jcat/jcat $REPO_PATH/bin/jcat
+fi
 echo "set jcat successful"
 
 
+# wudao dict
+echo "set wd"
+
+if test -e $HOME/.Wudao-dict/wudao-dict/wd; then      
+    echo 'old setting exists, running update steps...'
+    cd $HOME/.Wudao-dict
+    git fetch
+    git pull
+else
+    echo 'old setting does not exist, running git clone steps...'
+    git clone git@github.com:hermanzhaozzzz/Wudao-dict.git $HOME/.Wudao-dict
+    cd $HOME/.Wudao-dict/wudao-dict
+    mkdir ./usr
+    chmod -R 777 ./usr
+    pip install bs4 lxml
+    echo '#!/bin/bash'>./wd
+    echo 'save_path=$PWD'>>./wd
+    echo 'cd '$PWD >>./wd
+    echo './wdd $*'>>./wd
+    echo 'cd $save_path'>>./wd
+    chmod +x ./wd
+    ln -s $HOME/.Wudao-dict/wudao-dict/wd $REPO_PATH/bin/wd
+fi
+echo "set wd successful"
 
 # end
 echo -e "---------------------------------|\nall done"

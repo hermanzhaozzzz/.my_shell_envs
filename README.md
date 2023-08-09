@@ -16,6 +16,7 @@
 
 # use
 ## install \& update
+### MacOS / Linux / Windows (powershell & scoop & gow)
 ```shell
 # install
 

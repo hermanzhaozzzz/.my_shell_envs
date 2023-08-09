@@ -10,6 +10,7 @@ mv $HOME/.condarc $HOME/.condarc_bak
 ln -s $REPO_PATH/conda/condarc $HOME/.condarc
 
 platform="`uname`"
+platform=`echo $platform | awk -F '_' '{printf $1}'`
 
 if [[ "$platform" == "Linux" ]]; then
     platform="Linux"
@@ -27,10 +28,8 @@ elif [[ "$platform" == "Darwin" ]]; then
         ROOT_PATH=$HOME/micromamba
     fi
 
-elif [[ "$platform" == "windows32" ]]; then
+elif [[ "$platform" == "MINGW64" ]]; then
     platform="Windows"  # TODO, no strategy now
-    echo "unsupported OS: $platform! run deploying_powershell.ps1 instead!!!"
-    exit 1
 else
     echo "unsupported OS: $platform!"
     exit 1
@@ -41,49 +40,59 @@ echo -e "---------------------------------|\nplatform detected: $platform"
 # ------------------------------------------------------------------->>>>>>>>>>
 # micromamba setting (annotate if not use)
 # ------------------------------------------------------------------->>>>>>>>>>
-
-echo -e "---------------------------------|\nset conda env config files..."
-
-# install micromamba
-if [ ! -f "$ROOT_PATH/bin/micromamba" ];then
-    echo "micromamba not found @$ROOT_PATH/bin/! start to install..."
-    mkdir -p $ROOT_PATH
-    cd $ROOT_PATH
-    curl -Ls $URL | tar -xvj bin/micromamba
-    cd $REPO_PATH
-else
-    echo "micromamba exists @$ROOT_PATH/bin/! skip installing..."
-fi
-# set yml files...
-echo "start to choose env.yml..."
-# make softlink directory
 CONDA_ENVS=$REPO_PATH/conda_local_env_settings
-mkdir -p $CONDA_ENVS
+if [[ "$platform" != "Windows" ]]; then
 
-for yml in `ls $REPO_PATH/conda/$platform/*.yml`; do
-    ln -sf $yml $CONDA_ENVS/`basename $yml`
-done
-echo "conda config files @: $CONDA_ENVS "
+    echo -e "---------------------------------|\nset conda env config files..."
 
+    # install micromamba
+    if [ ! -f "$ROOT_PATH/bin/micromamba" ];then
+        echo "micromamba not found @$ROOT_PATH/bin/! start to install..."
+        mkdir -p $ROOT_PATH
+        cd $ROOT_PATH
+        curl -Ls $URL | tar -xvj bin/micromamba
+        cd $REPO_PATH
+    else
+        echo "micromamba exists @$ROOT_PATH/bin/! skip installing..."
+    fi
+    # set yml files...
+    echo "start to choose env.yml..."
+    # make softlink directory
+    mkdir -p $CONDA_ENVS
+
+    for yml in `ls $REPO_PATH/conda/$platform/*.yml`; do
+        ln -sf $yml $CONDA_ENVS/`basename $yml`
+    done
+    echo "conda config files @: $CONDA_ENVS "
+else
+    echo "skip micromamba installing:" $platform
+fi
 # ------------------------------------------------------------------->>>>>>>>>>
 # zsh setting (annotate if not use)
 # ------------------------------------------------------------------->>>>>>>>>>
+if [[ "$platform" != "Windows" ]]; then
+    echo -e "---------------------------------|\nset zsh config file"
 
-echo -e "---------------------------------|\nset zsh config file"
-
-platform_fix="`echo $platform | awk -F '/' '{printf $1}'`"  # fix "MacOS/x86_64" or "MacOS/arm64" to "MacOS"
-mv $HOME/.zshrc $HOME/.zshrc_bak
-ln -s $REPO_PATH/zsh/$platform_fix/zshrc $HOME/.zshrc
-echo "zsh config file @: $REPO_PATH/zsh/$platform_fix/zshrc"
+    platform_fix="`echo $platform | awk -F '/' '{printf $1}'`"  # fix "MacOS/x86_64" or "MacOS/arm64" to "MacOS"
+    rm -rf $HOME/.zshrc_bak
+    mv $HOME/.zshrc $HOME/.zshrc_bak
+    ln -s $REPO_PATH/zsh/$platform_fix/zshrc $HOME/.zshrc
+    echo "zsh config file @: $REPO_PATH/zsh/$platform_fix/zshrc"
+else
+    echo "zsh not support platform:" $platform
+fi
 
 # ------------------------------------------------------------------->>>>>>>>>>
 # spyder setting (annotate if not use)
 # ------------------------------------------------------------------->>>>>>>>>>
-
 echo -e "---------------------------------|\nset spyder config file"
+
+platform_fix="`echo $platform | awk -F '/' '{printf $1}'`"  # fix "MacOS/x86_64" or "MacOS/arm64" to "MacOS"
+rm -rf $HOME/.spyder-py3_bak
 mv $HOME/.spyder-py3 $HOME/.spyder-py3_bak
-ln -s $REPO_PATH/spyder/$platform/spyder-py3 $HOME/.spyder-py3
-echo "spyder config file @: $REPO_PATH/spyder/$platform/spyder-py3"
+ln -s $REPO_PATH/spyder/MacOS/spyder-py3 $HOME/.spyder-py3
+echo "spyder config file @: $REPO_PATH/spyder/MacOS/spyder-py3"
+
 
 # ------------------------------------------------------------------->>>>>>>>>>
 # vim setting (annotate if not use)
@@ -106,22 +115,26 @@ fi
 # set external apps 
 # ------------------------------------------------------------------->>>>>>>>>>
 echo -e "---------------------------------|\nset external tools..."
+
 # jcat
 echo "set jcat"
-
-if test -e $REPO_PATH/tools/jcat/jcat; then      
-    echo 'old setting exists, nothing to do...'
+if [[ "$platform" != "Windows" ]]; then
+    
+    if test -e $REPO_PATH/tools/jcat/jcat; then      
+        echo 'old setting exists, nothing to do...'
+    else
+        echo 'old setting does not exist, running jcat compiling steps...'
+        mkdir -p $REPO_PATH/bin
+        rm $REPO_PATH/bin/jcat
+        rm $REPO_PATH/tools/jcat/jcat
+        cd $REPO_PATH/tools/jcat
+        make
+        ln -s $REPO_PATH/tools/jcat/jcat $REPO_PATH/bin/jcat
+    fi
+    echo "set jcat successful"
 else
-    echo 'old setting does not exist, running jcat compiling steps...'
-    mkdir -p $REPO_PATH/bin
-    rm $REPO_PATH/bin/jcat
-    rm $REPO_PATH/tools/jcat/jcat
-    cd $REPO_PATH/tools/jcat
-    make
-    ln -s $REPO_PATH/tools/jcat/jcat $REPO_PATH/bin/jcat
+    echo "jcat not support platform:" $platform
 fi
-echo "set jcat successful"
-
 
 # wudao dict
 echo "set wd"
@@ -148,14 +161,42 @@ else
 fi
 echo "set wd successful"
 
-# end
-echo -e "---------------------------------|\nall done"
 
-echo "↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓"
-echo -e "well done there! now you should:\n"
-echo -e "\t\tsource ~/.zshrc"
-echo -e "\t\tconda install -f $CONDA_ENVS/base.yml"
-echo "and start to use this environment."
-echo "↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑"
+# ------------------------------------------------------------------->>>>>>>>>>
+# Windows setting for PowerShell (dependent: git-bash)
+# ------------------------------------------------------------------->>>>>>>>>>
+if [[ "$platform" == "Windows" ]]; then
+    cd $REPO_PATH
+    WinProfile="$HOME/Documents/WindowsPowerShell/Microsoft.PowerShell_profile.ps1"
+    RepoProfile="$REPO_PATH/powershell/Microsoft.PowerShell_profile.ps1"
+    echo -e "---------------------------------|\nset profile @ $WinProfile..."
+    rm -rf $WinProfile
 
-echo "ヾ(≧O≦)〃~"
+    powershell -File "$REPO_PATH/powershell/deploying_powershell.ps1"
+    echo "profile config file @ $RepoProfile"
+    # end
+    echo -e "---------------------------------|\nall done"
+
+    echo "↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓"
+    echo -e "well done there! now you should:\n"
+    echo -e "\t\topen PowerShell to use your environment, something will be installed at the first running!"
+    echo -e "\t\tconda install -f $CONDA_ENVS/base.yml"
+    echo "and start to use this environment."
+    echo "↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑"
+
+    echo "ヾ(≧O≦)〃~"
+else
+    # end
+    echo -e "---------------------------------|\nall done"
+
+    echo "↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓"
+    echo -e "well done there! now you should:\n"
+    echo -e "\t\tsource ~/.zshrc"
+    echo -e "\t\tconda install -f $CONDA_ENVS/base.yml"
+    echo "and start to use this environment."
+    echo "↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑"
+
+    echo "ヾ(≧O≦)〃~"
+fi
+
+

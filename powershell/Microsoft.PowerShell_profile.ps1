@@ -96,7 +96,11 @@ if (Check-Command -cmdname 'micromamba')
 else
 {
 	"Find no micromamba!"
+	"!!!!"
+	"Chose (Y/n) n"
+	"!!!!"
 	Invoke-Expression ((Invoke-WebRequest -Uri https://micromamba.pfx.dev/install.ps1).Content)
+	micromamba install -n base python -y
 }
 
 

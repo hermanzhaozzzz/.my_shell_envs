@@ -27,9 +27,9 @@ elif [[ "$platform" == "Darwin" ]]; then
         ROOT_PATH=$HOME/micromamba
     fi
 
-elif [[ "$platform" == "WindowsNT" ]]; then
+elif [[ "$platform" == "windows32" ]]; then
     platform="Windows"  # TODO, no strategy now
-    echo "unsupported OS: $platform!"
+    echo "unsupported OS: $platform! run deploying_powershell.sh instead!!!"
     exit 1
 else
     echo "unsupported OS: $platform!"

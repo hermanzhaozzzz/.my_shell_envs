@@ -19,8 +19,8 @@
 ### MacOS / Linux / Windows
 > **when use windows:**
 > - [scoop](https://scoop.sh/) is the dependency
-> - this config codes should be running at `git-bash` and after configuration, you can use `PowerShell` for daily use.
-> - please use `git-bash` for Windows to run codes below
+> - this config codes should be running at `git-bash`
+> - after codes running below in `git-bash`, you can use `PowerShell` for daily use.
 
 ```shell
 # install

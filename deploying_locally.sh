@@ -29,7 +29,7 @@ elif [[ "$platform" == "Darwin" ]]; then
 
 elif [[ "$platform" == "windows32" ]]; then
     platform="Windows"  # TODO, no strategy now
-    echo "unsupported OS: $platform! run deploying_powershell.sh instead!!!"
+    echo "unsupported OS: $platform! run deploying_powershell.ps1 instead!!!"
     exit 1
 else
     echo "unsupported OS: $platform!"

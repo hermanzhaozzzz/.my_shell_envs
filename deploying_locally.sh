@@ -171,7 +171,7 @@ if [[ "$platform" == "Windows" ]]; then
     RepoProfile="$REPO_PATH/powershell/Microsoft.PowerShell_profile.ps1"
     echo -e "---------------------------------|\nset profile @ $WinProfile..."
     rm -rf $WinProfile
-
+    rm -rf $HOME/.condarc
     powershell -File "$REPO_PATH/powershell/deploying_powershell.ps1"
     echo "profile config file @ $RepoProfile"
     # end

@@ -20,7 +20,7 @@
 > **when use windows:**
 > - [scoop](https://scoop.sh/) is the dependency
 > - this config codes should be running at `git-bash`
-> - after codes running below in `git-bash`, you can use `PowerShell` for daily use.
+> - after running codes below in `git-bash`, you can use `PowerShell` for daily use (because this repo is designed for `PowerShell` on Windows).
 
 ```shell
 # install

@@ -19,8 +19,7 @@
 ### MacOS / Linux / Windows
 > **when use windows:**
 > - [scoop](https://scoop.sh/) is the dependency
-> - this config codes should be running at `git-bash`
-> - after running codes below in `git-bash`, you can use `PowerShell` for daily use (because this repo is designed for `PowerShell` on Windows).
+> - all commands below should run in `PowerShell`
 
 ```shell
 # install
@@ -28,8 +27,13 @@
 cd $HOME
 git clone git@github.com:hermanzhaozzzz/.my_shell_envs.git
 cd .my_shell_envs
-# deploy
+
+# deploy: MacOS/Linux
 bash deploying_locally.sh
+
+# deploy: Windows, in powershell!
+scoop install git  # powershell
+git-bash deploying_locally.sh  # powershell
 
 # update
 cd ~/.my_shell_envs

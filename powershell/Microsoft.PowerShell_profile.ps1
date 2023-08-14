@@ -6,8 +6,8 @@
 # 设置代理信息
 # ----------------------------------------------->
 
-$env:http_proxy="http://127.0.0.1:1080"
-$env:https_proxy="http://127.0.0.1:1080"
+$env:http_proxy = "http://127.0.0.1:1080"
+$env:https_proxy = "http://127.0.0.1:1080"
 git config --global http.proxy 'socks5://127.0.0.1:1080' 
 git config --global https.proxy 'socks5://127.0.0.1:1080'
 
@@ -16,18 +16,17 @@ git config --global https.proxy 'socks5://127.0.0.1:1080'
 #     man     帮助查询
 #     help    帮助查询，同man
 # ----------------------------------------------->
-Update-Help Microsoft.PowerShell.*
+# Update-Help Microsoft.PowerShell.*
 
 # ----------------------------------------------->
 # 检查scoop是否安装
 # ----------------------------------------------->
-function Check-Command($cmdname){return [bool](Get-Command -Name $cmdname -ErrorAction SilentlyContinue)}
+function Check-Command($cmdname) { return [bool](Get-Command -Name $cmdname -ErrorAction SilentlyContinue) }
 
 if (Check-Command -cmdname 'scoop')
 {}
-else
-{
-     "Find no scoop!"
+else {
+    "Find no scoop!"
 }
 
 # ----------------------------------------------->
@@ -35,10 +34,9 @@ else
 # ----------------------------------------------->
 if (Check-Command -cmdname 'git')
 {}
-else
-{
-	"Find no git!"
-	scoop install git
+else {
+    "Find no git!"
+    scoop install git
 }
 
 # ----------------------------------------------->
@@ -46,10 +44,9 @@ else
 # ----------------------------------------------->
 if (Check-Command -cmdname 'gow')
 {}
-else
-{
-	"Find no gow!"
-	scoop install gow
+else {
+    "Find no gow!"
+    scoop install gow
 }
 
 # ----------------------------------------------->
@@ -57,10 +54,9 @@ else
 # ----------------------------------------------->
 if (Check-Command -cmdname 'subl')
 {}
-else
-{
-	"Find no subl!"
-	scoop install sublime-text
+else {
+    "Find no subl!"
+    scoop install sublime-text
 }
 Set-Alias opena subl
 # ----------------------------------------------->
@@ -69,10 +65,9 @@ Set-Alias opena subl
 # ----------------------------------------------->
 if (Check-Command -cmdname 'starship')
 {}
-else
-{
-	"Find no starship!"
-	scoop install starship
+else {
+    "Find no starship!"
+    scoop install starship
 }
 
 Invoke-Expression (&starship init powershell)
@@ -81,26 +76,24 @@ Invoke-Expression (&starship init powershell)
 # 检查micromamba是否安装
 #     https://github.com/mamba-org/micromamba-releases
 # ----------------------------------------------->
-$Env:PATH += -Join(";", $HOME, "\AppData\Local\micromamba")
+$Env:PATH += -Join (";", $HOME, "\AppData\Local\micromamba")
 
-if (Check-Command -cmdname 'micromamba')
-{
-	#region mamba initialize
-	# !! Contents within this block are managed by 'mamba shell init' !!
-	$Env:MAMBA_ROOT_PREFIX = -Join($HOME, "\micromamba")
-	$Env:MAMBA_EXE = -Join($HOME, "\AppData\Local\micromamba\micromamba.exe")
-	$MambaModuleArgs = @{}
+if (Check-Command -cmdname 'micromamba') {
+    #region mamba initialize
+    # !! Contents within this block are managed by 'mamba shell init' !!
+    $Env:MAMBA_ROOT_PREFIX = -Join ($HOME, "\micromamba")
+    $Env:MAMBA_EXE = -Join ($HOME, "\AppData\Local\micromamba\micromamba.exe")
+    $MambaModuleArgs = @{}
 	(& $Env:MAMBA_EXE 'shell' 'hook' -s 'powershell' -p $Env:MAMBA_ROOT_PREFIX) | Out-String | Invoke-Expression
-	#endregion
+    #endregion
 }
-else
-{
-	"Find no micromamba!"
-	"!!!!"
-	"Chose (Y/n) n"
-	"!!!!"
-	Invoke-Expression ((Invoke-WebRequest -Uri https://micromamba.pfx.dev/install.ps1).Content)
-	micromamba install -n base python -y
+else {
+    "Find no micromamba!"
+    "!!!!"
+    "Chose (Y/n) n"
+    "!!!!"
+    Invoke-Expression ((Invoke-WebRequest -Uri https://micromamba.pfx.dev/install.ps1).Content)
+    micromamba install -n base python -y
 }
 
 
@@ -129,18 +122,18 @@ Set-PSReadlineKeyHandler -Key Tab -Function MenuComplete
 #        - ↓                       历史自动补全，向下查找
 # ----------------------------------------------->
 Set-PSReadLineKeyHandler -Key UpArrow -ScriptBlock {
-	[Microsoft.PowerShell.PSConsoleReadLine]::HistorySearchBackward()
-	[Microsoft.PowerShell.PSConsoleReadLine]::EndOfLine()
+    [Microsoft.PowerShell.PSConsoleReadLine]::HistorySearchBackward()
+    [Microsoft.PowerShell.PSConsoleReadLine]::EndOfLine()
 }
 Set-PSReadLineKeyHandler -Key DownArrow -ScriptBlock {
-	[Microsoft.PowerShell.PSConsoleReadLine]::HistorySearchForward()
-	[Microsoft.PowerShell.PSConsoleReadLine]::EndOfLine()
+    [Microsoft.PowerShell.PSConsoleReadLine]::HistorySearchForward()
+    [Microsoft.PowerShell.PSConsoleReadLine]::EndOfLine()
 }
 
 # ----------------------------------------------->
 # 创建ls命令（重新定义）
 # ----------------------------------------------->
-function getFileName{Get-ChildItem -Name}
+function getFileName { Get-ChildItem -Name }
 Remove-Item alias:\ls
 Set-Alias ls  getFileName
 

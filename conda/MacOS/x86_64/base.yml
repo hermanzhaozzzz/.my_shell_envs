@@ -1,5 +1,6 @@
 name: base
 channels:
+- bioconda
 - conda-forge
 dependencies:
 - _r-mutex=1.0.1=anacondar_1
@@ -16,6 +17,7 @@ dependencies:
 - backports=1.0=pyhd8ed1ab_3
 - backports.functools_lru_cache=1.6.5=pyhd8ed1ab_0
 - beautifulsoup4=4.12.2=pyha770c72_0
+- bedtools=2.31.0=h6372da2_2
 - bleach=6.0.0=pyhd8ed1ab_0
 - brotli-python=1.0.9=py310h7a76584_9
 - bwidget=1.9.14=h694c41f_1
@@ -165,11 +167,13 @@ dependencies:
 - psutil=5.9.5=py310h90acd4f_0
 - ptyprocess=0.7.0=pyhd3deb0d_0
 - pure_eval=0.2.2=pyhd8ed1ab_0
+- pybedtools=0.9.1=py310hae78ebd_0
 - pycparser=2.21=pyhd8ed1ab_0
 - pygments=2.16.1=pyhd8ed1ab_0
 - pyobjc-core=9.2=py310hef2d279_0
 - pyobjc-framework-cocoa=9.2=py310hef2d279_0
 - pyrsistent=0.19.3=py310h90acd4f_0
+- pysam=0.21.0=py310h2f18660_1
 - pysocks=1.7.1=pyha2e5f31_6
 - python=3.10.12=had23ca6_0_cpython
 - python-dateutil=2.8.2=pyhd8ed1ab_0

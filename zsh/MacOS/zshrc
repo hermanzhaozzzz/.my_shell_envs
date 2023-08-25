@@ -1,3 +1,13 @@
+# RPOXY
+alias proxy.on='export https_proxy=http://127.0.0.1:8234;export http_proxy=http://127.0.0.1:8234;export all_proxy=socks5://127.0.0.1:8235;export no_proxy="192.168.59.102,192.168.59.103";git config --global http.proxy "socks5://127.0.0.1:8234";git config --global https.proxy "socks5://127.0.0.1:8234"'
+alias proxy.off='export https_proxy="";export http_proxy="";export all_proxy="";git config --global --unset https.proxy; git config --global --unset http.proxy'
+# ------------------------------------------------------------------->>>>>>>>>>
+# surge代理
+# ------------------------------------------------------------------->>>>>>>>>>
+proxy.on
+
+
+
 # 设置USER显示
 DEFAULT_USER=$USER
 
@@ -139,6 +149,7 @@ export PATH=$PATH:${HOME}/Library/Application\ Support/JetBrains/Toolbox/scripts
 # Bioinformatics
 export PATH=$PATH:/Volumes/zhaohn_HD/Bio/0.apps/homer/bin
 export PATH=$PATH:$HOME/Bio/0.apps/hisat-3n_allType
+export PATH=$PATH:$HOME/Bio/0.apps/meme_suite/meme-5.5.3/bin:$HOME/Bio/0.apps/meme_suite/meme-5.5.3/libexec/meme-5.5.3
 
 
 # ------------------------------------------------------------------->>>>>>>>>>
@@ -198,9 +209,7 @@ alias dellist='trashlist'
 alias delback='undelfile'
 alias delclear='cleartrash'
 
-# RPOXY
-alias proxy.on='export https_proxy=http://127.0.0.1:8234;export http_proxy=http://127.0.0.1:8234;export all_proxy=socks5://127.0.0.1:8235;export no_proxy="192.168.59.102,192.168.59.103";git config --global http.proxy "socks5://127.0.0.1:8234";git config --global https.proxy "socks5://127.0.0.1:8234"'
-alias proxy.off='export https_proxy="";export http_proxy="";export all_proxy="";git config --global --unset https.proxy; git config --global --unset http.proxy'
+
 
 # 内置命令别名
 alias startsc="open -a SafeConnect.app && open -a Step\ Two.app"
@@ -227,11 +236,6 @@ alias code="/Applications/Visual\ Studio\ Code.app/Contents/Resources/app/bin/co
 
 # Bioinformatic tools
 alias checkbam="for i in *.bam ;do (samtools quickcheck \$i && echo \"ok    \" \$i || echo \"error    \" \$i);done"
-
-# ------------------------------------------------------------------->>>>>>>>>>
-# surge代理
-# ------------------------------------------------------------------->>>>>>>>>>
-proxy.on
 
 # ------------------------------------------------------------------->>>>>>>>>>
 # Conda doc for MacOS arm64!!!!!

@@ -254,7 +254,7 @@ alias checkbam="for i in *.bam ;do (samtools quickcheck \$i && echo \"ok    \" \
 #############################
 # for arm64
 alias conda_rosetta_echo='\
-echo "CONDA_SUBDIR=osx-64 conda create -n rosetta_env conda python\n# ↑↑↑python_version conda is needed↑↑↑\n# <conda install conda> in the rosetta_env is the best choice\n# when alias micromamba as conda\n\nconda activate rosetta_env\n\n/path_of_python_version/conda env config vars set CONDA_SUBDIR=osx-64\n# ↑↑↑python_version conda is needed for setting CONDA_SUBDIR var↑↑↑\n\nconda deactivate\\nnconda activate rosetta_env\n\npython -c \"import platform;print(platform.machine())\"  \n# should output x86_64"\
+echo "CONDA_SUBDIR=osx-64 conda create -n rosetta_env conda python\n# ↑↑↑python_version conda is needed↑↑↑\n# <conda install conda> in the rosetta_env is the best choice\n# when alias micromamba as conda\n\nconda activate rosetta_env\n\n/path_of_python_version/conda env config vars set CONDA_SUBDIR=osx-64\n# ↑↑↑python_version conda is needed for setting CONDA_SUBDIR var↑↑↑\n\nconda deactivate\\nconda activate rosetta_env\n\npython -c \"import platform;print(platform.machine())\"  \n# should output x86_64"\
 '
 
 # ------------------------------------------------------------------->>>>>>>>>>

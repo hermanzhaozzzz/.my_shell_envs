@@ -212,7 +212,7 @@ alias delclear='cleartrash'
 
 
 # 内置命令别名
-alias startsc="open -a SafeConnect.app && open -a Step\ Two.app"
+alias startsc="open -a DPSafeConnect.app && open -a Step\ Two.app"
 alias sshveteran.ssh="ssh zhaohuanan@162.105.250.207"
 alias sshknight.ssh="ssh menghw@202.205.131.32"
 alias sshknight.ssh2="ssh menghw@202.205.131.33"

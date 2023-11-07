@@ -146,7 +146,7 @@ if test -e $HOME/.Wudao-dict/wudao-dict/wd; then
     git pull
 else
     echo 'old setting does not exist, running git clone steps...'
-    git clone git@github.com:hermanzhaozzzz/Wudao-dict.git $HOME/.Wudao-dict
+    git clone https://github.com/hermanzhaozzzz/Wudao-dict.git $HOME/.Wudao-dict
     cd $HOME/.Wudao-dict/wudao-dict
     mkdir ./usr
     chmod -R 777 ./usr

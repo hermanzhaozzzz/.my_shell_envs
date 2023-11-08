@@ -173,6 +173,7 @@ if [[ "$platform" == "Windows" ]]; then
     rm -rf $WinProfile
     rm -rf $HOME/.condarc
     powershell -File "$REPO_PATH/powershell/deploying_powershell.ps1"
+    mv $WinProfile ${WinProfile}_bak
     ln -s $RepoProfile $WinProfile
     echo "profile config file @ $RepoProfile"
     # end
@@ -181,11 +182,14 @@ if [[ "$platform" == "Windows" ]]; then
     echo "↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓"
     echo -e "well done there! now you should:\n"
     echo -e "\t\topen PowerShell to use your environment, something will be installed at the first running!"
-    echo -e "\t\tconda install -f $CONDA_ENVS/base.yml"
+    echo -e "\t\tconda install -f $CONDA_ENVS/base.yml  # in powershell!"
     echo "and start to use this environment."
     echo "↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑"
 
+    echo "this window will close after 300s, you can exit now."
+
     echo "ヾ(≧O≦)〃~"
+    sleep 300
 else
     # end
     echo -e "---------------------------------|\nall done"

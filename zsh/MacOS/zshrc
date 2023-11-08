@@ -1,3 +1,13 @@
+# RPOXY
+alias proxy.on='export https_proxy=http://127.0.0.1:8234;export http_proxy=http://127.0.0.1:8234;export all_proxy=socks5://127.0.0.1:8235;export no_proxy="192.168.59.102,192.168.59.103";git config --global http.proxy "socks5://127.0.0.1:8235";git config --global https.proxy "socks5://127.0.0.1:8234"'
+alias proxy.off='export https_proxy="";export http_proxy="";export all_proxy="";git config --global --unset https.proxy; git config --global --unset http.proxy'
+# ------------------------------------------------------------------->>>>>>>>>>
+# surge代理
+# ------------------------------------------------------------------->>>>>>>>>>
+proxy.on
+
+
+
 # 设置USER显示
 DEFAULT_USER=$USER
 
@@ -13,7 +23,8 @@ export ZSH="$HOME/.oh-my-zsh"
 # load a random theme each time oh-my-zsh is loaded, in which case,
 # to know which specific one was loaded, run: echo $RANDOM_THEME
 # See https://github.com/ohmyzsh/ohmyzsh/wiki/Themes
-ZSH_THEME="agnoster"
+# ZSH_THEME="agnoster"
+ZSH_THEME="fino"
 
 # Set list of themes to pick from when loading at random
 # Setting this variable when ZSH_THEME=random will cause zsh to load
@@ -138,6 +149,7 @@ export PATH=$PATH:${HOME}/Library/Application\ Support/JetBrains/Toolbox/scripts
 # Bioinformatics
 export PATH=$PATH:/Volumes/zhaohn_HD/Bio/0.apps/homer/bin
 export PATH=$PATH:$HOME/Bio/0.apps/hisat-3n_allType
+export PATH=$PATH:$HOME/Bio/0.apps/meme_suite/meme-5.5.3/bin:$HOME/Bio/0.apps/meme_suite/meme-5.5.3/libexec/meme-5.5.3
 
 
 # ------------------------------------------------------------------->>>>>>>>>>
@@ -197,12 +209,10 @@ alias dellist='trashlist'
 alias delback='undelfile'
 alias delclear='cleartrash'
 
-# RPOXY
-alias proxy.on='export https_proxy=http://127.0.0.1:8234;export http_proxy=http://127.0.0.1:8234;export all_proxy=socks5://127.0.0.1:8235;export no_proxy="192.168.59.102,192.168.59.103";git config --global http.proxy "socks5://127.0.0.1:8234";git config --global https.proxy "socks5://127.0.0.1:8234"'
-alias proxy.off='export https_proxy="";export http_proxy="";export all_proxy="";git config --global --unset https.proxy; git config --global --unset http.proxy'
+
 
 # 内置命令别名
-alias startsc="open -a SafeConnect.app && open -a Step\ Two.app"
+alias startsc="open -a DPSafeConnect.app && open -a Step\ Two.app"
 alias sshveteran.ssh="ssh zhaohuanan@162.105.250.207"
 alias sshknight.ssh="ssh menghw@202.205.131.32"
 alias sshknight.ssh2="ssh menghw@202.205.131.33"
@@ -228,11 +238,6 @@ alias code="/Applications/Visual\ Studio\ Code.app/Contents/Resources/app/bin/co
 alias checkbam="for i in *.bam ;do (samtools quickcheck \$i && echo \"ok    \" \$i || echo \"error    \" \$i);done"
 
 # ------------------------------------------------------------------->>>>>>>>>>
-# surge代理
-# ------------------------------------------------------------------->>>>>>>>>>
-proxy.on
-
-# ------------------------------------------------------------------->>>>>>>>>>
 # Conda doc for MacOS arm64!!!!!
 # ------------------------------------------------------------------->>>>>>>>>>
 # # for arm64 macos
@@ -249,7 +254,7 @@ proxy.on
 #############################
 # for arm64
 alias conda_rosetta_echo='\
-echo "CONDA_SUBDIR=osx-64 conda create -n rosetta_env conda python\n# ↑↑↑python_version conda is needed↑↑↑\n# <conda install conda> in the rosetta_env is the best choice\n# when alias micromamba as conda\n\nconda activate rosetta_env\n\n/path_of_python_version/conda env config vars set CONDA_SUBDIR=osx-64\n# ↑↑↑python_version conda is needed for setting CONDA_SUBDIR var↑↑↑\n\nconda deactivate\\nnconda activate rosetta_env\n\npython -c \"import platform;print(platform.machine())\"  \n# should output x86_64"\
+echo "CONDA_SUBDIR=osx-64 conda create -n rosetta_env conda python\n# ↑↑↑python_version conda is needed↑↑↑\n# <conda install conda> in the rosetta_env is the best choice\n# when alias micromamba as conda\n\nconda activate rosetta_env\n\n/path_of_python_version/conda env config vars set CONDA_SUBDIR=osx-64\n# ↑↑↑python_version conda is needed for setting CONDA_SUBDIR var↑↑↑\n\nconda deactivate\\nconda activate rosetta_env\n\npython -c \"import platform;print(platform.machine())\"  \n# should output x86_64"\
 '
 
 # ------------------------------------------------------------------->>>>>>>>>>

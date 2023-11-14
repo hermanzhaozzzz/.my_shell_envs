@@ -164,8 +164,12 @@ echo "set wd successful"
 
 # tldr-python-version
 echo "set tldr (python version)"
-pip install tldr
-ln -s `which tldr` $REPO_PATH/bin/wd
+if test -e $REPO_PATH/bin/tldr; then
+    echo 'old setting exists, nothing to do...'
+else
+    pip install tldr
+    ln -s `which tldr` $REPO_PATH/bin/tldr
+fi
 echo "set tldr (python version) successful"
 
 # ------------------------------------------------------------------->>>>>>>>>>

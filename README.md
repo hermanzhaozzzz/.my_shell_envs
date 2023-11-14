@@ -25,20 +25,36 @@
 > - all commands below should run in `PowerShell`
 
 ```shell
-# install
+# install zsh & oh-my-zsh
+# eg: sudo apt install zsh
+# change shell to zsh
+chsh -s /usr/bin/zsh
 
+# install oh-my-zsh
+sh -c "$(curl -fsSL https://raw.githubusercontent.com/robbyrussell/oh-my-zsh/master/tools/install.sh)"
+
+# plugins for oh-my-zsh
+cd ~/.oh-my-zsh/custom/plugins/
+git clone https://github.com/zsh-users/zsh-syntax-highlighting.git
+git clone https://github.com/zsh-users/zsh-autosuggestions
+
+# install .my_shell_envs
 cd $HOME
-git clone git@github.com:hermanzhaozzzz/.my_shell_envs.git
+# git clone git@github.com:hermanzhaozzzz/.my_shell_envs.git
+git clone https://github.com/hermanzhaozzzz/.my_shell_envs.git
+
+
+# deploy envs
 cd .my_shell_envs
 
 # deploy: MacOS/Linux
 bash deploying_locally.sh
-
 # deploy: Windows, in powershell!
 scoop install git  # powershell
 git-bash deploying_locally.sh  # powershell
 
-# update
+
+# update my_shell_envs
 cd ~/.my_shell_envs
 git fetch
 git pull --rebase

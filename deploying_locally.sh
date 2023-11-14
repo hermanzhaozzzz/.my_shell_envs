@@ -162,6 +162,12 @@ fi
 echo "set wd successful"
 
 
+# tldr-python-version
+echo "set tldr (python version)"
+pip install tldr
+ln -s `which tldr` $REPO_PATH/bin/wd
+echo "set tldr (python version) successful"
+
 # ------------------------------------------------------------------->>>>>>>>>>
 # Windows setting for PowerShell (dependent: git-bash)
 # ------------------------------------------------------------------->>>>>>>>>>

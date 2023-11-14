@@ -146,7 +146,7 @@ if test -e $HOME/.Wudao-dict/wudao-dict/wd; then
     git pull
 else
     echo 'old setting does not exist, running git clone steps...'
-    git clone git@github.com:hermanzhaozzzz/Wudao-dict.git $HOME/.Wudao-dict
+    git clone https://github.com/hermanzhaozzzz/Wudao-dict.git $HOME/.Wudao-dict
     cd $HOME/.Wudao-dict/wudao-dict
     mkdir ./usr
     chmod -R 777 ./usr
@@ -162,6 +162,16 @@ fi
 echo "set wd successful"
 
 
+# tldr-python-version
+echo "set tldr (python version)"
+if test -e $REPO_PATH/bin/tldr; then
+    echo 'old setting exists, nothing to do...'
+else
+    pip install tldr
+    ln -s `which tldr` $REPO_PATH/bin/tldr
+fi
+echo "set tldr (python version) successful"
+
 # ------------------------------------------------------------------->>>>>>>>>>
 # Windows setting for PowerShell (dependent: git-bash)
 # ------------------------------------------------------------------->>>>>>>>>>
@@ -173,6 +183,8 @@ if [[ "$platform" == "Windows" ]]; then
     rm -rf $WinProfile
     rm -rf $HOME/.condarc
     powershell -File "$REPO_PATH/powershell/deploying_powershell.ps1"
+    mv $WinProfile ${WinProfile}_bak
+    ln -s $RepoProfile $WinProfile
     echo "profile config file @ $RepoProfile"
     # end
     echo -e "---------------------------------|\nall done"
@@ -180,11 +192,14 @@ if [[ "$platform" == "Windows" ]]; then
     echo "↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓"
     echo -e "well done there! now you should:\n"
     echo -e "\t\topen PowerShell to use your environment, something will be installed at the first running!"
-    echo -e "\t\tconda install -f $CONDA_ENVS/base.yml"
+    echo -e "\t\tconda install -f $CONDA_ENVS/base.yml  # in powershell!"
     echo "and start to use this environment."
     echo "↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑"
 
+    echo "this window will close after 300s, you can exit now."
+
     echo "ヾ(≧O≦)〃~"
+    sleep 300
 else
     # end
     echo -e "---------------------------------|\nall done"

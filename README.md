@@ -1,17 +1,20 @@
 # fast deployment for shell envs
 ## features
 - [conda (use micromamba)](https://github.com/mamba-org/mamba)
-	- a faster and easy to use version of conda
+  - a faster and easy to use version of conda
 - [vim (use my setting)](https://github.com/hermanzhaozzzz/vim-for-coding)
-	- simple and useful features
+  - simple and useful features
 - [zsh (use oh-my-zsh)](https://github.com/ohmyzsh/ohmyzsh)
-	- very good settings for zsh
+  - very good settings for zsh
 - [spyder](https://github.com/spyder-ide/spyder)
-	- data science IDE for python coder
+  - data science IDE for python coder
 - [command: `jcat`](https://github.com/zhifanzhu/jcat)
-	- a self-contained command line tool for viewing jupyter notebook files in terminal
+  - a self-contained command line tool for viewing jupyter notebook files in terminal
 - [command: `wd`](https://github.com/ChestnutHeng/Wudao-dict)
-	- command line version for Youdao dict
+  - command line version for Youdao dict
+- [command: `tldr`](https://github.com/tldr-pages/tldr-python-client)
+    - a very useful demo document for command lines
+
 
 
 # use
@@ -73,8 +76,8 @@ git pull --rebase
 *   ctrl + M多行选择文本
 *   ...
 *   具体查看[GitHub - hermanzhaozzzz/.my\_shell\_envs](https://link.zhihu.com/?target=https%3A//github.com/hermanzhaozzzz/.my_shell_envs)相关说明  
-    
-
+  
+  
   
 
 ### 3\. 自动配置美观的zsh命令行显示，带有自动补全命令行功能和z插件跳转等
@@ -94,6 +97,10 @@ git pull --rebase
 ### 6\. 使用wd命令在命令行下查单词
 
 ![](https://pic1.zhimg.com/v2-4941f3b7b7c83780d50bcfb36b6dbad8_b.jpg)
+
+### 使用tldr命令查询命令行用法
+
+![](http://_pic.zhaohuanan.cc:7777/images/2023/11/14/20231114212028333f22f9bb5d513e.png)
 
 # license
 use my setting for free!

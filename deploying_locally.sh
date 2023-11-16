@@ -93,6 +93,16 @@ mv $HOME/.spyder-py3 $HOME/.spyder-py3_bak
 ln -s $REPO_PATH/spyder/MacOS/spyder-py3 $HOME/.spyder-py3
 echo "spyder config file @: $REPO_PATH/spyder/MacOS/spyder-py3"
 
+# ------------------------------------------------------------------->>>>>>>>>>
+# pip settings (annotate if not use)
+# ___________________________________________________________________>>>>>>>>>>
+echo -e "---------------------------------|\nset pip config file"
+
+mkdir -p $HOME/.pip
+rm -rf $HOME/.pip/pip.conf_bak
+mv $HOME/.pip/pip.conf $HOME/.pip/pip.conf_bak
+ln -s $REPO_PATH/pip/pip.conf $HOME/.pip/pip.conf
+echo "pip config file @: $REPO_PATH/pip/pip.conf"
 
 # ------------------------------------------------------------------->>>>>>>>>>
 # vim setting (annotate if not use)

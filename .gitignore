@@ -4,6 +4,7 @@
 /conda_local_env_settings/
 /bin/
 tools/jcat/jcat
+/conda/micromamba-pycharm/
 
 ##############
 # spyder

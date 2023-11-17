@@ -52,6 +52,8 @@ if [[ "$platform" != "Windows" ]]; then
         cd $ROOT_PATH
         curl -Ls $URL | tar -xvj bin/micromamba
         cd $REPO_PATH
+        # this repo fix pycharm conda, select conda/micromamba-pycharm/conda when using conda in pycharm!
+        git clone https://github.com/jonashaag/micromamba-pycharm.git conda/micromamba-pycharm
     else
         echo "micromamba exists @$ROOT_PATH/bin/! skip installing..."
     fi

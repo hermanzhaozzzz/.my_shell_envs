@@ -228,6 +228,8 @@ alias ll="exa -lh --tree -L 1 --no-user"
 alias l="exa -lha --tree -L 1"
 
 # for Ubuntu WSL on Windows PC
+# see doc: https://wslutiliti.es/wslu/zh-CN/install.html to install wslview cmd
+#
 alias open='wslview'
 
 # slurm系统别名

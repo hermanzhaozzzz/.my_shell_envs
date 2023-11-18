@@ -227,6 +227,9 @@ alias lll="exa -lh"
 alias ll="exa -lh --tree -L 1 --no-user"
 alias l="exa -lha --tree -L 1"
 
+# for Ubuntu WSL on Windows PC
+alias open='wslview'
+
 # slurm系统别名
 # alias squeue="squeue -o \"%.18i %.8u %.8a %.9P %q %.8j %.8T %.12M %.12l %.5C %.10R %p\""
 alias squeuez="for i in \`squeue | grep chengqi| grep -v 'QOS not permitted' | awk '{print \$1}'\`; do (pkujob | grep \$i | xargs echo); done | grep zhaohn | awk -F '=' '{print \$2}' | awk '{print \$1}'"

@@ -49,6 +49,11 @@ cd .my_shell_envs
 
 # deploy: MacOS/Linux
 bash deploying_locally.sh
+# you can set git clone via https or ssh
+# bash deploying_locally.sh ssh
+# bash deploying_locally,sh https (default)
+
+
 # deploy: Windows, in powershell!
 scoop install git  # powershell
 git-bash deploying_locally.sh  # powershell
@@ -101,6 +106,10 @@ git pull --rebase
 ### 使用tldr命令查询命令行用法
 
 ![](http://_pic.zhaohuanan.cc:7777/images/2023/11/14/20231114212028333f22f9bb5d513e.png)
+
+### 使用jgi-query命令下载宏基因组数据库
+
+用法见[官方文档](https://github.com/glarue/jgi-query)
 
 # license
 use my setting for free!

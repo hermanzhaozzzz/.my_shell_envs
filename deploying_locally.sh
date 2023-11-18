@@ -1,3 +1,17 @@
+# set git connect method
+git_method=${1:-'https'}
+
+if [ $git_method == 'https' ]
+then
+url_root="https://github.com/"
+elif [ $git_method == 'ssh' ]
+then
+url_root="git@github.com:"
+else
+echo "git_method must be one of <https|ssh>"
+fi
+echo "set git connect method: $git_method (https (default) / ssh)"
+
 # get repo path
 REPO_PATH=`pwd` 
 # ------------------------------------------------------------------->>>>>>>>>>
@@ -47,7 +61,7 @@ if [[ "$platform" != "Windows" ]]; then
         curl -Ls $URL | tar -xvj bin/micromamba
         cd $REPO_PATH
         # this repo fix pycharm conda, select conda/micromamba-pycharm/conda when using conda in pycharm!
-        git clone https://github.com/jonashaag/micromamba-pycharm.git conda/micromamba-pycharm
+        git clone ${url_root}jonashaag/micromamba-pycharm.git conda/micromamba-pycharm
     else
         echo "micromamba exists @$ROOT_PATH/bin/! skip installing..."
     fi
@@ -117,8 +131,12 @@ if test -e $HOME/.vim/vimrc; then
     git pull
 else
     echo 'old setting does not exist, running git clone steps...'
-    rm -rf $HOME/.vim $HOME/.vimrc
-    curl https://raw.githubusercontent.com/hermanzhaozzzz/vim-for-coding/master/install.sh | sh
+    cd $HOME
+    mv .vim .vimbak &> /dev/null
+    mv .vimrc .vimrcbak &> /dev/null
+    git clone ${url_root}hermanzhaozzzz/vim-for-coding.git $HOME/.vim
+    ln -s .vim/vimrc .vimrc
+
     echo "vim config file @ $HOME/.vim"
 fi
 
@@ -157,7 +175,7 @@ if test -e $HOME/.Wudao-dict/wudao-dict/wd; then
     git pull
 else
     echo 'old setting does not exist, running git clone steps...'
-    git clone https://github.com/hermanzhaozzzz/Wudao-dict.git $HOME/.Wudao-dict
+    git clone ${url_root}hermanzhaozzzz/Wudao-dict.git $HOME/.Wudao-dict
     cd $HOME/.Wudao-dict/wudao-dict
     mkdir ./usr
     chmod -R 777 ./usr
@@ -193,8 +211,8 @@ if test -e $REPO_PATH/bin/jgi-query; then
     git pull
 else
     echo 'old setting does not exist, running git clone steps...'
-    git clone https://github.com/glarue/jgi-query.git $REPO_PATH/tools/jgi-query
-    chmod +x $REPO_PATH/tools/jgi-query/bin/jgi-query.py
+    git clone ${url_root}glarue/jgi-query.git $REPO_PATH/tools/jgi-query
+    chmod +x $REPO_PATH/tools/jgi-query/jgi-query.py
     ln -s $REPO_PATH/tools/jgi-query/jgi-query.py $REPO_PATH/bin/jgi-query
 fi
 echo "set JGI download tool: jgi-query successful"

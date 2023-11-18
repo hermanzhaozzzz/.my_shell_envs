@@ -209,6 +209,7 @@ alias del='trash'
 alias dellist='trashlist'
 alias delback='undelfile'
 alias delclear='cleartrash'
+alias delslurmlogs='del *.err *.out  job.srp*'
 
 # RPOXY
 alias proxy.start='ssh -qTnN -D 8234 zhaohuanan@zhaohuanan.cc'

@@ -3,12 +3,6 @@ REPO_PATH=`pwd`
 # ------------------------------------------------------------------->>>>>>>>>>
 # platform judgement and var setting
 # ------------------------------------------------------------------->>>>>>>>>>
-
-echo -e "---------------------------------|\nset conda panels..."
-
-mv $HOME/.condarc $HOME/.condarc_bak
-ln -s $REPO_PATH/conda/condarc $HOME/.condarc
-
 platform="`uname`"
 platform=`echo $platform | awk -F '_' '{printf $1}'`
 
@@ -69,6 +63,11 @@ if [[ "$platform" != "Windows" ]]; then
 else
     echo "skip micromamba installing:" $platform
 fi
+
+echo -e "---------------------------------|\nset conda panels..."
+
+mv $HOME/.condarc $HOME/.condarc_bak
+ln -s $REPO_PATH/conda/condarc $HOME/.condarc
 # ------------------------------------------------------------------->>>>>>>>>>
 # zsh setting (annotate if not use)
 # ------------------------------------------------------------------->>>>>>>>>>
@@ -126,7 +125,7 @@ fi
 # ------------------------------------------------------------------->>>>>>>>>>
 # set external apps 
 # ------------------------------------------------------------------->>>>>>>>>>
-echo -e "---------------------------------|\nset external tools..."
+echo -e "---------------------------------|\nset external tools...\n"
 
 # jcat
 echo "set jcat"
@@ -184,6 +183,22 @@ else
 fi
 echo "set tldr (python version) successful"
 
+# JGI download tool: jgi-query
+echo "set JGI download tool: jgi-query"
+
+if test -e $REPO_PATH/bin/jgi-query; then      
+    echo 'old setting exists, running update steps...'
+    cd $REPO_PATH/tools/jgi-query
+    git fetch
+    git pull
+else
+    echo 'old setting does not exist, running git clone steps...'
+    git clone https://github.com/glarue/jgi-query.git $REPO_PATH/tools/jgi-query
+    chmod +x $REPO_PATH/tools/jgi-query/bin/jgi-query.py
+    ln -s $REPO_PATH/tools/jgi-query/jgi-query.py $REPO_PATH/bin/jgi-query
+fi
+echo "set JGI download tool: jgi-query successful"
+
 # ------------------------------------------------------------------->>>>>>>>>>
 # Windows setting for PowerShell (dependent: git-bash)
 # ------------------------------------------------------------------->>>>>>>>>>
@@ -226,4 +241,5 @@ else
     echo "ヾ(≧O≦)〃~"
 fi
 
-
+echo "Tips:"
+echo -e "\t raise issue on https://github.com/hermanzhaozzzz/.my_shell_envs/issues"

@@ -1,11 +1,11 @@
 ##############
 # this project
 ##############
-/conda_local_env_settings/
 /bin/
-tools/jcat/jcat
+/conda_local_env_settings/
 /conda/micromamba-pycharm/
-
+/tools/jcat/jcat
+/tools/jgi-query/
 ##############
 # spyder
 ##############

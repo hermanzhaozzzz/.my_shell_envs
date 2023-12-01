@@ -201,22 +201,6 @@ else
 fi
 echo "set tldr (python version) successful"
 
-# JGI download tool: jgi-query
-echo "set JGI download tool: jgi-query"
-
-if test -e $REPO_PATH/bin/jgi-query; then      
-    echo 'old setting exists, running update steps...'
-    cd $REPO_PATH/tools/jgi-query
-    git fetch
-    git pull
-else
-    echo 'old setting does not exist, running git clone steps...'
-    git clone ${url_root}hermanzhaozzzz/jgi-query.git $REPO_PATH/tools/jgi-query
-    chmod +x $REPO_PATH/tools/jgi-query/jgi-query.py
-    ln -s $REPO_PATH/tools/jgi-query/jgi-query.py $REPO_PATH/bin/jgi-query
-fi
-echo "set JGI download tool: jgi-query successful"
-
 # ------------------------------------------------------------------->>>>>>>>>>
 # Windows setting for PowerShell (dependent: git-bash)
 # ------------------------------------------------------------------->>>>>>>>>>

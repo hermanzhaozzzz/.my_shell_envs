@@ -1,3 +1,15 @@
+# RPOXY
+# linux
+alias proxy.start='ssh -qTnN -D 8234 zhaohuanan@zhaohuanan.cc'
+# all platform
+alias proxy.on='export https_proxy=http://127.0.0.1:8234;export http_proxy=http://127.0.0.1:8234;export all_proxy=socks5://127.0.0.1:8234;export no_proxy="192.168.59.102,192.168.59.103";git config --global http.proxy "socks5://127.0.0.1:8234";git config --global https.proxy "socks5://127.0.0.1:8234"'
+alias proxy.off='export https_proxy="";export http_proxy="";export all_proxy="";git config --global --unset https.proxy; git config --global --unset http.proxy'
+# ------------------------------------------------------------------->>>>>>>>>>
+# ssh socks代理 默认关闭
+# ------------------------------------------------------------------->>>>>>>>>>
+proxy.off
+
+
 # 设置USER显示
 DEFAULT_USER=$USER
 
@@ -115,21 +127,30 @@ source ~/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting/zsh-syntax-highlighti
 # alias ohmyzsh="mate ~/.oh-my-zsh"
 
 
+# TIPS:
+# zsh环境优先级
+# .zshenv → [.zprofile if login] → [.zshrc if interactive] → [.zlogin if login] → [.zlogout sometimes].
 # ------------------------------------------------------------------->>>>>>>>>>
 # 基本环境变量
 # ------------------------------------------------------------------->>>>>>>>>>
 # HOME 变量在zshenv or zsh_profile中完成设置
+# 如：
+# HOME 变量 (如果是Linux下)
+# HomeBrew的PATH (如果是MacOS下)
 # ------------------------------------------------------------------->>>>>>>>>>
 # PATH 环境变量
 # ------------------------------------------------------------------->>>>>>>>>>
-# PATH update
+# 覆盖PATH！
 # 必要系统命令
 export PATH=/usr/bin:/usr/lib:/usr/lib64:/usr/libexec:/usr/sbin:/usr/local/bin:/usr/local/lib:/usr/local/lib64:/usr/local/libexec
 # slurm 系统命令
 export PATH=$PATH:/rm/rm_prog/slurm/18.08.7/bin:/data01/oldbin/newbin
+
 # 个人系统命令
 export PATH=$PATH:${HOME}/.local/bin
 export PATH=$PATH:${HOME}/.cargo/bin
+
+
 # 我的可执行文件
 export PATH=$PATH:${HOME}/.my_shell_envs/bin
 export PATH=$PATH:${HOME}/0.apps/bin
@@ -137,6 +158,8 @@ export PATH=$PATH:${HOME}/0.apps/homer/bin
 export PATH=$PATH:${HOME}/0.apps/HiC-Pro_installed/HiC-Pro_3.1.0/bin
 export PATH=$PATH:${HOME}/0.apps/hisat-3n_allType
 export PATH=$PATH:${HOME}/0.apps/bedops/bin
+
+
 # ------------------------------------------------------------------->>>>>>>>>>
 # 软件环境变量
 # ------------------------------------------------------------------->>>>>>>>>>
@@ -230,16 +253,10 @@ alias ssh.tunnels.off=_ssh.tunnels.off
 # 函数别名
 alias del.slurmlogs='del *.err *.out  job.srp*'
 
-# RPOXY
-alias proxy.start='ssh -qTnN -D 8234 zhaohuanan@zhaohuanan.cc'
-alias proxy.on='export https_proxy=http://127.0.0.1:8234;export http_proxy=http://127.0.0.1:8234;export all_proxy=socks5://127.0.0.1:8234;export no_proxy="192.168.59.102,192.168.59.103";git config --global http.proxy "socks5://127.0.0.1:8234";git config --global https.proxy "socks5://127.0.0.1:8234"'
-alias proxy.off='export https_proxy="";export http_proxy="";export all_proxy="";git config --global --unset https.proxy; git config --global --unset http.proxy'
 
 # 内置命令别名
-alias sshabyss.ssh="ssh zhaohuanan@162.105.250.207"
-alias sshknight.ssh="ssh menghw@202.205.131.32"
-alias sshknight.ssh2="ssh menghw@202.205.131.33"
-alias sshbioin.ssh="ssh zhaohuanan@bioin.vip -p 10006"
+alias ssh.server.veteran="ssh zhaohuanan@162.105.250.207"
+alias ssh.server.bioin="ssh zhaohuanan@bioin.vip -p 10006"
 
 # 第三方命令别名
 alias lll="exa -lh --time-style long-iso"
@@ -248,11 +265,9 @@ alias l="exa -lha --tree -L 1 --time-style long-iso"
 
 # for Ubuntu WSL on Windows PC
 # see doc: https://wslutiliti.es/wslu/zh-CN/install.html to install wslview cmd
-#
 alias open='wslview'
 
 # slurm系统别名
-# alias squeue="squeue -o \"%.18i %.8u %.8a %.9P %q %.8j %.8T %.12M %.12l %.5C %.10R %p\""
 alias squeuez="for i in \`squeue | grep chengqi| grep -v 'QOS not permitted' | awk '{print \$1}'\`; do (pkujob | grep \$i | xargs echo); done | grep zhaohn | awk -F '=' '{print \$2}' | awk '{print \$1}'"
 alias squeuey="squeue | grep chengqi | grep -v 'QOS not permitted'"
 alias ps-ef="ps -ef | grep chengqi | grep zhaohn"

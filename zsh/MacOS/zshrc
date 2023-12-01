@@ -1,8 +1,9 @@
 # RPOXY
+# all platform
 alias proxy.on='export https_proxy=http://127.0.0.1:8234;export http_proxy=http://127.0.0.1:8234;export all_proxy=socks5://127.0.0.1:8235;export no_proxy="192.168.59.102,192.168.59.103";git config --global http.proxy "socks5://127.0.0.1:8235";git config --global https.proxy "socks5://127.0.0.1:8234"'
 alias proxy.off='export https_proxy="";export http_proxy="";export all_proxy="";git config --global --unset https.proxy; git config --global --unset http.proxy'
 # ------------------------------------------------------------------->>>>>>>>>>
-# surge代理
+# surge代理 默认开启
 # ------------------------------------------------------------------->>>>>>>>>>
 proxy.on
 
@@ -133,6 +134,7 @@ source ~/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting/zsh-syntax-highlighti
 # 基本环境变量
 # ------------------------------------------------------------------->>>>>>>>>>
 # 需要预设的环境变量： 在zshenv or zsh_profile中完成设置
+# 如：
 # HOME 变量 (如果是Linux下)
 # HomeBrew的PATH (如果是MacOS下)
 
@@ -167,72 +169,82 @@ export TMUX_TMPDIR=$HOME/.tmux_tmp_dir
 # ------------------------------------------------------------------->>>>>>>>>>
 # 自定义函数命令
 # ------------------------------------------------------------------->>>>>>>>>>
-# 为tabby设置返回远程shell当前cwd位置
-precmd () { echo -n "\x1b]1337;CurrentDir=$(pwd)\x07" }
-
-
 # mv命令覆盖rm命令
-trash()
-{
-    mv $@ ~/Trash/
+_del(){
+    mv $@ $HOME/4.trash/
 }
+alias rm.real.rm=/bin/rm
+alias rm=_del
+# 显示回收站中垃圾清单
+_dellist(){
+    # ls -alt $HOME/Trash/*
+    exa --no-permissions --time-style long-iso -lh --tree -L 1 --no-user $HOME/Trash
 
-#显示回收站中垃圾清单
-trashlist()
-{
-    ls -alt ~/Trash/*
 }
-
-#找回回收站相应文件
-undelfile()
-{
-    mv -i ~/Trash/* ./
+alias rm.trash.show=_dellist
+# 找回回收站相应文件
+_delback(){
+    echo "将执行 mv -i $HOME/Trash/* ./"
+    echo "你可以自己写mv命令来恢复文件"
+    echo "在那之前，建议执行rm.trash.show来检查垃圾箱的文件"
+    echo "是否继续执行 [y/n]"
+    read confirm
+    if [ ${confirm} = "y" ]; then
+        mv -i $HOME/Trash/* ./
+    fi
 }
-
-#清空回收站
-cleartrash()
-{
-echo "确认删除回收站所有文件？？？ ~/Trash [y/n]"
-read confirm
-if [ ${confirm} = "y" ] ;then
-    /bin/rm -rf ~/Trash/*
-    /bin/rm -rf ~/Trash/.* 2>/dev/null
-fi
+alias rm.trash.back=_delback
+# 清空回收站
+_delclear(){
+    echo "确认删除回收站所有文件？？？ ~/Trash [y/n]"
+    read confirm
+    if [ ${confirm} = "y"  ] ;then
+        /bin/rm -rf ~/Trash/* 
+        /bin/rm -rf ~/Trash/.* 2> /dev/null
+        echo "完成"
+    fi
 }
-
+alias rm.trash.clear=_delclear
+# 开启反向代理隧道
+_ssh.tunnels.on(){
+    # 设置SSH隧道
+    ssh -fCNL 11283:localhost:11282 zhaohuanan@162.105.250.169
+    ssh -fCNL 16007:localhost:9900 zhaohuanan@162.105.250.169
+    ssh -fCNL 11283:localhost:11282 zhaohuanan@zhaohuanan.cc
+    ssh -fCNL 16007:localhost:9900 zhaohuanan@zhaohuanan.cc
+    echo "隧道已建立"
+}
+alias ssh.tunnels.on=_ssh.tunnels.on
+# 关闭反向代理隧道
+_ssh.tunnels.off(){
+    # 清理SSH隧道
+    tunnels=`ps -ef | grep zhaohuanan | grep ssh | grep localhost`
+    echo "将清理以下隧道"
+    echo $tunnels
+    echo $tunnels | awk '{print "kill -9 "$2}' | sh
+    echo "SSH隧道清理完成。"
+}
+alias ssh.tunnels.off=_ssh.tunnels.off
 # ------------------------------------------------------------------->>>>>>>>>>
 # 自定义alias
 # ------------------------------------------------------------------->>>>>>>>>>
 # 函数别名
-alias del='trash'
-alias dellist='trashlist'
-alias delback='undelfile'
-alias delclear='cleartrash'
-
 
 
 # 内置命令别名
-alias startsc="open -a DPSafeConnect.app && open -a Step\ Two.app"
-alias sshveteran.ssh="ssh zhaohuanan@162.105.250.207"
-alias sshknight.ssh="ssh menghw@202.205.131.32"
-alias sshknight.ssh2="ssh menghw@202.205.131.33"
-alias sshpolaris.ssh="ssh chengqiyi_zhn@10.100.1.88"
-alias sshbioin.ssh="ssh zhaohuanan@bioin.vip -p 10006"
-alias opena="open -a Sublime\ Text"
+alias ssh.server.veteran="ssh zhaohuanan@162.105.250.207"
+alias ssh.server.bioin="ssh zhaohuanan@bioin.vip -p 10006"
+alias ssh.server.polaris="ssh chengqiyi_zhn@10.100.1.88"
+alias zcat="gunzip -d -c"  # fix zcat
 
 # 第三方命令别名
 alias lll="exa -lh"
 alias ll="exa -lh --tree -L 1 --no-user"
 alias l="exa -lha --tree -L 1"
 
-# fix zcat
-alias zcat="gunzip -d -c"
-
-
-# ide & language
-# alias spyder="/Applications/Spyder.app/Contents/MacOS/Spyder"
+alias startsc="open -a DPSafeConnect.app && open -a Step\ Two.app"
+alias opena="open -a Sublime\ Text"
 alias code="/Applications/Visual\ Studio\ Code.app/Contents/Resources/app/bin/code"
-
 
 # Bioinformatic tools
 alias checkbam="for i in *.bam ;do (samtools quickcheck \$i && echo \"ok    \" \$i || echo \"error    \" \$i);done"

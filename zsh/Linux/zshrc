@@ -168,48 +168,67 @@ PERL5LIB=''
 # ------------------------------------------------------------------->>>>>>>>>>
 # 自定义函数命令
 # ------------------------------------------------------------------->>>>>>>>>>
-# 为tabby设置返回远程shell当前cwd位置
-precmd () { echo -n "\x1b]1337;CurrentDir=$(pwd)\x07" }
-
-
 # mv命令覆盖rm命令
-trash()
-{
+_del(){
     mv $@ $HOME/4.trash/
 }
-
+alias rm.real.rm=/bin/rm
+alias rm=_del
 # 显示回收站中垃圾清单
-trashlist()
-{
-    ls -alt $HOME/4.trash/*
-}
+_dellist(){
+    # ls -alt $HOME/4.trash/*
+    exa --no-permissions --time-style long-iso -lh --tree -L 1 --no-user $HOME/4.trash
 
-# 找回回收站相应文件
-undelfile()
-{
-    mv -i $HOME/4.trash/* ./
 }
+alias rm.trash.show=_dellist
+# 找回回收站相应文件
+_delback(){
+    echo "将执行 mv -i $HOME/4.trash/* ./"
+    echo "你可以自己写mv命令来恢复文件"
+    echo "在那之前，建议执行rm.trash.show来检查垃圾箱的文件"
+    echo "是否继续执行 [y/n]"
+    read confirm
+    if [ ${confirm} = "y" ]; then
+        mv -i $HOME/4.trash/* ./
+    fi
+}
+alias rm.trash.back=_delback
 # 清空回收站
-cleartrash()
-{
+_delclear(){
     echo "确认删除回收站所有文件？？？ ~/4.trash [y/n]"
     read confirm
     if [ ${confirm} = "y"  ] ;then
-        /bin/rm -rf ~/4.trash/*
-        /bin/rm -rf ~/4.trash/.* 2>/dev/null
+        /bin/rm -rf ~/4.trash/* 
+        /bin/rm -rf ~/4.trash/.* 2> /dev/null
+        echo "完成"
     fi
 }
-
-
+alias rm.trash.clear=_delclear
+# 开启反向代理隧道
+_ssh.tunnels.on(){
+    # 设置SSH隧道
+    ssh -fCNR 11281:localhost:11280 zhaohuanan@162.105.250.169
+    ssh -fCNR 8899:localhost:8888 zhaohuanan@162.105.250.169
+    ssh -fCNR 11281:localhost:11280 zhaohuanan@zhaohuanan.cc
+    ssh -fCNR 8899:localhost:8888 zhaohuanan@zhaohuanan.cc
+    echo "隧道已建立"
+}
+alias ssh.tunnels.on=_ssh.tunnels.on
+# 关闭反向代理隧道
+_ssh.tunnels.off(){
+    # 清理SSH隧道
+    tunnels=`ps -ef | grep zhaohuanan | grep ssh | grep localhost`
+    echo "将清理以下隧道"
+    echo $tunnels
+    echo $tunnels | awk '{print "kill -9 "$2}' | sh
+    echo "SSH隧道清理完成。"
+}
+alias ssh.tunnels.off=_ssh.tunnels.off
 # ------------------------------------------------------------------->>>>>>>>>>
 # 自定义alias
 # ------------------------------------------------------------------->>>>>>>>>>
 # 函数别名
-alias del='trash'
-alias dellist='trashlist'
-alias delback='undelfile'
-alias delclear='cleartrash'
-alias delslurmlogs='del *.err *.out  job.srp*'
+alias del.slurmlogs='del *.err *.out  job.srp*'
 
 # RPOXY
 alias proxy.start='ssh -qTnN -D 8234 zhaohuanan@zhaohuanan.cc'
@@ -223,9 +242,9 @@ alias sshknight.ssh2="ssh menghw@202.205.131.33"
 alias sshbioin.ssh="ssh zhaohuanan@bioin.vip -p 10006"
 
 # 第三方命令别名
-alias lll="exa -lh"
-alias ll="exa -lh --tree -L 1 --no-user"
-alias l="exa -lha --tree -L 1"
+alias lll="exa -lh --time-style long-iso"
+alias ll="exa -lh --tree -L 1 --no-user --time-style long-iso"
+alias l="exa -lha --tree -L 1 --time-style long-iso"
 
 # for Ubuntu WSL on Windows PC
 # see doc: https://wslutiliti.es/wslu/zh-CN/install.html to install wslview cmd

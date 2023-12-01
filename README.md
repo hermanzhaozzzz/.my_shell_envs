@@ -107,9 +107,5 @@ git pull --rebase
 
 ![](http://_pic.zhaohuanan.cc:7777/images/2023/11/14/20231114212028333f22f9bb5d513e.png)
 
-### 使用jgi-query命令下载宏基因组数据库
-
-用法见[官方文档](https://github.com/glarue/jgi-query)
-
 # license
 use my setting for free!

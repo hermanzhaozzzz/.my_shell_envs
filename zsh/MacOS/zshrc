@@ -94,7 +94,6 @@ plugins=(
 	zsh-autosuggestions
 )
 
-
 source $ZSH/oh-my-zsh.sh
 
 # 高亮插件,需要配置在所有插件之后！
@@ -170,20 +169,35 @@ export TMUX_TMPDIR=$HOME/.tmux_tmp_dir
 # 自定义函数命令
 # ------------------------------------------------------------------->>>>>>>>>>
 # mv命令覆盖rm命令
-_del(){
-    mv $@ $HOME/Trash/
+func_delfile(){
+    # 检查$HOME/Trash/是否存在
+    if [ ! -d "$HOME/Trash/" ]; then
+        echo "Trash directory does not exist!"
+        echo "Please run `mkdir -p $HOME/Trash` to create this folder!"
+        return 1
+    fi
+
+    # 循环遍历每个参数，并将它们移动到Trash目录
+    for arg in "$@"; do
+        mv "$arg" "$HOME/Trash/"
+    done
 }
+
+# 保存原始rm命令的路径
 alias rm.real.rm=/bin/rm
-alias rm=_del
+ 
+# 定义一个新的rm命令，它调用_del函数
+alias rm=func_delfile
+
 # 显示回收站中垃圾清单
-_dellist(){
+func_dellist(){
     # ls -alt $HOME/Trash/*
     exa --no-permissions --time-style long-iso -lh --tree -L 1 --no-user $HOME/Trash
 
 }
-alias rm.trash.show=_dellist
+alias rm.trash.show=func_dellist
 # 找回回收站相应文件
-_delback(){
+func_delback(){
     echo "将执行 mv -i $HOME/Trash/* ./"
     echo "你可以自己写mv命令来恢复文件"
     echo "在那之前，建议执行rm.trash.show来检查垃圾箱的文件"
@@ -193,9 +207,9 @@ _delback(){
         mv -i $HOME/Trash/* ./
     fi
 }
-alias rm.trash.back=_delback
+alias rm.trash.back=func_delback
 # 清空回收站
-_delclear(){
+func_delclear(){
     echo "确认删除回收站所有文件？？？ ~/Trash [y/n]"
     read confirm
     if [ ${confirm} = "y"  ] ;then
@@ -204,9 +218,9 @@ _delclear(){
         echo "完成"
     fi
 }
-alias rm.trash.clear=_delclear
+alias rm.trash.clear=func_delclear
 # 开启反向代理隧道
-_ssh.tunnels.on(){
+func_ssh.tunnels.on(){
     # 设置SSH隧道
     ssh -fCNL 11283:localhost:11282 zhaohuanan@162.105.250.169
     ssh -fCNL 16007:localhost:9900 zhaohuanan@162.105.250.169
@@ -214,9 +228,9 @@ _ssh.tunnels.on(){
     ssh -fCNL 16007:localhost:9900 zhaohuanan@zhaohuanan.cc
     echo "隧道已建立"
 }
-alias ssh.tunnels.on=_ssh.tunnels.on
+alias ssh.tunnels.on=func_ssh.tunnels.on
 # 关闭反向代理隧道
-_ssh.tunnels.off(){
+func_ssh.tunnels.off(){
     # 清理SSH隧道
     tunnels=`ps -ef | grep zhaohuanan | grep ssh | grep localhost`
     echo "将清理以下隧道"
@@ -224,7 +238,7 @@ _ssh.tunnels.off(){
     echo $tunnels | awk '{print "kill -9 "$2}' | sh
     echo "SSH隧道清理完成。"
 }
-alias ssh.tunnels.off=_ssh.tunnels.off
+alias ssh.tunnels.off=func_ssh.tunnels.off
 # ------------------------------------------------------------------->>>>>>>>>>
 # 自定义alias
 # ------------------------------------------------------------------->>>>>>>>>>

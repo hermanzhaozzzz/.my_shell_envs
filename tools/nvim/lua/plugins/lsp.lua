@@ -15,7 +15,7 @@ require("mason-lspconfig").setup({
         "lua_ls",  -- lua
         "rust_analyzer",  -- rust
         "marksman", -- markdown
-        "jedi_language_server", -- python
+        "pyright", -- python
         "r_language_server",  -- R
     },
 })

@@ -140,6 +140,8 @@ dependencies:
 - nbformat=5.9.0=pyhd8ed1ab_0
 - ncurses=6.4=hf0c8a7f_0
 - nest-asyncio=1.5.6=pyhd8ed1ab_0
+- nodeenv=1.8.0=pyhd8ed1ab_0
+- nodejs=12.4.0=h6de7cb9_0
 - notebook-shim=0.2.3=pyhd8ed1ab_0
 - nvim=0.9.4=he92965b_0
 - openssl=3.1.1=h8a1eda9_1
@@ -167,6 +169,7 @@ dependencies:
 - pygments=2.15.1=pyhd8ed1ab_0
 - pyobjc-core=9.2=py310hef2d279_0
 - pyobjc-framework-cocoa=9.2=py310hef2d279_0
+- pyright=1.1.339=py310hb372a2b_0
 - pyrsistent=0.19.3=py310h90acd4f_0
 - pysocks=1.7.1=pyha2e5f31_6
 - python=3.10.11=he7542f4_0_cpython

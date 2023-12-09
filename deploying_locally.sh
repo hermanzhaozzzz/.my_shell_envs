@@ -77,11 +77,14 @@ if [[ "$platform" != "Windows" ]]; then
 else
     echo "skip micromamba installing:" $platform
 fi
+echo "set micromamba as conda / mamba successful"
 
 echo -e "---------------------------------|\nset conda panels..."
 
 mv $HOME/.condarc $HOME/.condarc_bak
 ln -s $REPO_PATH/conda/condarc $HOME/.condarc
+
+echo "set condarc successful"
 # ------------------------------------------------------------------->>>>>>>>>>
 # zsh setting (annotate if not use)
 # ------------------------------------------------------------------->>>>>>>>>>
@@ -96,7 +99,7 @@ if [[ "$platform" != "Windows" ]]; then
 else
     echo "zsh not support platform:" $platform
 fi
-
+echo "set zsh config (zshrc) successful"
 # ------------------------------------------------------------------->>>>>>>>>>
 # spyder setting (annotate if not use)
 # ------------------------------------------------------------------->>>>>>>>>>
@@ -107,7 +110,7 @@ rm -rf $HOME/.spyder-py3_bak
 mv $HOME/.spyder-py3 $HOME/.spyder-py3_bak
 ln -s $REPO_PATH/spyder/MacOS/spyder-py3 $HOME/.spyder-py3
 echo "spyder config file @: $REPO_PATH/spyder/MacOS/spyder-py3"
-
+echo "set spyder config successful"
 # ------------------------------------------------------------------->>>>>>>>>>
 # pip settings (annotate if not use)
 # ___________________________________________________________________>>>>>>>>>>
@@ -118,7 +121,7 @@ rm -rf $HOME/.pip/pip.conf_bak
 mv $HOME/.pip/pip.conf $HOME/.pip/pip.conf_bak
 ln -s $REPO_PATH/pip/pip.conf $HOME/.pip/pip.conf
 echo "pip config file @: $REPO_PATH/pip/pip.conf"
-
+echo "set pip config successful"
 # ------------------------------------------------------------------->>>>>>>>>>
 # vim setting (annotate if not use)
 # ------------------------------------------------------------------->>>>>>>>>>
@@ -139,7 +142,13 @@ else
 
     echo "vim config file @ $HOME/.vim"
 fi
+echo "set vim successful"
 
+echo -e "---------------------------------|\nset nvim config file"
+mkdir -p $HOME/.config
+mv $HOME/.config/nvim $HOME/.config/nvim_bak
+ln -s $REPO_PATH/tools/nvim $HOME/.config/nvim
+echo "set nvim successful"
 # ------------------------------------------------------------------->>>>>>>>>>
 # set external apps 
 # ------------------------------------------------------------------->>>>>>>>>>

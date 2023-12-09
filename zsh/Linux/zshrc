@@ -268,6 +268,7 @@ alias lll="exa -lh --time-style long-iso"
 alias ll="exa -lh --tree -L 1 --no-user --time-style long-iso"
 alias l="exa -lha --tree -L 1 --time-style long-iso"
 
+
 # for Ubuntu WSL on Windows PC
 # see doc: https://wslutiliti.es/wslu/zh-CN/install.html to install wslview cmd
 alias open='wslview'

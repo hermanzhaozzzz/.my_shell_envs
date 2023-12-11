@@ -3,7 +3,7 @@ vim.g.mapleader = " "
 local keymap = vim.keymap
 
 -- ---------- 插入模式 ---------- --
-keymap.set("i", "qw", "<ESC>") -- 使用qw代替ESC键
+keymap.set("i", "wq", "<ESC>") -- 使用qw代替ESC键
 keymap.set("i", "<C-a>", "<Home>")  -- 使用ctrl a切换至行首
 keymap.set("i", "<C-e>", "<End>") -- 使用ctrl e切换至行尾
 

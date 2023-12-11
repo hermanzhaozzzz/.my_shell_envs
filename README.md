@@ -14,7 +14,9 @@
   - command line version for Youdao dict
 - [command: `tldr`](https://github.com/tldr-pages/tldr-python-client)
     - a very useful demo document for command lines
-
+- [neovim](https://github.com/neovim/neovim)
+    - a self use config setting for `nvim`
+    - see the doc for [my config](tools/nvim/README.md) and learn to use it
 
 
 # use

@@ -28,6 +28,6 @@ keymap.set("n", "<leader>e", ":NvimTreeToggle<CR>")  -- 使用leader键 + e调�
 keymap.set("n", "<leader>nh", ":nohl<CR>")
 
 -- 切换buffer
-keymap.set("n", "<C-l>", ":bnext<CR>")
-keymap.set("n", "<C-h>", ":bprevious<CR>")
+keymap.set("n", "<leader>we", ":bnext<CR>")
+keymap.set("n", "<leader>wq", ":bprevious<CR>")
 

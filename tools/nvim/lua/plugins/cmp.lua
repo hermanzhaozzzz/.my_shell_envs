@@ -69,7 +69,7 @@ cmp.setup({
         -- 在弹出的文档帮助中上下文滚动
         ['<C-n>'] = cmp.mapping.scroll_docs(-4),
         ['<C-p>'] = cmp.mapping.scroll_docs(4),
-        -- ['<C-e>'] = cmp.mapping.abort(),  -- 取消补全，esc也可以退出, 这个和移动到行尾撞车，后期再优化
+        ['<C-q>'] = cmp.mapping.abort(),  -- 取消补全，esc也可以退出
         -- <CR>是回车的意思, select=true则确定选择
         ['<CR>'] = cmp.mapping.confirm({ select = true }),
         -- 跳转到补全条目的下一个

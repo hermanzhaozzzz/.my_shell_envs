@@ -1,8 +1,11 @@
 local builtin = require('telescope.builtin')
 
--- 进入telescope页面会是插入模式，回到正常模式就可以用j和k来移动了
-
+-- 环境里要安装ripgrep!
+-- ff: search file
 vim.keymap.set('n', '<leader>ff', builtin.find_files, {})
-vim.keymap.set('n', '<leader>fg', builtin.live_grep, {})  -- 环境里要安装ripgrep
+-- fc: search code
+vim.keymap.set('n', '<leader>fc', builtin.live_grep, {})  -- 环境里要安装ripgrep
+-- fb: search buffer
 vim.keymap.set('n', '<leader>fb', builtin.buffers, {})
+-- fh: search help
 vim.keymap.set('n', '<leader>fh', builtin.help_tags, {})

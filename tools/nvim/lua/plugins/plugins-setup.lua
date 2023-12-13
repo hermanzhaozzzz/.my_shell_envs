@@ -43,9 +43,9 @@ return require('packer').startup(function(use)
     use { -- 配置LSP
         'williamboman/mason.nvim',  -- 使用mason统一管理lsp服务
         'williamboman/mason-lspconfig.nvim',  -- 这个相当于mason.nvim和lspconfig的桥梁
-        'neovim/nvim-lspconfig'
+        'neovim/nvim-lspconfig'  -- 配置lsp服务器
     }
-    use { -- 配置自动补全
+    use { -- 配置自动补全!!!!!!!!!!!!!重要的部分
         'hrsh7th/nvim-cmp',
         'hrsh7th/cmp-nvim-lsp',
         'L3MON4D3/LuaSnip', -- snippets引擎，不装这个自动补全会出问题

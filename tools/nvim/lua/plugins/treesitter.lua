@@ -1,20 +1,61 @@
-require 'nvim-treesitter.configs'.setup {
-    -- 添加不同语言
-    ensure_installed = {
-        "vim", "bash", "c", "cpp", "javascript", 
-        "json", "lua", "python", "rust", "markdown", "markdown_inline" 
+return {
+  {
+    'nvim-treesitter/nvim-treesitter',
+    event = { 'BufReadPre', 'BufNewFile' },
+    build = ':TSUpdate',
+    dependencies = {
+      'windwp/nvim-ts-autotag',
+      'axelvc/template-string.nvim',
     },
-    highlight = {
-        enable = true
-    },
-    indent = {
-        enable = true
-    },
+    config = function()
+      require('nvim-treesitter.configs').setup {
+        ensure_installed = {
+          'tsx',
+          'lua',
+          'vim',
+          'typescript',
+          'javascript',
+          'html',
+          'css',
+          'json',
+          'graphql',
+          'regex',
+          'rust',
+          'prisma',
+          'markdown',
+          'markdown_inline',
+        },
 
-    -- 不同括号颜色区分
-    rainbow = {
-        enable = true,
-        extended_mode = true,
-        max_file_lines = nil,
-    }
+        sync_install = false,
+
+        auto_install = true,
+
+        highlight = {
+          enable = true,
+
+          additional_vim_regex_highlighting = false,
+        },
+        autotag = {
+          enable = true,
+        },
+        incremental_selection = {
+          enable = true,
+          keymaps = {
+            init_selection = '<enter>',
+            node_incremental = '<enter>',
+            scope_incremental = false,
+            node_decremental = '<bs>',
+          },
+        },
+      }
+
+      require('template-string').setup {}
+
+      -- fold
+      local opt = vim.opt
+      opt.foldmethod = 'expr'
+      opt.foldexpr = 'nvim_treesitter#foldexpr()'
+      opt.foldenable = false
+    end,
+  },
 }

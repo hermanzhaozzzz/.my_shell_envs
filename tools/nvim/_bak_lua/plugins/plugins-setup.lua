@@ -50,7 +50,7 @@ return require('packer').startup(function(use)
         'hrsh7th/cmp-nvim-lsp',
         'L3MON4D3/LuaSnip', -- snippets引擎，不装这个自动补全会出问题
         'saadparwaiz1/cmp_luasnip',
-        'rafamadriz/friendly-snippets',
+        -- 'rafamadriz/friendly-snippets',
         'hrsh7th/cmp-path',  -- 文件路径
     }
     use {
@@ -65,6 +65,7 @@ return require('packer').startup(function(use)
             {'nvim-lua/plenary.nvim'}
         }
     }
+    use 'rcarriga/nvim-notify'  -- 一个花哨的、可配置的、用于 NeoVim 的通知管理器
 
     if packer_bootstrap then
         require('packer').sync()

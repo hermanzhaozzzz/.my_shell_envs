@@ -1,19 +1,3 @@
--- vim.g.mapleader = ' '
--- local keymap = vim.keymap
-
--- keymap.set('n', '<c-a>', 'ggVG')
-
--- keymap.set({ 'n', 'x' }, '<leader>p', '"0p')
-
--- keymap.set('n', '<leader>q', '<cmd>q<cr>')
--- keymap.set('n', '<leader>w', '<cmd>w<cr>')
--- keymap.set('n', '<leader>x', '<cmd>x<cr>')
-
--- keymap.set('n', 'j', [[v:count?'j':'gj']], { noremap = true, expr = true })
--- keymap.set('n', 'k', [[v:count?'k':'gk']], { noremap = true, expr = true })
-
--- keymap.set('n', '<leader>nh', ':nohl<CR>', { desc = 'Clear search highlights' })
-
 vim.g.mapleader = ' '
 local keymap = vim.keymap
 ----------------------------------------------------------------
@@ -78,16 +62,16 @@ keymap.set('n', 'A', 'ggVG')
 -- brew install neovide
 if vim.g.neovide then
   vim.o.guifont = 'JetbrainsMono Nerd Font:h14:i'
-  vim.g.neovide_scale_factor = 1.6
+  vim.g.neovide_scale_factor = 1.15
 
   -- dynamic scale
   local change_scale_factor = function(delta)
     vim.g.neovide_scale_factor = vim.g.neovide_scale_factor * delta
   end
-  vim.keymap.set('n', '<CMD-=>', function()
+  vim.keymap.set('n', '<CMD-=', function()
     change_scale_factor(1.1)
   end)
-  vim.keymap.set('n', '<CMD-->', function()
+  vim.keymap.set('n', '<CMD--', function()
     change_scale_factor(1 / 1.1)
   end)
 end

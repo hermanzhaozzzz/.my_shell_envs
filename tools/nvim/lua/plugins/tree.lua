@@ -1,8 +1,12 @@
 return {
   {
     'nvim-tree/nvim-tree.lua',
-    dependencies = { 'nvim-tree/nvim-web-devicons' },
+    dependencies = {
+      'nvim-tree/nvim-web-devicons',
+      'christoomey/vim-tmux-navigator',
+    },
     config = function()
+      -- 默认不开启nvim-tree
       vim.g.loaded_netrw = 1
       vim.g.loaded_netrwPlugin = 1
 
@@ -24,7 +28,8 @@ return {
         api.config.mappings.default_on_attach(bufnr)
 
         -- custom mappings
-        vim.keymap.set('n', '<c-e>', api.tree.toggle, opts 'Toggle')
+        -- vim.keymap.set('n', '<c-e>', api.tree.toggle, opts 'Toggle')
+        -- 在目录模式下按shift + ?调出帮助
         vim.keymap.set('n', '?', api.tree.toggle_help, opts 'Help')
       end
 
@@ -44,7 +49,7 @@ return {
           update_cwd = true,
         },
         git = {
-          enable = false,
+          enable = true,
         },
         diagnostics = {
           enable = true,

@@ -1,3 +1,6 @@
+-- https://github.com/mrjones2014/legendary.nvim
+-- 将键盘映射、命令和自动命令定义为简单的 Lua 表，同时构建图例（类似vscode的命令面板）。
+-- 需要好好研究
 return {
   'mrjones2014/legendary.nvim',
   dependencies = {

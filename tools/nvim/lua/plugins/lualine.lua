@@ -1,3 +1,5 @@
+-- https://github.com/nvim-lualine/lualine.nvim/wiki/Introduction
+-- 为 neovim 编写的状态栏插件。它主要是用 lua 编写的。它的目标是提供一个易于定制和快速的状态栏
 return {
   'nvim-lualine/lualine.nvim',
   config = function()

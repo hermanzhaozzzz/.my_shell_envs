@@ -1,3 +1,7 @@
+-- https://github.com/Saecki/crates.nvim
+-- 一个 neovim 插件，可帮助管理 crates.io 依赖项。
+-- crates.io是Rust 社区的中央存储库, 可以理解为python的pypi
+-- 有点迷，先跳过吧
 return {
   'saecki/crates.nvim',
   event = { 'BufRead Cargo.toml' },

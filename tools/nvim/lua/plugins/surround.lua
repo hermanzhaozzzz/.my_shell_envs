@@ -1,3 +1,5 @@
+-- https://github.com/kylechui/nvim-surround
+-- 非常易用的选中代码边缘 的小工具，值得学习
 return {
   {
     'kylechui/nvim-surround',

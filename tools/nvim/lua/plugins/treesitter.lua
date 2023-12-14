@@ -48,9 +48,9 @@ return {
           },
         },
         indent = {
-          enable = true
+          enable = true,
         },
-        rainbow = {
+        rainbow = { -- need 'nvim-ts-rainbow'
           enable = true,
           extended_mode = true,
           max_file_lines = nil,

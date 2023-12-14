@@ -36,3 +36,14 @@ TODO:
 有空学学这个配置https://github.com/chrisgrieser/nvim-kickstart-python/blob/fb680d506c8ee59d42bc62712e5d31acd8a58233/kickstart-python.lua
 非常不错
 ## issues
+
+
+## Screenshot
+
+![screenshot](https://github.com/bitterteasweetorange/nvim/blob/main/screenshot.png)
+
+## Requirements
+
+- Neovim 0.8+
+- [ripgrep](https://github.com/BurntSushi/ripgrep)
+- [nerdfonts](https://www.nerdfonts.com/)

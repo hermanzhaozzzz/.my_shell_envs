@@ -34,11 +34,11 @@ return {
         'rust-analyzer',
         'pylint', -- linter for python
         'debugpy', -- debugger
-        -- 'black',  -- formatter
-        -- 'isort',  -- organize imports
+        'black',  -- formatter
+        'isort',  -- organize imports
         'ruff', -- linter for python (includes flake8, pep8, etc.)
         'ruff-lsp', -- LSP for python with pyright
-        -- 'pyright', -- LSP for python with ruff
+        'pyright', -- LSP for python with ruff
         'taplo', -- LSP for toml (for pyproject.toml files)
       },
     }

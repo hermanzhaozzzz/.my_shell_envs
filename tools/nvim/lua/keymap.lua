@@ -1,3 +1,19 @@
+-- vim.g.mapleader = ' '
+-- local keymap = vim.keymap
+
+-- keymap.set('n', '<c-a>', 'ggVG')
+
+-- keymap.set({ 'n', 'x' }, '<leader>p', '"0p')
+
+-- keymap.set('n', '<leader>q', '<cmd>q<cr>')
+-- keymap.set('n', '<leader>w', '<cmd>w<cr>')
+-- keymap.set('n', '<leader>x', '<cmd>x<cr>')
+
+-- keymap.set('n', 'j', [[v:count?'j':'gj']], { noremap = true, expr = true })
+-- keymap.set('n', 'k', [[v:count?'k':'gk']], { noremap = true, expr = true })
+
+-- keymap.set('n', '<leader>nh', ':nohl<CR>', { desc = 'Clear search highlights' })
+
 vim.g.mapleader = ' '
 local keymap = vim.keymap
 ----------------------------------------------------------------
@@ -59,11 +75,6 @@ keymap.set('n', '<leader>e', ':NvimTreeToggle<CR>')
 -- shift + a                                     全选
 keymap.set('n', 'A', 'ggVG')
 
---  | leader + .                        切换buffer
-
--- leader + cf                                    格式化代码 : code format
--- keymap.set("n", "<leader>cf", ":lua vim.lsp.buf.format()<CR>")
-
 -- brew install neovide
 if vim.g.neovide then
   vim.o.guifont = 'JetbrainsMono Nerd Font:h14:i'
@@ -119,57 +130,57 @@ vim.api.nvim_set_keymap(
 -- 每当语言服务器附加到缓冲区时，Neovim 都会发出该事件 LspAttach ，这将使我们有机会创建键绑定
 -- 此自动命令可以存在于我们配置中的任何位置
 -- https://vonheikemen.github.io/devlog/tools/setup-nvim-lspconfig-plus-nvim-cmp/
--- vim.api.nvim_create_autocmd('LspAttach', {
---     desc = 'LSP actions',
---     callback = function()
---         local bufmap = function(mode, lhs, rhs)
---             local opts = { buffer = true }
---             vim.keymap.set(mode, lhs, rhs, opts)
---         end
---         -- Displays hover information about the symbol under the cursor
---         -- 显示光标下符号的悬停信息
---         bufmap('n', 'K', '<cmd>lua vim.lsp.buf.hover()<cr>')
+vim.api.nvim_create_autocmd('LspAttach', {
+    desc = 'LSP actions',
+    callback = function()
+        local bufmap = function(mode, lhs, rhs)
+            local opts = { buffer = true }
+            vim.keymap.set(mode, lhs, rhs, opts)
+        end
+        -- Displays hover information about the symbol under the cursor
+        -- 显示光标下符号的悬停信息
+        bufmap('n', 'K', '<cmd>lua vim.lsp.buf.hover()<cr>')
 
---         -- Jump to the definition
---         -- 跳转到定义
---         bufmap('n', 'gd', '<cmd>lua vim.lsp.buf.definition()<cr>')
+        -- Jump to the definition
+        -- 跳转到定义
+        bufmap('n', 'gd', '<cmd>lua vim.lsp.buf.definition()<cr>')
 
---         -- Jump to declaration
---         -- 跳转到声明
---         bufmap('n', 'gD', '<cmd>lua vim.lsp.buf.declaration()<cr>')
+        -- Jump to declaration
+        -- 跳转到声明
+        bufmap('n', 'gD', '<cmd>lua vim.lsp.buf.declaration()<cr>')
 
---         -- Lists all the implementations for the symbol under the cursor
---         -- 列出光标下的符号的所有实现
---         bufmap('n', 'gi', '<cmd>lua vim.lsp.buf.implementation()<cr>')
+        -- Lists all the implementations for the symbol under the cursor
+        -- 列出光标下的符号的所有实现
+        bufmap('n', 'gi', '<cmd>lua vim.lsp.buf.implementation()<cr>')
 
---         -- Jumps to the definition of the type symbol
---         -- 跳转到类型符号的定义
---         bufmap('n', 'go', '<cmd>lua vim.lsp.buf.type_definition()<cr>')
+        -- Jumps to the definition of the type symbol
+        -- 跳转到类型符号的定义
+        bufmap('n', 'go', '<cmd>lua vim.lsp.buf.type_definition()<cr>')
 
---         -- Lists all the references
---         -- 列出所有引用项
---         bufmap('n', 'gr', '<cmd>lua vim.lsp.buf.references()<cr>')
+        -- Lists all the references
+        -- 列出所有引用项
+        bufmap('n', 'gr', '<cmd>lua vim.lsp.buf.references()<cr>')
 
---         -- Displays a function's signature information
---         -- 显示函数的签名信息
---         bufmap('n', 'gs', '<cmd>lua vim.lsp.buf.signature_help()<cr>')
+        -- Displays a function's signature information
+        -- 显示函数的签名信息
+        bufmap('n', 'gs', '<cmd>lua vim.lsp.buf.signature_help()<cr>')
 
---         -- Renames all references to the symbol under the cursor
---         -- 重命名光标下对符号的所有引用
---         bufmap('n', '<F2>', '<cmd>lua vim.lsp.buf.rename()<cr>')
+        -- Renames all references to the symbol under the cursor
+        -- 重命名光标下对符号的所有引用
+        bufmap('n', '<F2>', '<cmd>lua vim.lsp.buf.rename()<cr>')
 
---         -- Selects a code action available at the current cursor position
---         -- 选择当前光标位置上可用的代码操作
---         bufmap('n', '<F4>', '<cmd>lua vim.lsp.buf.code_action()<cr>')
+        -- Selects a code action available at the current cursor position
+        -- 选择当前光标位置上可用的代码操作
+        bufmap('n', '<F4>', '<cmd>lua vim.lsp.buf.code_action()<cr>')
 
---         -- Show diagnostics in a floating window
---         -- 在浮动窗口中显示诊断
---         bufmap('n', 'gl', '<cmd>lua vim.diagnostic.open_float()<cr>')
+        -- Show diagnostics in a floating window
+        -- 在浮动窗口中显示诊断
+        bufmap('n', 'gl', '<cmd>lua vim.diagnostic.open_float()<cr>')
 
---         -- Move to the previous diagnostic
---         bufmap('n', '[d', '<cmd>lua vim.diagnostic.goto_prev()<cr>')
+        -- Move to the previous diagnostic
+        bufmap('n', '[d', '<cmd>lua vim.diagnostic.goto_prev()<cr>')
 
---         -- Move to the next diagnostic
---         bufmap('n', ']d', '<cmd>lua vim.diagnostic.goto_next()<cr>')
---     end
--- })
+        -- Move to the next diagnostic
+        bufmap('n', ']d', '<cmd>lua vim.diagnostic.goto_next()<cr>')
+    end
+})

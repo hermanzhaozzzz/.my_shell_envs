@@ -1,8 +1,8 @@
 -- 获取Vim的'data'目录的路径，并将其与'/lazy/lazy.nvim'这个相对路径连接起来，然后将结果存储在lazypath变量
 local lazypath = vim.fn.stdpath 'data' .. '/lazy/lazy.nvim'
 -- vim.notify('lazypath @ ' .. lazypath)
+
 if not vim.loop.fs_stat(lazypath) then
-  vim.notify('init lazy @ ' .. lazypath)
   vim.fn.system {
     'git',
     'clone',
@@ -18,6 +18,5 @@ vim.opt.rtp:prepend(lazypath)
 
 require 'base'
 require 'utils'
--- require 'neovide'
 require 'keymap'
 require('lazy').setup 'plugins'

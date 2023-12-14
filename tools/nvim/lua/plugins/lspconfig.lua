@@ -1,29 +1,3 @@
--- return {
---   'neovim/nvim-lspconfig',
---   config = function()
---     local lspconfig = require 'lspconfig'
-
---     -- graphql
---     lspconfig.graphql.setup {
---       filetypes = {
---         'graphql',
---         'gql',
---       },
---     }
-
---     -- lua
---     lspconfig.lua_ls.setup {
---       settings = {
---         Lua = {
---           diagnostics = {
---             globals = { 'vim' },
---           },
---         },
---       },
---     }
---     lspconfig.pyright.setup {}
---   end,
--- }
 return {
   'neovim/nvim-lspconfig',
   dependencies = {
@@ -56,7 +30,8 @@ return {
     -- lua
     lspconfig['lua_ls'].setup {
       on_attach = on_attach,
-      root_dir = root_dir,
+      --  Your workspace is set to `/Users/zhaohuanan`. Lua language server refused to load this directory
+      -- https://github.com/folke/neodev.nvim/issues/50
       capabilities = capabilities,
       settings = {
         Lua = {
@@ -68,13 +43,10 @@ return {
     }
     lspconfig['taplo'].setup { -- for toml file
       on_attach = on_attach,
-      root_dir = root_dir,
       capabilities = capabilities,
     }
 
     lspconfig['pyright'].setup {
-      -- on_attach = on_attach,
-      root_dir = root_dir,
       capabilities = capabilities,
       filetypes = { 'python' },
       on_attach = function(client) -- https://github.com/microsoft/pyright/blob/main/docs/settings.md

@@ -4,7 +4,7 @@ opt.termguicolors = true -- 开启终端色彩功能
 
 opt.signcolumn = 'yes' -- 显示左侧图标指示列
 
-opt.colorcolumn = '80' -- 右侧参考线，超过表示代码太长了，考虑换行
+opt.colorcolumn = '120' -- 右侧参考线，超过表示代码太长了，考虑换行
 opt.wrap = false -- 禁止折行 使长行的文本始终可见。 长线是那些超过屏幕宽度的线。 默认值是true
 
 opt.cursorline = true -- 高亮所在行
@@ -46,7 +46,7 @@ opt.swapfile = false -- 禁止创建备份文件
 -- ----------TODO不知道干嘛的---------- --
 -- highlight on yank
 vim.api.nvim_create_autocmd('TextYankPost', {
-  callback = function()
-    vim.highlight.on_yank()
-  end,
+    callback = function()
+        vim.highlight.on_yank()
+    end,
 })

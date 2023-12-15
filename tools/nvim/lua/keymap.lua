@@ -20,6 +20,7 @@ keymap.set('c', '<C-a>', '<Home>')
 keymap.set('c', '<C-e>', '<End>')
 keymap.set('!', '<C-a>', '<Home>')
 keymap.set('!', '<C-e>', '<End>')
+keymap.set('n', '<D-/>', '<ESC>gcc') -- annotation
 
 ----------------------------------------------------------------
 -- ---------- 插入模式 ---------- --
@@ -50,7 +51,7 @@ keymap.set('n', '<leader>nh', ':nohl<CR>')
 keymap.set('n', '<leader>wv', vim.cmd.vsplit, { silent = true, remap = false }) -- 水平新增窗口
 keymap.set('n', '<leader>wh', vim.cmd.split, { silent = true, remap = false }) -- 垂直新增窗口
 keymap.set('n', '<leader>wr', function()
-  vim.opt.relativenumber = not vim.opt.relativenumber:get()
+    vim.opt.relativenumber = not vim.opt.relativenumber:get()
 end, { silent = true, remap = false })
 
 keymap.set('n', '<leader>e', ':NvimTreeToggle<CR>')
@@ -61,19 +62,19 @@ keymap.set('n', 'A', 'ggVG')
 
 -- brew install neovide
 if vim.g.neovide then
-  vim.o.guifont = 'JetbrainsMono Nerd Font:h14:i'
-  vim.g.neovide_scale_factor = 1.15
+    vim.o.guifont = 'JetbrainsMono Nerd Font:h14:i'
+    vim.g.neovide_scale_factor = 1.15
 
-  -- dynamic scale
-  local change_scale_factor = function(delta)
-    vim.g.neovide_scale_factor = vim.g.neovide_scale_factor * delta
-  end
-  vim.keymap.set('n', '<CMD-=', function()
-    change_scale_factor(1.1)
-  end)
-  vim.keymap.set('n', '<CMD--', function()
-    change_scale_factor(1 / 1.1)
-  end)
+    -- dynamic scale
+    local change_scale_factor = function(delta)
+        vim.g.neovide_scale_factor = vim.g.neovide_scale_factor * delta
+    end
+    vim.keymap.set('n', '<CMD-=', function()
+        change_scale_factor(1.1)
+    end)
+    vim.keymap.set('n', '<CMD--', function()
+        change_scale_factor(1 / 1.1)
+    end)
 end
 
 vim.keymap.set('n', '<CMD-s>', ':w<CR>') -- Save
@@ -86,28 +87,28 @@ vim.keymap.set('i', '<CMD-v>', '<ESC>l"+Pli') -- Paste insert mode
 
 -- Allow clipboard copy paste in neovim
 vim.api.nvim_set_keymap(
-  '',
-  '<CMD-v>',
-  '+p<CR>',
-  { noremap = true, silent = true }
+    '',
+    '<CMD-v>',
+    '+p<CR>',
+    { noremap = true, silent = true }
 )
 vim.api.nvim_set_keymap(
-  '!',
-  '<CMD-v>',
-  '<C-R>+',
-  { noremap = true, silent = true }
+    '!',
+    '<CMD-v>',
+    '<C-R>+',
+    { noremap = true, silent = true }
 )
 vim.api.nvim_set_keymap(
-  't',
-  '<CMD-v>',
-  '<C-R>+',
-  { noremap = true, silent = true }
+    't',
+    '<CMD-v>',
+    '<C-R>+',
+    { noremap = true, silent = true }
 )
 vim.api.nvim_set_keymap(
-  'v',
-  '<CMD-v>',
-  '<C-R>+',
-  { noremap = true, silent = true }
+    'v',
+    '<CMD-v>',
+    '<C-R>+',
+    { noremap = true, silent = true }
 )
 
 -- 为了利用一些“LSP 功能”，我们需要创建一些键绑定。
@@ -166,5 +167,5 @@ vim.api.nvim_create_autocmd('LspAttach', {
 
         -- Move to the next diagnostic
         bufmap('n', ']d', '<cmd>lua vim.diagnostic.goto_next()<cr>')
-    end
+    end,
 })

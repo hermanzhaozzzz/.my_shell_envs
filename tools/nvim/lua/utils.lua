@@ -30,7 +30,7 @@ function M.may_create_dir(dir)
     local res = fn.isdirectory(dir)
 
     if res == 0 then
-        fn.mkdir(dir, "p")
+        fn.mkdir(dir, 'p')
     end
 end
 
@@ -53,11 +53,4 @@ function M.rand_element(seq)
     return seq[idx]
 end
 
-function M.add_pack(name)
-    local status, error = pcall(vim.cmd, "packadd " .. name)
-
-    return status
-end
-
 return M
-

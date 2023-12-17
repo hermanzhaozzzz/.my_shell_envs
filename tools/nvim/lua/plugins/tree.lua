@@ -14,8 +14,6 @@ return {
             -- vim.g.netrw_banner = 0
 
             local api = require 'nvim-tree.api'
-            -- vim.keymap.set('n', '<c-e>', api.tree.toggle)  和ctrl e跳转到行尾冲突
-
             local function my_on_attach(bufnr)
                 local function opts(desc)
                     return {
@@ -29,9 +27,6 @@ return {
 
                 -- default mappings
                 api.config.mappings.default_on_attach(bufnr)
-
-                -- custom mappings
-                -- vim.keymap.set('n', '<c-e>', api.tree.toggle, opts 'Toggle')
                 -- 在目录模式下按shift + ?调出帮助
                 vim.keymap.set('n', '?', api.tree.toggle_help, opts 'Help')
             end

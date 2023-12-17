@@ -62,7 +62,7 @@ return {
                 },
                 python = {
                     {
-                        autoImportCompletions = false, -- Determines whether pyright offers auto-import completions.i
+                        autoImportCompletions = true, -- Determines whether pyright offers auto-import completions.i
                         autoSearchPaths = true, -- Determines whether pyright automatically adds common search paths like "src" if there are no execution environments defined in the config file
                         -- extraPaths = none, -- Paths to add to the default execution environment extra paths if there are no execution environments defined in the config file.
                         typeCheckingMode = 'basic', -- “off”， “basic”， “standard”， “strict” 确定 pyright 使用的默认类型检查级别

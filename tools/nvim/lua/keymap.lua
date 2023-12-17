@@ -41,24 +41,24 @@ local nmappings = {
         opt = opt_n,
     },
     { -- exit without saving
-        from = '<C-q>',
+        from = '<leader>-q>',
         to = ':q<CR>',
         mode = mode_n,
         opt = opt_n,
     },
     { -- save
-        from = '<C-s>',
+        from = '<leader>s',
         to = ':w<CR>:lua vim.notify("exec save file.")<CR>',
         mode = mode_n,
         opt = opt_nb,
     },
 
-    {
-        from = 'ca',
-        to = ':! xclip -sel c %<CR><CR>:lua vim.notify("exec line copy!")<CR>',
-        mode = mode_nv,
-        opt = opt_n,
-    },
+    -- {
+    --     from = 'ca',
+    --     to = ':! xclip -sel c %<CR><CR>:lua vim.notify("exec line copy!")<CR>',
+    --     mode = mode_nv,
+    --     opt = opt_n,
+    -- },
     -- { -- 禁用文本高亮显示
     --     from = '<leader><cr>',
     --     to = ':noh<CR>',
@@ -159,7 +159,7 @@ local nmappings = {
     -- -- toc supported by nvim-tree
     -- --------------------------------------------------
     { -- toggle toc open/close
-        from = '<leader>wt',
+        from = '<leader>e',
         to = ':NvimTreeToggle<CR>',
         mode = mode_n,
         opt = opt_n,
@@ -328,7 +328,8 @@ local nmappings = {
     { -- format code
         from = '<leader>ff',
         to = function()
-            conform_format { async = true, lsp_fallback = true }
+            conform_format { async = false, lsp_fallback = true }
+            vim.notify 'code formated by conform.'
         end,
         mode = mode_n,
         opt = opt_n,

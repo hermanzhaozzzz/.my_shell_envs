@@ -306,5 +306,5 @@ else
 fi
 unset __mamba_setup
 # <<< mamba initialize <<<
-
+conda deactivate
 # conda activate base

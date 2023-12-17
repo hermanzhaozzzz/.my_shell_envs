@@ -52,6 +52,24 @@ local nmappings = {
         mode = mode_n,
         opt = opt_nb,
     },
+    { -- drop this shortkey!
+        from = '<leader>ud',
+        to = '<nop>',
+        mode = mode_n,
+        opt = opt_n,
+    },
+    { -- undo
+        from = '<leader>z',
+        to = ':undo<CR>==',
+        mode = mode_n,
+        opt = opt_n,
+    },
+    { -- redo
+        from = '<leader>Z',
+        to = ':redo<CR>==',
+        mode = mode_n,
+        opt = opt_n,
+    },
 
     -- {
     --     from = 'ca',

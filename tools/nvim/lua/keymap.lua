@@ -99,12 +99,12 @@ local nmappings = {
         mode = mode_nv,
         opt = opt_n,
     },
-    -- { -- 使用L切换到行末最后一个可见字符前 TODO 这里还没想好用什么方法完成，暂时占个空
-    --     from = 'L',
-    --     to = '$',
-    --     mode = mode_nv,
-    --     opt = opt_n,
-    -- },
+    { -- 使用L切换到行末最后一个可见字符前 TODO 这里还没想好用什么方法完成，暂时占个空
+        from = 'L',
+        to = '$',
+        mode = mode_nv,
+        opt = opt_n,
+    },
     { -- 使用J切换到下10行
         from = 'J',
         to = '10j',
@@ -117,12 +117,43 @@ local nmappings = {
         mode = mode_nv,
         opt = opt_n,
     },
-    -- { from = "L",                to = "$",                                                             mode = mode_nv,     opt = opt_n  },
-    -- { from = "<A-l>",            to = "<Right>",                                                       mode = mode_i,      opt = opt_n  },
-    -- { from = "<A-j>",            to = "<cmd>m .+1<cr>==",                                              mode = mode_n,      opt = opt_n  },
-    -- { from = "<A-k>",            to = "<cmd>m .-2<cr>==",                                              mode = mode_n,      opt = opt_n  },
-    -- { from = "<A-j>",            to = ":m '>+1<cr>gv=gv",                                              mode = mode_v,      opt = opt_n  },
-    -- { from = "<A-k>",            to = ":m '<-2<cr>gv=gv",                                              mode = mode_v,      opt = opt_n  },
+    { -- 使用ctrl l在输入模式下向右移动
+        from = '<C-l>',
+        to = '<Right>',
+        mode = mode_i,
+        opt = opt_n,
+    },
+    { -- 使用ctrl h在输入模式下向左移动
+        from = '<C-h>',
+        to = '<Left>',
+        mode = mode_i,
+        opt = opt_n,
+    },
+    { -- 使用ctrl k在可视模式上移一行
+        from = '<C-k>',
+        to = '<cmd>m .-2<cr>gv=gv',
+        mode = mode_i,
+        opt = opt_n,
+    },
+    { -- 使用ctrl j在可视模式下移一行
+
+        from = '<C-j>',
+        to = ":m '>+1<cr>gv=gv",
+        mode = mode_i,
+        opt = opt_n,
+    },
+    { -- 使用ctrl k在普通模式上移一行
+        from = '<C-k>',
+        to = ':m .-2<CR>==',
+        mode = mode_n,
+        opt = opt_n,
+    },
+    { -- 使用ctrl j在普通模式下移一行
+        from = '<C-j>',
+        to = ':m .+1<CR>==',
+        mode = mode_n,
+        opt = opt_n,
+    },
 
     -- --------------------------------------------------
     -- -- toc supported by nvim-tree

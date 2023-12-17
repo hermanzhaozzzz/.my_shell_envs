@@ -33,7 +33,10 @@ TODO:
 - https://github.com/Wansmer/treesj  ！！！！重要
 
 
-有空学学这个配置https://github.com/chrisgrieser/nvim-kickstart-python/blob/fb680d506c8ee59d42bc62712e5d31acd8a58233/kickstart-python.lua
+有空学学这个配置
+https://github.com/chrisgrieser/nvim-kickstart-python/blob/fb680d506c8ee59d42bc62712e5d31acd8a58233/kickstart-python.lua
+
+https://github.com/Kicamon/nvim/blob/main/lua/config/keymaps.lua
 非常不错
 ## issues
 

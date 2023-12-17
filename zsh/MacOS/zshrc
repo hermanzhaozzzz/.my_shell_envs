@@ -260,6 +260,7 @@ alias l="exa -lha --tree -L 1 --time-style long-iso"
 alias startsc="open -a DPSafeConnect.app 2> /dev/null || open -a SafeConnect 2> /dev/null && open -a Step\ Two.app"
 alias opena="open -a Sublime\ Text"
 alias code="/Applications/Visual\ Studio\ Code.app/Contents/Resources/app/bin/code"
+alias v="neovide"
 
 # Bioinformatic tools
 alias checkbam="for i in *.bam ;do (samtools quickcheck \$i && echo \"ok    \" \$i || echo \"error    \" \$i);done"

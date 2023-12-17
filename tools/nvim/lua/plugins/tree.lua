@@ -9,6 +9,9 @@ return {
             -- 默认不开启nvim-tree
             vim.g.loaded_netrw = 1
             vim.g.loaded_netrwPlugin = 1
+            -- vim.g.netrw_browse_split = 3
+            -- vim.g.netrw_liststyle = 3
+            -- vim.g.netrw_banner = 0
 
             local api = require 'nvim-tree.api'
             -- vim.keymap.set('n', '<c-e>', api.tree.toggle)  和ctrl e跳转到行尾冲突

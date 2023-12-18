@@ -50,7 +50,7 @@ local nmappings = {
         from = '<leader>s',
         to = ':w<CR>:lua vim.notify("exec save file.")<CR>',
         mode = mode_n,
-        opt = opt_nb,
+        opt = opt_n,
     },
     { -- drop this shortkey!
         from = '<leader>ud',
@@ -347,7 +347,7 @@ local nmappings = {
         from = '<leader>ff',
         to = function()
             conform_format { async = false, lsp_fallback = true }
-            vim.notify 'code formated by conform.'
+            vim.notify 'code formatted by conform.'
         end,
         mode = mode_n,
         opt = opt_n,

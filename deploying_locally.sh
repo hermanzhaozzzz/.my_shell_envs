@@ -144,11 +144,11 @@ else
 fi
 echo "set vim successful"
 
-echo -e "---------------------------------|\nset nvim config file"
-mkdir -p $HOME/.config
-mv $HOME/.config/nvim $HOME/.config/nvim_bak
-ln -s $REPO_PATH/tools/nvim $HOME/.config/nvim
-echo "set nvim successful"
+# echo -e "---------------------------------|\nset nvim config file"
+# mkdir -p $HOME/.config
+# mv $HOME/.config/nvim $HOME/.config/nvim_bak
+# ln -s $REPO_PATH/tools/nvim $HOME/.config/nvim
+# echo "set nvim successful"
 # ------------------------------------------------------------------->>>>>>>>>>
 # set external apps 
 # ------------------------------------------------------------------->>>>>>>>>>

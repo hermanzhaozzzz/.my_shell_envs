@@ -27,11 +27,10 @@ local nmappings = {
     -- shift + a                                     全选
     -- keymap.set('n', 'A', 'ggVG')
     -- base
-    -- keymap.set('i', 'wq', '<ESC>') -- 使用qw代替ESC键
     { -- easy key for key ESC
         from = 'wq',
         to = '<ESC><ESC>',
-        mode = mode_global,
+        mode = mode_i,
         opt = opt_n,
     },
     { -- turn off highlight of searched things
@@ -41,7 +40,7 @@ local nmappings = {
         opt = opt_n,
     },
     { -- exit without saving
-        from = '<leader>-q>',
+        from = '<leader>q',
         to = ':q<CR>',
         mode = mode_n,
         opt = opt_n,
@@ -60,13 +59,13 @@ local nmappings = {
     },
     { -- undo
         from = '<leader>z',
-        to = ':undo<CR>==',
+        to = ':undo<CR>',
         mode = mode_n,
         opt = opt_n,
     },
     { -- redo
         from = '<leader>Z',
-        to = ':redo<CR>==',
+        to = ':redo<CR>',
         mode = mode_n,
         opt = opt_n,
     },
@@ -75,12 +74,6 @@ local nmappings = {
     --     from = 'ca',
     --     to = ':! xclip -sel c %<CR><CR>:lua vim.notify("exec line copy!")<CR>',
     --     mode = mode_nv,
-    --     opt = opt_n,
-    -- },
-    -- { -- 禁用文本高亮显示
-    --     from = '<leader><cr>',
-    --     to = ':noh<CR>',
-    --     mode = mode_n,
     --     opt = opt_n,
     -- },
 
@@ -150,14 +143,14 @@ local nmappings = {
     { -- 使用ctrl k在可视模式上移一行
         from = '<C-k>',
         to = '<cmd>m .-2<cr>gv=gv',
-        mode = mode_i,
+        mode = mode_v,
         opt = opt_n,
     },
     { -- 使用ctrl j在可视模式下移一行
 
         from = '<C-j>',
         to = ":m '>+1<cr>gv=gv",
-        mode = mode_i,
+        mode = mode_v,
         opt = opt_n,
     },
     { -- 使用ctrl k在普通模式上移一行
@@ -319,7 +312,7 @@ local nmappings = {
     -- -- todo-comments
     -- --------------------------------------------------
     { -- jump to next TODO
-        from = '<leader>dj',
+        from = '<leader>tdj',
         to = function()
             todo_comments.jump_next()
         end,
@@ -327,7 +320,7 @@ local nmappings = {
         opt = opt_n,
     },
     { -- jump to previous TODO
-        from = '<leader>dk',
+        from = '<leader>tdk',
         to = function()
             todo_comments.jump_prev()
         end,
@@ -335,7 +328,7 @@ local nmappings = {
         opt = opt_n,
     },
     { -- telescope search TODO in this project
-        from = '<leader>da',
+        from = '<leader>tda',
         to = ':TodoTelescope<CR>',
         mode = mode_n,
         opt = opt_n,

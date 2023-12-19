@@ -150,6 +150,14 @@ echo "set vim successful"
 # ln -s $REPO_PATH/tools/nvim $HOME/.config/nvim
 # echo "set nvim successful"
 # ------------------------------------------------------------------->>>>>>>>>>
+# kitty setting (annotate if not use)
+# ------------------------------------------------------------------->>>>>>>>>>
+echo -e "---------------------------------|\nset kitty config file"
+mkdir -p $HOME/.config
+mv $HOME/.config/kitty $HOME/.config/kitty_bak
+ln -s $REPO_PATH/tools/kitty $HOME/.config/kitty
+echo "set kitty successful"
+# ------------------------------------------------------------------->>>>>>>>>>
 # set external apps 
 # ------------------------------------------------------------------->>>>>>>>>>
 echo -e "---------------------------------|\nset external tools...\n"

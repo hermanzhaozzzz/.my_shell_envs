@@ -123,7 +123,7 @@ ln -s $REPO_PATH/pip/pip.conf $HOME/.pip/pip.conf
 echo "pip config file @: $REPO_PATH/pip/pip.conf"
 echo "set pip config successful"
 # ------------------------------------------------------------------->>>>>>>>>>
-# vim setting (annotate if not use)
+# vim/nvim setting (annotate if not use)
 # ------------------------------------------------------------------->>>>>>>>>>
 echo -e "---------------------------------|\nset vim config file"
 
@@ -144,16 +144,25 @@ else
 fi
 echo "set vim successful"
 
-# echo -e "---------------------------------|\nset nvim config file"
-# mkdir -p $HOME/.config
-# mv $HOME/.config/nvim $HOME/.config/nvim_bak
-# ln -s $REPO_PATH/tools/nvim $HOME/.config/nvim
-# echo "set nvim successful"
+
+echo -e "---------------------------------|\nset nvim config file"
+
+if test -e $HOME/.config/nvim/init.lua; then      
+    echo 'old setting exists, running update steps...'
+    cd $HOME/.config/nvim
+    git fetch
+    git pull
+else
+    echo 'old setting does not exist, running git clone steps...'
+    git clone ${url_root}bitterteasweetorange/nvim.git $HOME/.config/nvim    
+    echo "nvim config file @ $HOME/.config/nvim"
+fi
+echo "set nvim successful"
 # ------------------------------------------------------------------->>>>>>>>>>
 # kitty setting (annotate if not use)
 # ------------------------------------------------------------------->>>>>>>>>>
 echo -e "---------------------------------|\nset kitty config file"
-mkdir -p $HOME/.config
+mkdir -p $HOME/.config/kitty
 mv $HOME/.config/kitty $HOME/.config/kitty_bak
 ln -s $REPO_PATH/tools/kitty $HOME/.config/kitty
 echo "set kitty successful"

@@ -76,14 +76,16 @@ git pull --rebase
 
 ![](https://pic4.zhimg.com/v2-9587f7dca82dc9b6e700b661e96207db_b.jpg)
 
-*   Insert模式下
+使用了一个比较大佬的公开配置，[查看文档](https://github.com/bitterteasweetorange/nvim.git)
+
+<!-- *   Insert模式下
 *   ctrl + A跳转至行首
 *   ctrl + E跳转至行尾
 *   Normal模式下
 *   ctrl + M多行选择文本
 *   ...
 *   具体查看[GitHub - hermanzhaozzzz/.my\_shell\_envs](https://link.zhihu.com/?target=https%3A//github.com/hermanzhaozzzz/.my_shell_envs)相关说明  
-  
+   -->
   
   
 

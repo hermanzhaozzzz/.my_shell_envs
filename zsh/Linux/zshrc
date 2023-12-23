@@ -145,6 +145,8 @@ source ~/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting/zsh-syntax-highlighti
 export PATH=/usr/bin:/usr/lib:/usr/lib64:/usr/libexec:/usr/sbin:/usr/local/bin:/usr/local/lib:/usr/local/lib64:/usr/local/libexec
 # slurm 系统命令
 export PATH=$PATH:/rm/rm_prog/slurm/18.08.7/bin:/data01/oldbin/newbin
+# on ubuntu
+export PATH=$PATH:/snap/bin
 
 # 个人系统命令
 export PATH=$PATH:${HOME}/.local/bin

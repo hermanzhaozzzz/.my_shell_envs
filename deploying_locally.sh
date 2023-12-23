@@ -56,6 +56,10 @@ if [[ "$platform" != "Windows" ]]; then
     # install micromamba
     if [ ! -f "$ROOT_PATH/bin/micromamba" ];then
         echo "micromamba not found @$ROOT_PATH/bin/! start to install..."
+        if [ -z "$(which bzip2)" ]; then
+            echo "Seems bzip2 command is not installed on your system, please install it first."
+            exit 1
+        fi
         mkdir -p $ROOT_PATH
         cd $ROOT_PATH
         curl -Ls $URL | tar -xvj bin/micromamba

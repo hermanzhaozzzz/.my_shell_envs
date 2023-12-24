@@ -57,7 +57,7 @@ if [[ "$platform" != "Windows" ]]; then
     if [ ! -f "$ROOT_PATH/bin/micromamba" ];then
         echo "micromamba not found @$ROOT_PATH/bin/! start to install..."
         if [ -z "$(which bzip2)" ]; then
-            echo "Seems bzip2 command is not installed on your system, please install it first."
+            echo "Seems the command 'bzip2' is not installed on your system, please install it first."
             exit 1
         fi
         mkdir -p $ROOT_PATH
@@ -188,7 +188,7 @@ if [[ "$platform" != "Windows" ]]; then
         rm $REPO_PATH/tools/jcat/jcat
         cd $REPO_PATH/tools/jcat
         if [ -z $(which make) ]; then
-            echo "Seems make command is not installed on your system, please install it first."
+            echo "Seems the command 'make' is not installed on your system, please install it first."
             exit 1
         fi
         make

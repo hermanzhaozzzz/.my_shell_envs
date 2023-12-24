@@ -187,6 +187,10 @@ if [[ "$platform" != "Windows" ]]; then
         rm $REPO_PATH/bin/jcat
         rm $REPO_PATH/tools/jcat/jcat
         cd $REPO_PATH/tools/jcat
+        if [ -z $(which make) ]; then
+            echo "Seems make command is not installed on your system, please install it first."
+            exit 1
+        fi
         make
         ln -s $REPO_PATH/tools/jcat/jcat $REPO_PATH/bin/jcat
     fi

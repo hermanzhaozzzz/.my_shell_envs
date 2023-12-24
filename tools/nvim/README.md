@@ -3,7 +3,10 @@
 > e-mail hermanzhaozzzz@gmail.com
 > repo   https://github.com/hermanzhaozzzz/.my_shell_envs
 
-## dependencies
+## a popular setting for nvim
+see [nvimdots](https://github.com/ayamir/nvimdots) for details
+
+<!-- ## dependencies
 ```
 # make sure they are in $PATH whenever!
 
@@ -50,3 +53,4 @@ https://github.com/Kicamon/nvim/blob/main/lua/config/keymaps.lua
 - Neovim 0.8+
 - [ripgrep](https://github.com/BurntSushi/ripgrep)
 - [nerdfonts](https://www.nerdfonts.com/)
+ -->

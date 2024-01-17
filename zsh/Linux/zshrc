@@ -2,7 +2,7 @@
 # linux
 alias proxy.start='ssh -qTnN -D 8234 zhaohuanan@zhaohuanan.cc'
 # all platform
-alias proxy.on='export https_proxy=http://127.0.0.1:8234;export http_proxy=http://127.0.0.1:8234;export all_proxy=socks5://127.0.0.1:8234;export no_proxy="192.168.59.102,192.168.59.103";git config --global http.proxy "socks5://127.0.0.1:8234";git config --global https.proxy "socks5://127.0.0.1:8234"'
+alias proxy.on='export https_proxy=http://127.0.0.1:8234;export http_proxy=http://127.0.0.1:8234;export all_proxy=socks5://127.0.0.1:8234;export no_proxy="192.168.59.102,192.168.59.103"'
 alias proxy.off='export https_proxy="";export http_proxy="";export all_proxy="";git config --global --unset https.proxy; git config --global --unset http.proxy'
 # ------------------------------------------------------------------->>>>>>>>>>
 # ssh socks代理 默认关闭
@@ -28,7 +28,7 @@ export ZSH="$HOME/.oh-my-zsh"
 ZSH_THEME="fino"
 
 # Set list of themes to pick from when loading at random
-# Setting this variable when ZSH_THEME=random will cause zsh to load
+
 # a theme from this variable instead of looking in $ZSH/themes/
 # If set to an empty array, this variable will have no effect.
 # ZSH_THEME_RANDOM_CANDIDATES=( "robbyrussell" "agnoster" )
@@ -176,17 +176,20 @@ export TMUX_TMPDIR=$HOME/.tmux_tmp_dir
 
 # for CUDA
 # cuda (on bioin)
-export PATH=$PATH:${HOME}/0.apps/cuda_12.2.0/bin
+# export PATH=$PATH:${HOME}/0.apps/cuda/cuda/bin
 # LIB
-# export LD_LIBRARY_PATH=${HOME}/0.apps/cuda_12.2.0/lib64:$LD_LIBRARY_PATH
-if [ $LD_LIBRARY_PATH ]; then
-    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${HOME}/0.apps/cuda_12.2.0/lib64
-else
-    export LD_LIBRARY_PATH=${HOME}/0.apps/cuda_12.2.0/lib64
-fi
+# if [ $LD_LIBRARY_PATH ]; then
+#     export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${HOME}/.my_shell_envs/ld_lib
+# else
+#     export LD_LIBRARY_PATH=${HOME}/.my_shell_envs/ld_lib
+# fi
 
 # CUDA_HOME
-export CUDA_HOME=${HOME}/0.apps/cuda_12.2.0:$CUDA_HOME:/usr/local/cuda
+# if [ $CUDA_HOME ]; then
+#     export CUDA_HOME=$CUDA_HOME:${HOME}/0.apps/cuda/cuda
+# else
+#     export CUDA_HOME=${HOME}/0.apps/cuda/cuda
+# fi
 
 # for perl
 PERL5LIB=''
@@ -308,4 +311,6 @@ fi
 unset __mamba_setup
 # <<< mamba initialize <<<
 
-conda activate base
+conda deactivate
+
+# conda activate base

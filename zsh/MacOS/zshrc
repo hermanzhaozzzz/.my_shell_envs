@@ -1,6 +1,6 @@
 # RPOXY
 # all platform
-alias proxy.on='export https_proxy=http://127.0.0.1:8234;export http_proxy=http://127.0.0.1:8234;export all_proxy=socks5://127.0.0.1:8235;export no_proxy="192.168.59.102,192.168.59.103";git config --global http.proxy "socks5://127.0.0.1:8235";git config --global https.proxy "socks5://127.0.0.1:8234"'
+alias proxy.on='export https_proxy=http://127.0.0.1:8234;export http_proxy=http://127.0.0.1:8234;export all_proxy=socks5://127.0.0.1:8235;export no_proxy="192.168.59.102,192.168.59.103"'
 alias proxy.off='export https_proxy="";export http_proxy="";export all_proxy="";git config --global --unset https.proxy; git config --global --unset http.proxy'
 # ------------------------------------------------------------------->>>>>>>>>>
 # surge代理 默认开启

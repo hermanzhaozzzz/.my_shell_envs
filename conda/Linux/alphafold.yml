@@ -11,6 +11,7 @@ dependencies:
 - aiohttp=3.9.1=py38h01eb140_0
 - aiosignal=1.3.1=pyhd8ed1ab_0
 - appdirs=1.4.4=pyh9f0ad1d_0
+- aria2=1.37.0=h347180d_1
 - asn1crypto=1.5.1=pyhd8ed1ab_0
 - astor=0.8.1=pyh9f0ad1d_0
 - astunparse=1.6.3=pyhd8ed1ab_0
@@ -52,6 +53,7 @@ dependencies:
 - hdf5=1.10.6=h3ffc7dd_1
 - hhsuite=3.3.0=py38pl5321hcbe9525_9
 - hmmer=3.3.2=hdbdd923_4
+- icu=73.2=h59595ed_0
 - idna=3.6=pyhd8ed1ab_0
 - immutabledict=2.0.0=pyhd8ed1ab_0
 - importlib-metadata=7.0.1=pyha770c72_0
@@ -88,6 +90,7 @@ dependencies:
 - libstdcxx-ng=13.2.0=h7e041cc_3
 - libuuid=2.38.1=h0b41bf4_0
 - libxcrypt=4.4.36=hd590300_1
+- libxml2=2.12.4=h232c23b_1
 - libzlib=1.2.13=hd590300_5
 - markdown=3.5.2=pyhd8ed1ab_0
 - markupsafe=2.1.3=py38h01eb140_1

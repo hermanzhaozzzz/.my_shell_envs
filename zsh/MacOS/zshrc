@@ -246,7 +246,7 @@ alias ssh.tunnels.off=func_ssh.tunnels.off
 
 
 # 内置命令别名
-alias ssh.server.veteran="ssh zhaohuanan@162.105.250.207"
+alias ssh.server.veteran="ssh zhaohuanan@162.105.250.73"
 alias ssh.server.bioin="ssh zhaohuanan@bioin.vip -p 10006"
 alias ssh.server.polaris="ssh chengqiyi_zhn@10.100.1.88"
 alias zcat="gunzip -d -c"  # fix zcat

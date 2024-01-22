@@ -154,7 +154,7 @@ export PATH=$PATH:${HOME}/.cargo/bin
 
 
 # 我的可执行文件
-export PATH=$PATH:${HOME}/.my_shell_envs/bin
+export PATH=${HOME}/.my_shell_envs/bin:$PATH
 export PATH=$PATH:${HOME}/0.apps/bin
 export PATH=$PATH:${HOME}/0.apps/homer/bin
 export PATH=$PATH:${HOME}/0.apps/HiC-Pro_installed/HiC-Pro_3.1.0/bin

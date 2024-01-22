@@ -52,7 +52,7 @@ dependencies:
 - conda-package-streaming=0.9.0=pyhd8ed1ab_0
 - contourpy=1.1.0=py310h38f39d4_0
 - cookiecutter=2.3.0=pyh1a96a4e_0
-- cryptography=41.0.3=py310hdd3b5e7_0
+- cryptography=40.0.2=py310hfc83b78_0
 - curl=8.2.1=hc52a3a8_0
 - cycler=0.11.0=pyhd8ed1ab_0
 - cython=3.0.0=py310h1253130_0

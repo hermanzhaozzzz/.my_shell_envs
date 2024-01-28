@@ -142,7 +142,7 @@ source ~/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting/zsh-syntax-highlighti
 # ------------------------------------------------------------------->>>>>>>>>>
 # 覆盖PATH！
 # 必要系统命令
-export PATH=/usr/bin:/usr/lib:/usr/lib64:/usr/libexec:/usr/sbin:/usr/local/bin:/usr/local/lib:/usr/local/lib64:/usr/local/libexec
+export PATH=/lustre3/chengqiyi_pkuhpc/folder_for_learning/zhaohn/0.apps/zsh/zsh_build/bin:/usr/bin:/usr/lib:/usr/lib64:/usr/libexec:/usr/sbin:/usr/local/bin:/usr/local/lib:/usr/local/lib64:/usr/local/libexec
 # slurm 系统命令
 export PATH=$PATH:/rm/rm_prog/slurm/18.08.7/bin:/data01/oldbin/newbin
 # on ubuntu
@@ -239,9 +239,9 @@ alias rm.trash.clear=func_delclear
 # 开启反向代理隧道
 func_ssh.tunnels.on(){
     # 设置SSH隧道
-    ssh -fCNR 11281:localhost:11280 zhaohuanan@162.105.250.169
+#    ssh -fCNR 11281:localhost:11280 zhaohuanan@162.105.250.169
     ssh -fCNR 8899:localhost:8888 zhaohuanan@162.105.250.169
-    ssh -fCNR 11281:localhost:11280 zhaohuanan@zhaohuanan.cc
+#    ssh -fCNR 11281:localhost:11280 zhaohuanan@zhaohuanan.cc
     ssh -fCNR 8899:localhost:8888 zhaohuanan@zhaohuanan.cc
     echo "隧道已建立"
 }

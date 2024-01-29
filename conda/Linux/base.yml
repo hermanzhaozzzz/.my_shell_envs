@@ -75,6 +75,7 @@ dependencies:
 - charset-normalizer=3.1.0=pyhd8ed1ab_0
 - cleo=2.1.0=pyhd8ed1ab_0
 - click=8.1.7=unix_pyh707e725_0
+- cmake=3.5.0=3
 - coin-or-cbc=2.10.10=h9002f0b_0
 - coin-or-cgl=0.60.7=h516709c_0
 - coin-or-clp=1.17.8=h1ee7a9c_0
@@ -551,6 +552,7 @@ dependencies:
 - reretry=0.11.8=pyhd8ed1ab_0
 - rfc3339-validator=0.1.4=pyhd8ed1ab_0
 - rfc3986-validator=0.1.1=pyh9f0ad1d_0
+- rhash=1.4.4=hd590300_0
 - rich=13.3.5=pyhd8ed1ab_0
 - ripgrep=14.0.3=he8a937b_1
 - rope=1.9.0=pyhd8ed1ab_0

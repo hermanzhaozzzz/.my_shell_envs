@@ -276,8 +276,8 @@ alias l="exa -lha --tree -L 1 --time-style long-iso"
 alias open='wslview'
 
 # slurm系统别名
-alias squeuez="for i in \`squeue | grep chengqi| grep -v 'QOS not permitted' | awk '{print \$1}'\`; do (pkujob | grep \$i | xargs echo); done | grep zhaohn | awk -F '=' '{print \$2}' | awk '{print \$1}'"
-alias squeuey="squeue | grep chengqi | grep -v 'QOS not permitted'"
+alias squeuez="for i in \`squeue -u chengqiyi_pkuhpc | grep -v 'QOS not permitted' | awk '{print \$1}'\`; do (pkujob | grep \$i | xargs echo); done | grep zhaohn | awk -F '=' '{print \$2}' | awk '{print \$1}'"
+alias squeuey="squeue -u chengqiyi_pkuhpc"
 alias ps-ef="ps -ef | grep chengqi | grep zhaohn"
 
 alias salloc_fat4way="salloc -N 1 --job-name=notebook_zhn  --partition=fat4way --account=chengqiyi_g1 --qos=chengqiyif4w --cpus-per-task=24"

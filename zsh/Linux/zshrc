@@ -253,6 +253,16 @@ func_ssh.tunnels.off(){
     echo "SSH隧道清理完成。"
 }
 alias ssh.tunnels.off=func_ssh.tunnels.off
+# 维持代理隧道服务
+func_ssh.keep.on(){
+    # 每小时重启一次
+    while true; do
+        ssh.tunnels.off
+        ssh.tunnels.on
+        sleep 3600
+    done
+}
+alias ssh.tunnels.keep.on=func_ssh.keep.on
 # ------------------------------------------------------------------->>>>>>>>>>
 # 自定义alias
 # ------------------------------------------------------------------->>>>>>>>>>

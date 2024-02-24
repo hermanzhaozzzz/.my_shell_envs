@@ -1,0 +1,7 @@
+export HOME=/lustre3/chengqiyi_pkuhpc/folder_for_learning/zhaohn
+export PATH=/lustre3/chengqiyi_pkuhpc/folder_for_learning/zhaohn/0.apps/zsh/zsh_build/bin:$PATH
+export SHELL=/lustre3/chengqiyi_pkuhpc/folder_for_learning/zhaohn/0.apps/zsh/zsh_build/bin/zsh
+#exec /lustre1/chengqiyi_pkuhpc/zhaohn/0.apps/zsh/zsh571/bin/zsh
+# exec zsh
+# exec source /lustre3/chengqiyi_pkuhpc/folder_for_learning/zhaohn/.zshrc
+exec zsh -f -c "source /lustre3/chengqiyi_pkuhpc/folder_for_learning/zhaohn/.zshrc; exec zsh"

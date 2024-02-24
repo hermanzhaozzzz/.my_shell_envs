@@ -267,7 +267,7 @@ alias ssh.tunnels.keep.on=func_ssh.keep.on
 # 自定义alias
 # ------------------------------------------------------------------->>>>>>>>>>
 # 函数别名
-alias del.slurmlogs='del *.err *.out  job.srp*'
+alias rm.slurmlogs='rm *.err *.out  job.srp*'
 
 
 # 内置命令别名
@@ -292,6 +292,7 @@ alias ps-ef="ps -ef | grep chengqi | grep zhaohn"
 
 alias salloc_fat4way="salloc -N 1 --job-name=notebook_zhn  --partition=fat4way --account=chengqiyi_g1 --qos=chengqiyif4w --cpus-per-task=24"
 alias salloc_cnnl="salloc -N 1 --job-name=notebook_zhn --partition=cn_nl --account=chengqiyi_g1 --qos=chengqiyicnnl --cpus-per-task=28"
+alias salloc_cns="salloc -N 1 --job-name=notebook_zhn --partition=cn-short --account=chengqiyi_g1 --qos=chengqiyicns --cpus-per-task=20"
 
 # Bioinformatic tools
 alias checkbam="for i in *.bam ;do (samtools quickcheck \$i && echo \"ok    \" \$i || echo \"error    \" \$i);done"

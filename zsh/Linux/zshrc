@@ -175,11 +175,11 @@ unset R_HOME
 export TMUX_TMPDIR=$HOME/.tmux_tmp_dir
 
 # C, CXX LIB
-if [ $LD_LIBRARY_PATH ]; then
-    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${HOME}/.my_shell_envs/ld_lib:${HOME}/0.apps/micromamba/lib
-else
-    export LD_LIBRARY_PATH=${HOME}/.my_shell_envs/ld_lib:${HOME}/0.apps/micromamba/lib
-fi
+# if [ $LD_LIBRARY_PATH ]; then
+#     export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${HOME}/.my_shell_envs/ld_lib:${HOME}/0.apps/micromamba/lib
+# else
+#     export LD_LIBRARY_PATH=${HOME}/.my_shell_envs/ld_lib:${HOME}/0.apps/micromamba/lib
+# fi
 
 # CUDA_HOME
 # if [ $CUDA_HOME ]; then

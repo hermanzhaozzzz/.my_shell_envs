@@ -237,7 +237,7 @@ alias rm.trash.clear=func_delclear
 func_ssh.tunnels.on(){
     # 设置SSH隧道
 #    ssh -fCNR 11281:localhost:11280 zhaohuanan@162.105.250.169
-    ssh -fCNR 8899:localhost:8888 zhaohuanan@162.105.250.169
+    ssh -fCNR 8899:localhost:8888 zhaohuanan@162.105.250.206
 #    ssh -fCNR 11281:localhost:11280 zhaohuanan@zhaohuanan.cc
     ssh -fCNR 8899:localhost:8888 zhaohuanan@zhaohuanan.cc
     echo "隧道已建立"

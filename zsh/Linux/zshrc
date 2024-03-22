@@ -171,7 +171,8 @@ export PATH=$PATH:${HOME}/0.apps/bedops/bin
 unset R_HOME
 
 # for tmux
-export TMUX_TMPDIR=$HOME/.tmux_tmp_dir
+mkdir -p $HOME/.tmux_tmp_dir/`hostname`
+export TMUX_TMPDIR=$HOME/.tmux_tmp_dir/`hostname`
 
 # C, CXX LIB
 # if [ $LD_LIBRARY_PATH ]; then

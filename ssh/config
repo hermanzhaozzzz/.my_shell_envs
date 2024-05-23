@@ -1,0 +1,5 @@
+# Read more about SSH config files: https://linux.die.net/man/5/ssh_config
+Host zos
+    HostName 192.168.1.100
+    User zhaohuanan
+    Password L0ck-1n,.!

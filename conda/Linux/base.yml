@@ -47,6 +47,7 @@ dependencies:
 - bedtools=2.31.0=hf5e1c6e_2
 - binutils_impl_linux-64=2.40=hf600244_0
 - binutils_linux-64=2.40=hbdbef99_2
+- biopython=1.83=py310h2372a71_0
 - black=23.10.1=py310hff52083_0
 - bleach=6.0.0=pyhd8ed1ab_0
 - blinker=1.7.0=pyhd8ed1ab_0

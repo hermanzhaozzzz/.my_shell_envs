@@ -127,16 +127,24 @@ source ~/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting/zsh-syntax-highlighti
 
 
 # TIPS:
-# zsh环境优先级
+# !zsh环境优先级
 # .zshenv → [.zprofile if login] → [.zshrc if interactive] → [.zlogin if login] → [.zlogout sometimes].
 # ------------------------------------------------------------------->>>>>>>>>>
 # 基本环境变量
 # ------------------------------------------------------------------->>>>>>>>>>
 # 需要预设的环境变量： 在zshenv or zsh_profile中完成设置
-# 如：
-# HOME 变量 (如果是Linux下)
-# HomeBrew的PATH (如果是MacOS下)
-
+# !~/.zshenv可作为用户自己配置环境变量的位置
+# 如：HOME 变量 (如果是Linux下) 和 HomeBrew的PATH(如果是MacOS下)
+# !以下内容写入~/.zshenv
+# ------------------------------------------------------------------->>>>>>>>>>
+#! ##### ↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓ ######
+# #?homebrew
+# export PATH=/opt/homebrew/bin:/opt/homebrew/sbin:$PATH
+# #?openjdk / java
+# export PATH=$PATH:/opt/homebrew/opt/openjdk/bin
+# #?cargo / rust
+# . "$HOME/.cargo/env"
+#! ##### ↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑ ######
 # ------------------------------------------------------------------->>>>>>>>>>
 # PATH 环境变量
 # ------------------------------------------------------------------->>>>>>>>>>
@@ -156,9 +164,6 @@ export PATH=$PATH:$HOME/Bio/0.apps/meme_suite/meme-5.5.3/bin:$HOME/Bio/0.apps/me
 # ------------------------------------------------------------------->>>>>>>>>>
 # 软件环境变量
 # ------------------------------------------------------------------->>>>>>>>>>
-# for rust
-. "$HOME/.cargo/env"
-
 # for R
 unset R_HOME
 

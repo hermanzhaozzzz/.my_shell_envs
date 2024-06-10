@@ -3,7 +3,7 @@
 alias proxy.start='ssh -qTnN -D 8234 zhaohuanan@zhaohuanan.cc'
 # all platform
 alias proxy.on='export https_proxy=http://127.0.0.1:8234;export http_proxy=http://127.0.0.1:8234;export all_proxy=socks5://127.0.0.1:8234;export no_proxy="192.168.59.102,192.168.59.103"'
-alias proxy.off='export https_proxy="";export http_proxy="";export all_proxy="";git config --global --unset https.proxy; git config --global --unset http.proxy'
+alias proxy.off='unset https_proxy;unset http_proxy;unset all_proxy;git config --global --unset https.proxy; git config --global --unset http.proxy'
 # ------------------------------------------------------------------->>>>>>>>>>
 # ssh socks代理 默认关闭
 # ------------------------------------------------------------------->>>>>>>>>>
@@ -189,7 +189,7 @@ export TMUX_TMPDIR=$HOME/.tmux_tmp_dir/`hostname`
 # fi
 
 # for perl
-PERL5LIB=''
+unset PERL5LIB
 # ------------------------------------------------------------------->>>>>>>>>>
 # 自定义函数命令
 # ------------------------------------------------------------------->>>>>>>>>>
@@ -236,9 +236,7 @@ alias rm.trash.clear=func_delclear
 # 开启反向代理隧道
 func_ssh.tunnels.on(){
     # 设置SSH隧道
-#    ssh -fCNR 11281:localhost:11280 zhaohuanan@162.105.250.169
     ssh -fCNR 8899:localhost:8888 zhaohuanan@162.105.250.206
-#    ssh -fCNR 11281:localhost:11280 zhaohuanan@zhaohuanan.cc
     ssh -fCNR 8899:localhost:8888 zhaohuanan@zhaohuanan.cc
     echo "隧道已建立"
 }

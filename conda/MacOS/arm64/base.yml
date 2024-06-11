@@ -27,6 +27,7 @@ dependencies:
 - backports.functools_lru_cache=1.6.5=pyhd8ed1ab_0
 - beautifulsoup4=4.12.2=pyha770c72_0
 - binaryornot=0.4.4=py_1
+- biopython=1.83=py310hd125d64_0
 - black=23.7.0=py310hbe9552e_1
 - bleach=6.0.0=pyhd8ed1ab_0
 - boltons=23.0.0=pyhd8ed1ab_0
@@ -133,6 +134,7 @@ dependencies:
 - jellyfish=1.0.0=py310had9acf8_0
 - jinja2=3.1.2=pyhd8ed1ab_1
 - jinja2-time=0.2.0=pyhd8ed1ab_3
+- joblib=1.4.2=pyhd8ed1ab_0
 - json5=0.9.14=pyhd8ed1ab_0
 - jsonpatch=1.32=pyhd8ed1ab_0
 - jsonpointer=2.0=py_0
@@ -237,6 +239,7 @@ dependencies:
 - nbformat=5.9.2=pyhd8ed1ab_0
 - ncurses=6.4=h313beb8_0
 - nest-asyncio=1.5.6=pyhd8ed1ab_0
+- nltk=3.8.1=pyhd8ed1ab_0
 - nodeenv=1.8.0=pyhd8ed1ab_0
 - nodejs=20.1.0=ha2ed473_0
 - notebook=7.0.2=pyhd8ed1ab_0
@@ -386,6 +389,7 @@ dependencies:
 - r-yaml=2.3.7=r43h21dc0da_1
 - readline=8.2=h92ec313_1
 - referencing=0.30.2=pyhd8ed1ab_0
+- regex=2024.5.15=py310ha6dd24b_0
 - reproc=14.2.4=h1a8c8d9_0
 - reproc-cpp=14.2.4=hb7217d7_0
 - requests=2.31.0=pyhd8ed1ab_0

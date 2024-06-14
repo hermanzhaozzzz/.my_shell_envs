@@ -275,7 +275,8 @@ alias ssh.server.bioin="ssh zhaohuanan@bioin.vip -p 10006"
 # 第三方命令别名
 alias llll="/bin/ls -lh"
 alias lll="exa -lh --time-style long-iso"
-alias ll="exa -lh --tree -L 1 --no-user --time-style long-iso"
+# alias ll="exa -lh --tree -L 1 --no-user --time-style long-iso"
+alias ll="exa -lh --tree -L 1 --no-user --time-style long-iso | grep -v 'job.srp' | grep -v '.err' | grep -v '.out'"
 alias l="exa -lha --tree -L 1 --time-style long-iso"
 
 
@@ -289,6 +290,7 @@ alias squeuey="squeue -u chengqiyi_pkuhpc"
 alias ps-ef="ps -ef | grep chengqi | grep zhaohn"
 
 alias salloc_fat4way="salloc -N 1 --job-name=notebook_zhn  --partition=fat4way --account=chengqiyi_g1 --qos=chengqiyif4w --cpus-per-task=24"
+alias salloc_fat8way="salloc -N 1 --job-name=notebook_zhn  --partition=fat8way --account=chengqiyi_g1 --qos=chengqiyif8w --cpus-per-task=64"
 alias salloc_cnnl="salloc -N 1 --job-name=notebook_zhn --partition=cn_nl --account=chengqiyi_g1 --qos=chengqiyicnnl --cpus-per-task=28"
 alias salloc_cns="salloc -N 1 --job-name=notebook_zhn --partition=cn-short --account=chengqiyi_g1 --qos=chengqiyicns --cpus-per-task=20"
 

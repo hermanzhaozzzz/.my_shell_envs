@@ -275,8 +275,8 @@ alias ssh.server.bioin="ssh zhaohuanan@bioin.vip -p 10006"
 # 第三方命令别名
 alias llll="/bin/ls -lh"
 alias lll="exa -lh --time-style long-iso"
-# alias ll="exa -lh --tree -L 1 --no-user --time-style long-iso"
-alias ll="exa -lh --tree -L 1 --no-user --time-style long-iso | grep -v 'job.srp' | grep -v '.err' | grep -v '.out'"
+alias ll="exa -lh --tree -L 1 --no-user --time-style long-iso"
+alias lg="exa -lh --tree -L 1 --no-user --time-style long-iso | grep -v 'job.srp' | grep -v '.err' | grep -v '.out'"
 alias l="exa -lha --tree -L 1 --time-style long-iso"
 
 

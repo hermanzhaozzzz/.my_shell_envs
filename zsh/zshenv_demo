@@ -83,8 +83,8 @@ if [[ $HOST == "login"* ]]; then
     # trash
     export TRASH=4.trash
 
-elif [[ $HOST == "zhaohuanan-Ubuntu" ]]; then
-   echo -e '\tmatch my Ubuntu @' $HOST 
+elif [[ $HOST == "zhaohuanan-Ubuntu" || $HOST == "ThreadRipper" ]]; then
+   echo -e '\tmatch my Server @' $HOST 
     export TRASH=4.trash
 elif [[ $HOST == *"Mac"* ]]; then
     echo -e '\tmatch my Mac @ ' $HOST

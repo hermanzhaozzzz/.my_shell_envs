@@ -1,6 +1,23 @@
 # fast deployment for shell envs
 
-[[TOC]]
+# Table of Contents
+
+- [fast deployment for shell envs](#fast-deployment-for-shell-envs)
+  - [usage](#usage)
+    - [install &amp; update](#install--update)
+      - [MacOS / Linux / Windows](#macos--linux--windows)
+    - [personal settings:](#personal-settings)
+    - [skills](#skills)
+      - [1. A faster and better "conda"](#1-a-faster-and-better-conda)
+      - [2. "Immediately start to use" vim / nvim](#2-immediately-start-to-use-vim--nvim)
+        - [vim](#vim)
+        - [nvim (neovim)](#nvim-neovim)
+      - [3. Clear and practical ZSH themes and plugins](#3-clear-and-practical-zsh-themes-and-plugins)
+      - [4. auto deploy spyder config](#4-auto-deploy-spyder-config)
+      - [5. a convenient jcat command for fast check notebook with ipynb format in terminal](#5-a-convenient-jcat-command-for-fast-check-notebook-with-ipynb-format-in-terminal)
+      - [6. wd for fast query words in the terminal (for English learners)](#6-wd-for-fast-query-words-in-the-terminal-for-english-learners)
+      - [7. tldr is a famous command for learning shell, just like a simplified man](#7-tldr-is-a-famous-command-for-learning-shell-just-like-a-simplified-man)
+  - [license](#license)
 
 ## usage
 

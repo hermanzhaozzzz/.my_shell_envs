@@ -14,9 +14,9 @@
     - [2. <strong>vim / neovim</strong>: Immediately start to use](#2-vim--neovim-immediately-start-to-use)
     - [3. <strong>ZSH</strong>: Clear and practical ZSH themes and plugins](#3-zsh-clear-and-practical-zsh-themes-and-plugins)
     - [4. <strong>Spyder</strong>: Auto deploy spyder config](#4-spyder-auto-deploy-spyder-config)
-    - [5. <strong>jcat</strong>: A convenient command for fast check notebook with ipynb format in terminal](#5-jcat-a-convenient-command-for-fast-check-notebook-with-ipynb-format-in-terminal)
+    - [5. <strong>jcat</strong>: A convenient command for fast checking notebook with ipynb format in terminal](#5-jcat-a-convenient-command-for-fast-checking-notebook-with-ipynb-format-in-terminal)
     - [6. <strong>wd</strong>: A dictory in terminal](#6-wd-a-dictory-in-terminal)
-    - [7. <strong>tldr</strong>: too long don't read, it is a famous command for repalce <strong>man</strong>](#7-tldr-too-long-dont-read-it-is-a-famous-command-for-repalce-man)
+    - [7. <strong>tldr</strong>: too long don't read, it is a famous command for repalcing <strong>man</strong>](#7-tldr-too-long-dont-read-it-is-a-famous-command-for-repalcing-man)
     - [8. <strong>Other skills</strong>](#8-other-skills)
   - [license](#license)
 
@@ -129,7 +129,7 @@ neovim config refs to [nvimdots](https://github.com/ayamir/nvimdots), I really e
 
 ![](https://pic2.zhimg.com/v2-1d477136ea9fbc3e42295d153924b6fd_b.jpg)
 
-### 5. **jcat**: A convenient command for fast check notebook with ipynb format in terminal
+### 5. **jcat**: A convenient command for fast checking notebook with ipynb format in terminal
 
 refs to [jcat](https://github.com/zhifanzhu/jcat)
 
@@ -142,7 +142,7 @@ refs to [jcat](https://github.com/zhifanzhu/jcat)
 refs to [Wudao-dict](https://github.com/ChestnutHeng/Wudao-dict)
 ![](https://pic1.zhimg.com/v2-4941f3b7b7c83780d50bcfb36b6dbad8_b.jpg)
 
-### 7. **tldr**: too long don't read, it is a famous command for repalce **man**
+### 7. **tldr**: too long don't read, it is a famous command for repalcing **man**
 
 refs to [https://tldr.sh/](https://tldr.sh/)
 

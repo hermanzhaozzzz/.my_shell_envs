@@ -1,6 +1,8 @@
 # fast deployment for shell envs
 
-## use
+[[TOC]]
+
+## usage
 
 ### install \& update
 

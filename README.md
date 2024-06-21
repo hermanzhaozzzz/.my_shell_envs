@@ -99,7 +99,7 @@ bash apply_personal_envs.sh
 
 ## features and skills
 
-### 1. A faster and better "conda"
+### 1. **micromamba**: A faster and better **"conda"**
 
 I use micromamba to replace conda, miniconda or mamba, because:
 
@@ -110,19 +110,15 @@ when you use [.my_shell_envs](https://github.com/hermanzhaozzzz/.my_shell_envs),
 
 ![](https://pic3.zhimg.com/v2-9b990548c624931878c88dbc65154bea_b.jpg)
 
-### 2. "Immediately start to use" vim / nvim
-
-#### vim
+### 2. **vim / neovim**: Immediately start to use
 
 vim config refs to [vim-for-coding](https://github.com/Leptune/vim-for-coding), it's lightweight but very practical.
 
 ![](https://pic4.zhimg.com/v2-9587f7dca82dc9b6e700b661e96207db_b.jpg)
 
-#### nvim (neovim)
-
 neovim config refs to [nvimdots](https://github.com/ayamir/nvimdots), I really enjoy using it to write code on the server!
 
-### 3. Clear and practical ZSH themes and plugins
+### 3. **ZSH**: Clear and practical ZSH themes and plugins
 
 - syntax highlighting: refs to [zsh-syntax-highlighting](https://github.com/zsh-users/zsh-syntax-highlighting.git)
 - autosuggestions: refs to [zsh-autosuggestions](https://github.com/zsh-users/zsh-autosuggestions)
@@ -130,11 +126,11 @@ neovim config refs to [nvimdots](https://github.com/ayamir/nvimdots), I really e
 
 ![](https://pic2.zhimg.com/v2-1d5b7cade272ec46c293bf80353d36e5_b.jpg)
 
-### 4. auto deploy spyder config
+### 4. **Spyder**: Auto deploy spyder config
 
 ![](https://pic2.zhimg.com/v2-1d477136ea9fbc3e42295d153924b6fd_b.jpg)
 
-### 5. a convenient `jcat` command for fast check notebook with ipynb format in terminal
+### 5. **jcat**: A convenient command for fast check notebook with ipynb format in terminal
 
 refs to [jcat](https://github.com/zhifanzhu/jcat)
 
@@ -142,16 +138,30 @@ refs to [jcat](https://github.com/zhifanzhu/jcat)
 
 ![](https://pic4.zhimg.com/v2-42f94f107405490e83cef241d413ca97_b.jpg)
 
-### 6. `wd` for fast query words in the terminal (for English learners)
+### 6. **wd**: A dictory in terminal
 
 refs to [Wudao-dict](https://github.com/ChestnutHeng/Wudao-dict)
 ![](https://pic1.zhimg.com/v2-4941f3b7b7c83780d50bcfb36b6dbad8_b.jpg)
 
-### 7. `tldr` is a famous command for learning `shell`, just like a simplified `man`
+### 7. **tldr**: too long don't read, it is a famous command for repalce **man**
 
 refs to [https://tldr.sh/](https://tldr.sh/)
 
 ![](http://_pic.zhaohuanan.cc:7777/images/2023/11/14/20231114212028333f22f9bb5d513e.png)
+
+### 8. **Other skills**
+
+- a trash folder to avoid dangerous `rm -rf`
+  - `rm` (alias `mv` to `rm`, use `\rm` or `/bin/rm` or `rm.real.rm` if you want to use raw `rm`)
+  - `rm.*` cmds
+    - `rm.real.rm`
+    - `rm.trash.back`
+    - `rm.trash.clear`
+    - `rm.trash.show`
+- `l` / `ll` / `lll` / `llll` cmds to replace `ls`
+- `btop` cmd to replace `top` / `htop`
+- `open` cmd, to open a file with default apps
+- when you want to add cmds in your `PATH`, just `cd ~/.my_shell_envs/bin && /absolute_path/cmd`
 
 ## license
 

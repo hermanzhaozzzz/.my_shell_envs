@@ -153,12 +153,7 @@ export PATH=$PATH:${HOME}/.local/bin
 export PATH=$PATH:${HOME}/.cargo/bin
 # 我的可执行文件
 export PATH=$PATH:${HOME}/.my_shell_envs/bin
-export PATH=$PATH:/Library/TeX/texbin
-export PATH=$PATH:${HOME}/Library/Application\ Support/JetBrains/Toolbox/scripts
 # Bioinformatics
-export PATH=$PATH:/Volumes/zhaohn_HD/Bio/0.apps/homer/bin
-export PATH=$PATH:$HOME/Bio/0.apps/hisat-3n_allType
-export PATH=$PATH:$HOME/Bio/0.apps/meme_suite/meme-5.5.3/bin:$HOME/Bio/0.apps/meme_suite/meme-5.5.3/libexec/meme-5.5.3
 
 
 # ------------------------------------------------------------------->>>>>>>>>>

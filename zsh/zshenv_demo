@@ -1,0 +1,129 @@
+echo -e '\n\n'
+echo '>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>'
+echo '(~/.zshenv) is sourced @' $HOST
+echo -e '\tapply @ ~/.zshenv (private) settings for zsh'
+echo '>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>'
+
+# RPOXY
+# all platform
+alias proxy.start='ssh -qTnN -D 8234 zhaohuanan@zhaohuanan.cc'
+alias proxy.on='export https_proxy=http://127.0.0.1:8234;export http_proxy=http://127.0.0.1:8234;export all_proxy=socks5://127.0.0.1:8234;export no_proxy="192.168.59.102,192.168.59.103"'
+alias proxy.off='unset https_proxy;unset http_proxy;unset all_proxy;git config --global --unset https.proxy; git config --global --unset http.proxy'
+# ------------------------------------------------------------------->>>>>>>>>>
+# set proxy port, default is closed
+# ------------------------------------------------------------------->>>>>>>>>>
+proxy.off
+
+alias ssh.server.veteran="ssh zhaohuanan@162.105.250.73"
+alias ssh.server.bioin="ssh zhaohuanan@bioin.vip -p 10006"
+alias checkbam="for i in *.bam ;do (samtools quickcheck \$i && echo \"ok    \" \$i || echo \"error    \" \$i);done"
+
+# set different settings on different machines
+if [[ $HOST == "login"* ]]; then
+    echo -e '\tmatch polars login-server @' $HOST
+    # on polars, I need to clean system PATH for DIY usage
+    unset PATH
+    # for system use
+    export PATH=/usr/bin:/usr/lib:/usr/lib64:/usr/libexec:/usr/sbin
+    export PATH=$PATH:/usr/local/bin:/usr/local/lib:/usr/local/lib64:/usr/local/libexec
+    # start with zsh
+    export PATH=/home/chengqiyi_pkuhpc/.local/share/zsh/bin:$PATH
+    # I need the slurm system cmds for work
+    export PATH=$PATH:/rm/rm_prog/slurm/18.08.7/bin:/data01/oldbin/newbin
+
+    # optional bioinformatic cmds to add
+    export PATH=$PATH:${HOME}/0.apps/homer/bin
+    export PATH=$PATH:${HOME}/0.apps/HiC-Pro_installed/HiC-Pro_3.1.0/bin
+    export PATH=$PATH:${HOME}/0.apps/hisat-3n_allType
+    export PATH=$PATH:${HOME}/0.apps/bedops/bin
+
+    # diy cmds for easily using slurm on polars
+    alias rm.slurmlogs='rm *.err; rm *.out; rm job.srp*'
+    alias squeuez="for i in \`squeue -u chengqiyi_pkuhpc | grep -v 'QOS not permitted' | awk '{print \$1}'\`; do (pkujob | grep \$i | xargs echo); done | grep zhaohn | awk -F '=' '{print \$2}' | awk '{print \$1}'"
+    alias squeuey="squeue -u chengqiyi_pkuhpc"
+    alias ps.ef="ps -ef | grep chengqi | grep zhaohn"
+    
+    alias salloc_fat4way="salloc -N 1 --job-name=notebook_zhn  --partition=fat4way --account=chengqiyi_g1 --qos=chengqiyif4w --cpus-per-task=24"
+    alias salloc_fat8way="salloc -N 1 --job-name=notebook_zhn  --partition=fat8way --account=chengqiyi_g1 --qos=chengqiyif8w --cpus-per-task=64"
+    alias salloc_cnnl="salloc -N 1 --job-name=notebook_zhn --partition=cn_nl --account=chengqiyi_g1 --qos=chengqiyicnnl --cpus-per-task=28"
+    alias salloc_cns="salloc -N 1 --job-name=notebook_zhn --partition=cn-short --account=chengqiyi_g1 --qos=chengqiyicns --cpus-per-task=20"
+
+    # 开启反向代理隧道
+    func_ssh.tunnels.on(){
+        # 设置SSH隧道
+        ssh -fCNR 8899:localhost:8888 zhaohuanan@162.105.250.206
+        ssh -fCNR 8899:localhost:8888 zhaohuanan@zhaohuanan.cc
+        echo "隧道已建立"
+    }
+    alias ssh.tunnels.on=func_ssh.tunnels.on
+    # 关闭反向代理隧道
+    func_ssh.tunnels.off(){
+    # 清理SSH隧道
+    tunnels=`ps -ef | grep zhaohuanan | grep ssh | grep localhost`
+    echo "将清理以下隧道"
+    echo $tunnels
+    echo $tunnels | awk '{print "kill -9 "$2}' | sh
+    echo "SSH隧道清理完成。"
+    }
+    alias ssh.tunnels.off=func_ssh.tunnels.off
+    # 维持代理隧道服务
+    func_ssh.keep.on(){
+    # 每小时重启一次
+    while true; do
+        ssh.tunnels.off
+        ssh.tunnels.on
+        sleep 3600
+    done
+    }
+    alias ssh.tunnels.keep.on=func_ssh.keep.on
+    # for tmux
+    mkdir -p $HOME/.tmux_tmp_dir/$HOST
+    export TMUX_TMPDIR=$HOME/.tmux_tmp_dir/$HOST
+
+    # trash
+    export TRASH=4.trash
+
+elif [[ $HOST == "zhaohuanan-Ubuntu" ]]; then
+   echo -e '\tmatch my Ubuntu @' $HOST 
+    export TRASH=4.trash
+elif [[ $HOST == *"Mac"* ]]; then
+    echo -e '\tmatch my Mac @ ' $HOST
+    proxy.on
+    export TRASH=Trash
+    export PATH=$PATH:/Library/TeX/texbin
+fi
+
+# global settings
+export PATH=$PATH:${HOME}/.local/bin
+export PATH=$PATH:${HOME}/.cargo/bin
+# ------------------------------------------------------------------->>>>>>>>>>
+# 软件环境变量
+# ------------------------------------------------------------------->>>>>>>>>>
+# for R
+unset R_HOME
+
+# for perl
+unset PERL5LIB
+#
+
+
+
+# C, CXX LIB
+# if [ $LD_LIBRARY_PATH ]; then
+#     export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${HOME}/.my_shell_envs/ld_lib:${HOME}/0.apps/micromamba/lib
+# else
+#     export LD_LIBRARY_PATH=${HOME}/.my_shell_envs/ld_lib:${HOME}/0.apps/micromamba/lib
+# fi
+
+# CUDA_HOME
+# if [ $CUDA_HOME ]; then
+#     export CUDA_HOME=$CUDA_HOME:${HOME}/0.apps/cuda/cuda
+# else
+#     export CUDA_HOME=${HOME}/0.apps/cuda/cuda
+# fi
+
+
+
+
+
+

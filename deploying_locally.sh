@@ -93,10 +93,10 @@ if [[ "$platform" != "Windows" ]]; then
 	echo -e "---------------------------------|\nset zsh config file"
 
 	platform_fix="$(echo $platform | awk -F '/' '{printf $1}')" # fix "MacOS/x86_64" or "MacOS/arm64" to "MacOS"
-	/bin/rm -rf $HOME/.zshrc_bak
+	/bin/rm -rf $HOME/.zshrc_bak 2>/dev/null
 	mv $HOME/.zshrc $HOME/.zshrc_bak
-	ln -s $REPO_PATH/zsh/$platform_fix/zshrc $HOME/.zshrc
-	echo "zsh config file @: $REPO_PATH/zsh/$platform_fix/zshrc"
+	ln -s $REPO_PATH/zsh/zshrc $HOME/.zshrc
+	echo "zsh config file @: $REPO_PATH/zsh/zshrc"
 else
 	echo "zsh not support platform:" $platform
 fi
@@ -107,7 +107,7 @@ echo "set zsh config (zshrc) successful"
 echo -e "---------------------------------|\nset spyder config file"
 
 platform_fix="$(echo $platform | awk -F '/' '{printf $1}')" # fix "MacOS/x86_64" or "MacOS/arm64" to "MacOS"
-/bin/rm -rf $HOME/.spyder-py3_bak
+/bin/rm -rf $HOME/.spyder-py3_bak 2>/dev/null
 mv $HOME/.spyder-py3 $HOME/.spyder-py3_bak
 ln -s $REPO_PATH/spyder/MacOS/spyder-py3 $HOME/.spyder-py3
 echo "spyder config file @: $REPO_PATH/spyder/MacOS/spyder-py3"
@@ -118,7 +118,7 @@ echo "set spyder config successful"
 echo -e "---------------------------------|\nset pip config file"
 
 mkdir -p $HOME/.pip
-/bin/rm -rf $HOME/.pip/pip.conf_bak
+/bin/rm -rf $HOME/.pip/pip.conf_bak 2>/dev/null
 mv $HOME/.pip/pip.conf $HOME/.pip/pip.conf_bak
 ln -s $REPO_PATH/pip/pip.conf $HOME/.pip/pip.conf
 echo "pip config file @: $REPO_PATH/pip/pip.conf"
@@ -154,7 +154,7 @@ if test -e $HOME/.config/nvim/init.lua; then
 	git pull
 else
 	echo 'old setting does not exist, running git clone steps...'
-	/bin/rm -rf ~/.cache/nvim ~/.local/share/nvim
+	/bin/rm -rf ~/.cache/nvim ~/.local/share/nvim 2>/dev/null
 	git clone ${url_root}ayamir/nvimdots.git $HOME/.config/nvim
 	echo "nvim config file @ $HOME/.config/nvim"
 fi
@@ -181,8 +181,8 @@ if [[ "$platform" != "Windows" ]]; then
 	else
 		echo 'old setting does not exist, running jcat compiling steps...'
 		mkdir -p $REPO_PATH/bin
-		/bin/rm $REPO_PATH/bin/jcat
-		/bin/rm $REPO_PATH/tools/jcat/jcat
+		/bin/rm $REPO_PATH/bin/jcat 2>/dev/null
+		/bin/rm $REPO_PATH/tools/jcat/jcat 2>/dev/null
 		cd $REPO_PATH/tools/jcat
 		if [ -z $(which make) ]; then
 			echo "Seems the command 'make' is not installed on your system, please install it first."
@@ -226,7 +226,7 @@ echo "set tldr (python version)"
 if test -e $REPO_PATH/bin/tldr; then
 	echo 'old setting exists, nothing to do...'
 else
-	pip install tldr
+	python3 -m pip install --user tldr
 	ln -s $(which tldr) $REPO_PATH/bin/tldr
 fi
 echo "set tldr (python version) successful"
@@ -239,7 +239,7 @@ if [[ "$platform" == "Windows" ]]; then
 	WinProfile="$HOME/Documents/WindowsPowerShell/Microsoft.PowerShell_profile.ps1"
 	RepoProfile="$REPO_PATH/powershell/Microsoft.PowerShell_profile.ps1"
 	echo -e "---------------------------------|\nset profile softlink @ $WinProfile..."
-	/bin/rm -rf $HOME/.condarc
+	/bin/rm -rf $HOME/.condarc 2>/dev/null
 	powershell -File $RepoProfile
 	mv $WinProfile ${WinProfile}_bak
 	ln -s $RepoProfile $WinProfile

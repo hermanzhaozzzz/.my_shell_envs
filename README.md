@@ -160,7 +160,7 @@ refs to [https://tldr.sh/](https://tldr.sh/)
 - `l` / `ll` / `lll` / `llll` cmds to replace `ls`
 - `btop` cmd to replace `top` / `htop`
 - `open` cmd, to open a file with default apps
-- when you want to add cmds in your `PATH`, just `cd ~/.my_shell_envs/bin && /absolute_path/cmd`
+- when you want to add cmds in your `PATH`, just `cd ~/.my_shell_envs/bin && ln -s /absolute_path/cmd`
 
 ## license
 

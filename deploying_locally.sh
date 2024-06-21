@@ -109,8 +109,8 @@ echo -e "---------------------------------|\nset spyder config file"
 platform_fix="$(echo $platform | awk -F '/' '{printf $1}')" # fix "MacOS/x86_64" or "MacOS/arm64" to "MacOS"
 /bin/rm -rf $HOME/.spyder-py3_bak 2>/dev/null
 mv $HOME/.spyder-py3 $HOME/.spyder-py3_bak
-ln -s $REPO_PATH/spyder/MacOS/spyder-py3 $HOME/.spyder-py3
-echo "spyder config file @: $REPO_PATH/spyder/MacOS/spyder-py3"
+ln -s $REPO_PATH/spyder/general/spyder-py3 $HOME/.spyder-py3
+echo "spyder config file @: $REPO_PATH/spyder/general/spyder-py3"
 echo "set spyder config successful"
 # ------------------------------------------------------------------->>>>>>>>>>
 # pip settings (annotate if not use)
@@ -221,15 +221,15 @@ else
 fi
 echo "set wd successful"
 
-# tldr-python-version
-echo "set tldr (python version)"
+# tldr
+echo "set tldr"
 if test -e $REPO_PATH/bin/tldr; then
 	echo 'old setting exists, nothing to do...'
 else
-	python3 -m pip install --user tldr
-	ln -s $(which tldr) $REPO_PATH/bin/tldr
+	/bin/rm ~/.my_shell_envs/bin/tldr 2>/dev/null
+	ln -s $ROOT_PATH/bin/tldr ~/.my_shell_envs/bin/tldr
 fi
-echo "set tldr (python version) successful"
+echo "set tldr successful"
 
 # ------------------------------------------------------------------->>>>>>>>>>
 # Windows setting for PowerShell (dependent: git-bash)

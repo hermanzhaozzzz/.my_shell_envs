@@ -11,19 +11,14 @@
 # spyder
 ##############
 **/.spyproject/
-spyder/MacOS/arm64/spyder-py3/help
-# config
-/spyder/MacOS/arm64/spyder-py3/config/backups/
-spyder/MacOS/arm64/spyder-py3/config/spyder.ini
-spyder/MacOS/arm64/spyder-py3/config/transient.ini
-# basic
-spyder/MacOS/arm64/spyder-py3/history.py
-spyder/MacOS/arm64/spyder-py3/pdb_history.sqlite
-spyder/MacOS/arm64/spyder-py3/workingdir
-spyder/MacOS/arm64/spyder-py3/spyder.lock
-# plugins
-spyder/MacOS/arm64/spyder-py3/plugins/notebook/spyder.ini
-spyder/MacOS/arm64/spyder-py3/plugins/notebook/backups/spyder.ini.bak
+spyder/general/arm64/spyder-py3/help
+**/spyder-py3/config/backups/
+**/spyder.ini
+**/transient.ini
+**/spyder-py3/history.py
+**/pdb_history.sqlite
+**/spyder-py3/workingdir
+**/spyder.lock
 
 ##############
 # common project

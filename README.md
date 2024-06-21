@@ -1,30 +1,10 @@
 # fast deployment for shell envs
 
-## features
+## use
 
-- [conda (use micromamba)](https://github.com/mamba-org/mamba)
-  - a faster and easy to use version of conda
-- [vim (use my setting)](https://github.com/hermanzhaozzzz/vim-for-coding)
-  - simple and useful features
-- [zsh (use oh-my-zsh)](https://github.com/ohmyzsh/ohmyzsh)
-  - very good settings for zsh
-- [spyder](https://github.com/spyder-ide/spyder)
-  - data science IDE for python coder
-- [command: `jcat`](https://github.com/zhifanzhu/jcat)
-  - a self-contained command line tool for viewing jupyter notebook files in terminal
-- [command: `wd`](https://github.com/ChestnutHeng/Wudao-dict)
-  - command line version for Youdao dict
-- [command: `tldr`](https://github.com/tldr-pages/tldr-python-client)
-  - a very useful demo document for command lines
-- [neovim](https://github.com/neovim/neovim)
-  - a self use config setting for `nvim`
-  - see the doc for [my config](tools/nvim/README.md) and learn to use it
+### install \& update
 
-# use
-
-## install \& update
-
-### MacOS / Linux / Windows
+#### MacOS / Linux / Windows
 
 > **when use windows:**
 >
@@ -79,7 +59,7 @@ git fetch
 git pull --rebase
 ```
 
-## personal settings:
+### personal settings:
 
 ```shell
 # see details in
@@ -94,9 +74,9 @@ bash apply_personal_envs.sh
 # will be sourced before ~/.zshrc (.my_shell_envs' public settings)
 ```
 
-## skills
+### skills
 
-### 1. A faster and better "conda"
+#### 1. A faster and better "conda"
 
 I use micromamba to replace conda, miniconda or mamba, because:
 
@@ -107,19 +87,19 @@ when you use [.my_shell_envs](https://github.com/hermanzhaozzzz/.my_shell_envs),
 
 ![](https://pic3.zhimg.com/v2-9b990548c624931878c88dbc65154bea_b.jpg)
 
-### 2. "Immediately start to use" vim / nvim
+#### 2. "Immediately start to use" vim / nvim
 
-#### vim
+##### vim
 
 vim config refs to [vim-for-coding](https://github.com/Leptune/vim-for-coding), it's lightweight but very practical.
 
 ![](https://pic4.zhimg.com/v2-9587f7dca82dc9b6e700b661e96207db_b.jpg)
 
-#### nvim (neovim)
+##### nvim (neovim)
 
 neovim config refs to [nvimdots](https://github.com/ayamir/nvimdots), I really enjoy using it to write code on the server!
 
-### 3. Clear and practical ZSH themes and plugins
+#### 3. Clear and practical ZSH themes and plugins
 
 - syntax highlighting: refs to [zsh-syntax-highlighting](https://github.com/zsh-users/zsh-syntax-highlighting.git)
 - autosuggestions: refs to [zsh-autosuggestions](https://github.com/zsh-users/zsh-autosuggestions)
@@ -127,11 +107,11 @@ neovim config refs to [nvimdots](https://github.com/ayamir/nvimdots), I really e
 
 ![](https://pic2.zhimg.com/v2-1d5b7cade272ec46c293bf80353d36e5_b.jpg)
 
-### 4\. auto deploy spyder config
+#### 4. auto deploy spyder config
 
 ![](https://pic2.zhimg.com/v2-1d477136ea9fbc3e42295d153924b6fd_b.jpg)
 
-### 5\. a convenient `jcat` command for fast check notebook with ipynb format in terminal
+#### 5. a convenient `jcat` command for fast check notebook with ipynb format in terminal
 
 refs to [jcat](https://github.com/zhifanzhu/jcat)
 
@@ -139,17 +119,17 @@ refs to [jcat](https://github.com/zhifanzhu/jcat)
 
 ![](https://pic4.zhimg.com/v2-42f94f107405490e83cef241d413ca97_b.jpg)
 
-### 6. `wd` for fast query words in the terminal (for English learners)
+#### 6. `wd` for fast query words in the terminal (for English learners)
 
 refs to [Wudao-dict](https://github.com/ChestnutHeng/Wudao-dict)
 ![](https://pic1.zhimg.com/v2-4941f3b7b7c83780d50bcfb36b6dbad8_b.jpg)
 
-### `tldr` is a famous command for learning `shell`, just like a simplified `man`
+#### 7. `tldr` is a famous command for learning `shell`, just like a simplified `man`
 
 refs to [https://tldr.sh/](https://tldr.sh/)
 
 ![](http://_pic.zhaohuanan.cc:7777/images/2023/11/14/20231114212028333f22f9bb5d513e.png)
 
-# license
+## license
 
 use my setting for free!

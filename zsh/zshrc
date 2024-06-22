@@ -145,7 +145,7 @@ if [ -z "${TRASH+x}" ]; then
     echo -e '\tnot found var: TRASH in ~/.zshenv'
     TRASH="Trash"
     echo -e '\tset TRASH @ '$HOME/$TRASH
-    mkdir -p $HOME/TRASH
+    mkdir -p $HOME/$TRASH
 else
     echo -e '\tset TRASH @ '$HOME/$TRASH
 fi

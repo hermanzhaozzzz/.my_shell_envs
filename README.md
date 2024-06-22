@@ -86,13 +86,19 @@ git pull --rebase
 
 see details in `.my_shell_envs/apply_personal_envs.sh`
 
+this script will remove exist zsh settings (zshenv, zprofile) and copy my personal settings (`.my_shell_envs/zsh/zprofile_hermanzhaozzzz_demo`) and rename it to `~/.zprofile`
+
+**zprofile will be sourced before zshrc when you login, and don't effect no-login operations like `scp / rsync`**
+
+you can create a `~/.zprofile` by yourself and don't use `.my_shell_envs/apply_personal_envs.sh` and `zprofile_hermanzhaozzzz_demo`
+
 ```shell
 # e.g. deploy my personal settings, I just:
 bash apply_personal_envs.sh
 
 # <tips>
-# you can create a ~/.zshenv and use it by yourself but not use my <apply_personal_envs.sh>
-# when you login your system, ~/.zshenv (personal settings)
+# you can create a ~/.zprofile and use it by yourself but not use my <apply_personal_envs.sh>
+# when you login your system, ~/.zprofile (personal settings)
 # will be sourced before ~/.zshrc (.my_shell_envs' public settings)
 ```
 

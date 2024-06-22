@@ -1,7 +1,7 @@
 echo -e '\n\n'
 echo '>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>'
-echo '(~/.zshenv) is sourced @' $HOST
-echo -e '\tapply @ ~/.zshenv (private) settings for zsh'
+echo '(~/.zprofile) is sourced @' $HOST
+echo -e '\tapply @ ~/.zprofile (private) settings for zsh'
 echo '>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>'
 
 # RPOXY
@@ -81,14 +81,18 @@ if [[ $HOST == "login"* ]]; then
     export TMUX_TMPDIR=$HOME/.tmux_tmp_dir/$HOST
 
     # trash
+    # in home path
+    # in home path
     export TRASH=4.trash
 
 elif [[ $HOST == "zhaohuanan-Ubuntu" || $HOST == "ThreadRipper" ]]; then
    echo -e '\tmatch my Server @' $HOST 
+    # in home path
     export TRASH=4.trash
 elif [[ $HOST == *"Mac"* ]]; then
     echo -e '\tmatch my Mac @ ' $HOST
     proxy.on
+    # in home path
     export TRASH=Trash
     export PATH=$PATH:/Library/TeX/texbin
 fi

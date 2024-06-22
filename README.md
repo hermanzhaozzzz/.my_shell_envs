@@ -81,9 +81,7 @@ z my
 ### update
 
 ```shell
-cd ~/.my_shell_envs
-git fetch
-git pull --rebase
+mse_update
 ```
 
 ### personal settings:

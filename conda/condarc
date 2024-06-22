@@ -5,6 +5,6 @@ channels:
   - microsoft
   - defaults
 show_channel_urls: true
-disable_lockfile: true
+disable_lockfile: false
 
-auto_activate_base: true
+auto_activate_base: false

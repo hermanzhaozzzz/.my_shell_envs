@@ -211,13 +211,14 @@ alias ll="exa -lh --tree -L 1 --no-user --time-style long-iso"
 alias lg="exa -lh --tree -L 1 --no-user --time-style long-iso | grep -v 'job.srp' | grep -v '.err' | grep -v '.out'"
 alias l="exa -lha --tree -L 1 --time-style long-iso"
 
-
-if grep -qEi 'wsl' /proc/version; then
-    # for Ubuntu WSL on Windows PC
-    echo 'seems you are in wsl'
-    echo 'alias open=wslview'
-    echo -e '\tsee doc: https://wslutiliti.es/wslu/zh-CN/install.html to install wslview cmd'
-    alias open='wslview'
+if [ -f /proc/version ]; then
+    if grep -qEi 'wsl' /proc/version; then
+        # for Ubuntu WSL on Windows PC
+        echo 'seems you are in wsl'
+        echo 'alias open=wslview'
+        echo -e '\tsee doc: https://wslutiliti.es/wslu/zh-CN/install.html to install wslview cmd'
+        alias open='wslview'
+    fi
 fi
 
 # ------------------------------------------------------------------->>>>>>>>>>
@@ -244,7 +245,7 @@ fi
 unset __mamba_setup
 # <<< mamba initialize <<<
 
-conda deactivate
+# conda deactivate
 
 # conda activate base
 

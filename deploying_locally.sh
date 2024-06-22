@@ -12,6 +12,7 @@ echo "set git connect method: $git_method (https (default) / ssh)"
 
 # get repo path
 REPO_PATH=$(pwd)
+chmod +x $REPO_PATH/bin/mse_update
 # ------------------------------------------------------------------->>>>>>>>>>
 # platform judgement and var setting
 # ------------------------------------------------------------------->>>>>>>>>>

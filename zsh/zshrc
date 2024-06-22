@@ -142,11 +142,19 @@ export PATH=${HOME}/.my_shell_envs/bin:$PATH
 # 自定义函数命令
 # ------------------------------------------------------------------->>>>>>>>>>
 if [ -z "${TRASH+x}" ]; then  
-    echo -e '\tnot found var: TRASH in ~/.zshenv'
-    TRASH="Trash"
-    echo -e '\tset TRASH @ '$HOME/$TRASH
-    mkdir -p $HOME/$TRASH
+    TRASH=".mytrash"
+    if [ ! -d ${HOME}/$TRASH ]; then
+        echo -e '\t!!!!!ATTENTION!!!!!'
+        echo -e '\tnot found var: TRASH in ~/.zprofile'
+        echo -e '\tautomatically set TRASH @ '$HOME/$TRASH
+        mkdir -p $HOME/$TRASH
+        echo -e '\tyou can override it by adding `export TRASH=your_trash_path`, the trash folder will be create in ~/$TRASH'
+        echo -e '\tOR you need to do nothing if you want to use ~/.mytrash as your default trash folder'
+        echo -e '\tthis warning will be shown ONLY ONCE.'
+        echo -e '\t!!!!/ATTENTION!!!!!\n\n'
+    fi
 else
+    /bin/rm -rf $HOME/.mytrash 2>/dev/null
     echo -e '\tset TRASH @ '$HOME/$TRASH
 fi
 # mv命令覆盖rm命令
@@ -162,7 +170,7 @@ alias rm=func_delfile
 # 显示回收站中垃圾清单
 func_dellist(){
     # ls -alt $HOME/$TRASH/*
-    exa --no-permissions --time-style long-iso -lh --tree -L 1 --no-user $HOME/4.trash
+    exa --no-permissions --time-style long-iso -lh --tree -L 1 --no-user $HOME/$TRASH
 
 }
 alias rm.trash.show=func_dellist
@@ -239,3 +247,4 @@ unset __mamba_setup
 conda deactivate
 
 # conda activate base
+

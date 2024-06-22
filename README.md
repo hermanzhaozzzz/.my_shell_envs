@@ -72,6 +72,10 @@ git-bash deploying_locally.sh # Windows, in powershell!
 # scoop install git  # powershell
 # git-bash deploying_locally.sh  # powershell
 
+cd ~/.my_shell_envs/
+cd
+# then just try
+z my
 ```
 
 ### update

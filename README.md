@@ -1,6 +1,6 @@
-# fast deployment for shell envs
+# Fast Deployment for Shell Envs
 
-# Table of Contents
+## Table of Contents
 
 - [fast deployment for shell envs](#fast-deployment-for-shell-envs)
 - [Table of Contents](#table-of-contents)

@@ -24,11 +24,6 @@
 
 ### dependencies
 
-> **when use windows:**
->
-> - [scoop](https://scoop.sh/) is the dependency
-> - all commands below should run in `PowerShell`
-
 before we can start deploy our envs, you should make sure zsh and oh-my-zsh are installed
 
 ```shell
@@ -77,6 +72,11 @@ cd
 # then just try
 z my
 ```
+
+> **when use windows:**
+>
+> - [scoop](https://scoop.sh/) is the dependency
+> - all commands below should run in `PowerShell`
 
 ### update
 

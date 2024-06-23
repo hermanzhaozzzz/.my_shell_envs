@@ -7,6 +7,12 @@ echo -e '\twelcome to use this zsh env'
 echo -e '\tnew features and issues can be raised at:'
 echo -e '\thttps://github.com/hermanzhaozzzz/.my_shell_envs/issues'
 
+# ------------------------------------------------------------------->>>>>>>>>>
+# platform judgement and var setting
+# ------------------------------------------------------------------->>>>>>>>>>
+platform="$(uname)"
+platform=$(echo $platform | awk -F '_' '{printf $1}')
+# Linux / Darwin / MINGW64
 echo
 # 设置USER显示
 DEFAULT_USER=$USER
@@ -129,10 +135,11 @@ source ~/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting/zsh-syntax-highlighti
 # ------------------------------------------------------------------->>>>>>>>>>
 # 基本环境变量
 # ------------------------------------------------------------------->>>>>>>>>>
-# HOME 变量在zshenv or zsh_profile中完成设置
-# 如：
-# HOME 变量 (如果是Linux下)
-# HomeBrew的PATH (如果是MacOS下)
+# HomeBrew PATH need to set in ~/.zprofile (on MacOS)
+
+# for tmux
+mkdir -p $HOME/.tmux_tmp_dir/$HOST
+export TMUX_TMPDIR=$HOME/.tmux_tmp_dir/$HOST
 # ------------------------------------------------------------------->>>>>>>>>>
 # PATH 环境变量
 # ------------------------------------------------------------------->>>>>>>>>>
@@ -228,24 +235,42 @@ echo -e '\talias conda=micromamba'
 echo -e '\talias mamba=micromamba'
 alias conda=micromamba
 alias mamba=micromamba
+
+
 # >>> mamba initialize >>>
-# !! Contents within this block are managed by 'mamba init' !!
-export MAMBA_EXE="$HOME/0.apps/micromamba/bin/micromamba";
-export MAMBA_ROOT_PREFIX="$HOME/0.apps/micromamba";
+if [[ "$platform" == "Darwin" ]]; then
+    export MAMBA_EXE="$HOME/micromamba/bin/micromamba";
+    export MAMBA_ROOT_PREFIX="$HOME/micromamba";
+elif [[ "$platform" == "Linux" ]]; then
+    export MAMBA_EXE="$HOME/0.apps/micromamba/bin/micromamba";
+    export MAMBA_ROOT_PREFIX="$HOME/0.apps/micromamba";
+fi
+
 __mamba_setup="$("$MAMBA_EXE" shell hook --shell zsh --prefix "$MAMBA_ROOT_PREFIX" 2> /dev/null)"
+
 if [ $? -eq 0 ]; then
     eval "$__mamba_setup"
 else
-    if [ -f "$HOME/0.apps/micromamba/etc/profile.d/micromamba.sh" ]; then
-        . "$HOME/0.apps/micromamba/etc/profile.d/micromamba.sh"
+    echo $platform
+    if [[ "$platform" == "Darwin" ]]; then
+        if [ -f "$HOME/micromamba/etc/profile.d/micromamba.sh" ]; then
+            . "$HOME/micromamba/etc/profile.d/micromamba.sh"
+        else
+            export  PATH="$HOME/micromamba/bin:$PATH"
+        fi
+    elif [[ "$platform" == "Linux" ]]; then
+        if [ -f "$HOME/0.apps/micromamba/etc/profile.d/micromamba.sh" ]; then
+            . "$HOME/0.apps/micromamba/etc/profile.d/micromamba.sh"
+        else
+            export PATH="$HOME/0.apps/micromamba/bin:$PATH"
+        fi
     else
-        export  PATH="$HOME/0.apps/micromamba/bin:$PATH"  # extra space after export prevents interference from conda init
+        exit 1        
     fi
 fi
 unset __mamba_setup
 # <<< mamba initialize <<<
 
 # conda deactivate
-
 # conda activate base
 

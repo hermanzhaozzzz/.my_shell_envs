@@ -4,23 +4,38 @@ echo '(~/.zprofile) is sourced @' $HOST
 echo -e '\tapply @ ~/.zprofile (private) settings for zsh'
 echo '>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>'
 
-# RPOXY
-# all platform
+
+# ------------------------------------------------------------------->>>>>>>>>>
+# global alias
+# ------------------------------------------------------------------->>>>>>>>>>
+alias ssh.server.veteran="ssh zhaohuanan@162.105.250.73"
+alias ssh.server.bioin="ssh zhaohuanan@bioin.vip -p 10006"
+alias ssh.server.polaris="ssh chengqiyi_zhn@10.100.1.88"
+
+alias checkbam="for i in *.bam ;do (samtools quickcheck \$i && echo \"ok    \" \$i || echo \"error    \" \$i);done"
+
+
+# global alias for clash proxy 
 alias proxy.start='ssh -qTnN -D 8234 zhaohuanan@zhaohuanan.cc'
 alias proxy.on='export https_proxy=http://127.0.0.1:8234;export http_proxy=http://127.0.0.1:8234;export all_proxy=socks5://127.0.0.1:8234;export no_proxy="192.168.59.102,192.168.59.103"'
 alias proxy.off='unset https_proxy;unset http_proxy;unset all_proxy;git config --global --unset https.proxy; git config --global --unset http.proxy'
-# ------------------------------------------------------------------->>>>>>>>>>
-# set proxy port, default is closed
-# ------------------------------------------------------------------->>>>>>>>>>
+
 proxy.off
 
-alias ssh.server.veteran="ssh zhaohuanan@162.105.250.73"
-alias ssh.server.bioin="ssh zhaohuanan@bioin.vip -p 10006"
-alias checkbam="for i in *.bam ;do (samtools quickcheck \$i && echo \"ok    \" \$i || echo \"error    \" \$i);done"
 
+
+
+
+# ------------------------------------------------------------------->>>>>>>>>>
 # set different settings on different machines
+# ------------------------------------------------------------------->>>>>>>>>>
+
+# ------------------------------------------------------------------->>>>>>>>>>
 if [[ $HOST == "login"* ]]; then
+# ------------------------------------------------------------------->>>>>>>>>>
+
     echo -e '\tmatch polars login-server @' $HOST
+
     # on polars, I need to clean system PATH for DIY usage
     unset PATH
     # for system use
@@ -76,17 +91,36 @@ if [[ $HOST == "login"* ]]; then
     done
     }
     alias ssh.tunnels.keep.on=func_ssh.keep.on
-    # for tmux
-    mkdir -p $HOME/.tmux_tmp_dir/$HOST
-    export TMUX_TMPDIR=$HOME/.tmux_tmp_dir/$HOST
 
-
+# ------------------------------------------------------------------->>>>>>>>>>
 elif [[ $HOST == "zhaohuanan-Ubuntu" || $HOST == "ThreadRipper" ]]; then
+# ------------------------------------------------------------------->>>>>>>>>>
    echo -e '\tmatch my Server @' $HOST 
+
+# ------------------------------------------------------------------->>>>>>>>>>
 elif [[ $HOST == *"Mac"* ]]; then
+# ------------------------------------------------------------------->>>>>>>>>>
     echo -e '\tmatch my Mac @ ' $HOST
+
+    # macox alias for surge app proxy replace clash
+    alias proxy.on='export https_proxy=http://127.0.0.1:8234;export http_proxy=http://127.0.0.1:8234;export all_proxy=socks5://127.0.0.1:8235;export no_proxy="192.168.59.102,192.168.59.103"'
+    
     proxy.on
+
+    # alias on macos
+    alias zcat="gunzip -d -c"  # fix zcat
+    alias startsc="open -a DPSafeConnect.app 2> /dev/null || open -a SafeConnect 2> /dev/null && open -a Step\ Two.app"
+    alias opena="open -a Sublime\ Text"
+    alias code="/Applications/Visual\ Studio\ Code.app/Contents/Resources/app/bin/code"
+    # for arm64
+    alias conda_rosetta_echo='\
+    echo "CONDA_SUBDIR=osx-64 conda create -n rosetta_env conda python\n# ↑↑↑python_version conda is needed↑↑↑\n# <conda install conda> in the rosetta_env is the best choice\n# when alias micromamba as conda\n\nconda activate rosetta_env\n\n/path_of_python_version/conda env config vars set CONDA_SUBDIR=osx-64\n# ↑↑↑python_version conda is needed for setting CONDA_SUBDIR var↑↑↑\n\nconda deactivate\\nconda activate rosetta_env\n\npython -c \"import platform;print(platform.machine())\"  \n# should output x86_64"\
+    '
+    # set PATH
     export PATH=$PATH:/Library/TeX/texbin
+    export PATH=/opt/homebrew/bin:/opt/homebrew/sbin:$PATH
+    export PATH=$PATH:/opt/homebrew/opt/openjdk/bin
+
 fi
 
 # global settings

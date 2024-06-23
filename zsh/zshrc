@@ -1,3 +1,4 @@
+source ~/.zprofile
 echo -e '\n\n'
 echo '>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>'
 echo '(~/.zshrc) is sourced @' $HOST

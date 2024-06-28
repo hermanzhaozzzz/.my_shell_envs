@@ -31,6 +31,7 @@ dependencies:
 - clang_osx-64=16.0.6=h8787910_0
 - clangxx=16.0.6=default_h762fdd7_0
 - clangxx_osx-64=16.0.6=h6d92fbe_0
+- colorama=0.4.6=pyhd8ed1ab_0
 - comm=0.1.3=pyhd8ed1ab_0
 - compiler-rt=16.0.6=he1888fc_0
 - compiler-rt_osx-64=16.0.6=he1888fc_0
@@ -300,6 +301,7 @@ dependencies:
 - rfc3986-validator=0.1.1=pyh9f0ad1d_0
 - send2trash=1.8.2=pyhd1c38e8_0
 - setuptools=68.0.0=pyhd8ed1ab_0
+- shtab=1.7.1=pyhd8ed1ab_0
 - sigtool=0.1.3=h88f4db0_0
 - six=1.16.0=pyh6c4a22f_0
 - smmap=3.0.5=pyh44b312d_0
@@ -307,10 +309,12 @@ dependencies:
 - soupsieve=2.3.2.post1=pyhd8ed1ab_0
 - stack_data=0.6.2=pyhd8ed1ab_0
 - tapi=1100.0.11=h9ce4665_0
+- termcolor=2.4.0=pyhd8ed1ab_0
 - terminado=0.17.1=pyhd1c38e8_0
 - tinycss2=1.2.1=pyhd8ed1ab_0
 - tk=8.6.12=h5dbffcc_0
 - tktable=2.10=h49f0cf7_3
+- tldr=3.2.0=pyh0aa0b10_0
 - tomli=2.0.1=pyhd8ed1ab_0
 - tornado=6.3.2=py310h6729b98_0
 - traitlets=5.9.0=pyhd8ed1ab_0

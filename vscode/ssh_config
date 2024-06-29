@@ -8,6 +8,6 @@ Host Ubuntu200
     Port 20022
     User zhaohuanan
 Host ThreadRipper
-    HostName 162.105.250.225
+    HostName 162.105.250.110
     User zhaohuanan
     

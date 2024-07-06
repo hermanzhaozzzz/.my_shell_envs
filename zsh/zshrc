@@ -1,7 +1,7 @@
 source ~/.zprofile
 echo -e '\n\n'
 echo '>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>'
-echo '(~/.zshrc) is sourced @' $HOST
+echo '(~/.zshrc) is sourced @' `hostname` 
 echo -e '\tapply @ ~/.my_shell_envs settings for zsh'
 echo '>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>'
 echo -e '\twelcome to use this zsh env'

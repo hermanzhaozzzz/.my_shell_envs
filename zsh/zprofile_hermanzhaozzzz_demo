@@ -1,6 +1,6 @@
 echo -e '\n\n'
 echo '>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>'
-echo '(~/.zprofile) is sourced @' $HOST
+echo '(~/.zprofile) is sourced @' `hostname` 
 echo -e '\tapply @ ~/.zprofile (private) settings for zsh'
 echo '>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>'
 
@@ -31,7 +31,7 @@ proxy.off
 # ------------------------------------------------------------------->>>>>>>>>>
 
 # ------------------------------------------------------------------->>>>>>>>>>
-if [[ $HOST == "login"* ]]; then
+if [[ `hostname` == "login"* ]]; then
 # ------------------------------------------------------------------->>>>>>>>>>
 
     echo -e '\tmatch polars login-server @' $HOST
@@ -93,12 +93,12 @@ if [[ $HOST == "login"* ]]; then
     alias ssh.tunnels.keep.on=func_ssh.keep.on
 
 # ------------------------------------------------------------------->>>>>>>>>>
-elif [[ $HOST == "zhaohuanan-Ubuntu" || $HOST == "ThreadRipper" ]]; then
+elif [[ `hostname` == "zhaohuanan-Ubuntu" || `hostname` == "ThreadRipper" ]]; then
 # ------------------------------------------------------------------->>>>>>>>>>
    echo -e '\tmatch my Server @' $HOST 
 
 # ------------------------------------------------------------------->>>>>>>>>>
-elif [[ $HOST == *"Mac"* ]]; then
+elif [[ `hostname` == *"Mac"* ]]; then
 # ------------------------------------------------------------------->>>>>>>>>>
     echo -e '\tmatch my Mac @ ' $HOST
 

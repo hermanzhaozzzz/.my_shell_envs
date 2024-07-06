@@ -15,6 +15,7 @@ platform="$(uname)"
 platform=$(echo $platform | awk -F '_' '{printf $1}')
 # Linux / Darwin / MINGW64
 echo
+HOST=`hostname`
 # 设置USER显示
 DEFAULT_USER=$USER
 

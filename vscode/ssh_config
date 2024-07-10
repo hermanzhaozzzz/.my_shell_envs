@@ -1,11 +1,9 @@
 # Read more about SSH config files: https://linux.die.net/man/5/ssh_config
 Host ZSpace
-    HostName 162.105.250.247
-    Port 10022
+    HostName 162.105.250.36
     User zhaohuanan
 Host Ubuntu200
-    HostName 162.105.250.247
-    Port 20022
+    HostName 162.105.250.66
     User zhaohuanan
 Host ThreadRipper
     HostName 162.105.250.110

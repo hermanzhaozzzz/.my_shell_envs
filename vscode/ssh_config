@@ -3,7 +3,7 @@ Host ZSpace
     HostName 162.105.250.36
     User zhaohuanan
 Host Ubuntu200
-    HostName 162.105.250.66
+    HostName 162.105.250.200
     User zhaohuanan
 Host ThreadRipper
     HostName 162.105.250.110

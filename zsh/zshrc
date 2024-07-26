@@ -215,10 +215,10 @@ alias btop='btop -lc'
 
 # 第三方命令别名
 alias llll="/bin/ls -lh"
-alias lll="exa -lh --time-style long-iso"
-alias ll="exa -lh --tree -L 1 --no-user --time-style long-iso"
-alias lg="exa -lh --tree -L 1 --no-user --time-style long-iso | grep -v 'job.srp' | grep -v '.err' | grep -v '.out'"
-alias l="exa -lha --tree -L 1 --time-style long-iso"
+alias lll="eza -lh --time-style long-iso"
+alias ll="eza -lh --tree -L 1 --no-user --time-style long-iso"
+alias lg="eza -lh --tree -L 1 --no-user --time-style long-iso | grep -v 'job.srp' | grep -v '.err' | grep -v '.out'"
+alias l="eza -lha --tree -L 1 --time-style long-iso"
 
 if [ -f /proc/version ]; then
     if grep -qEi 'wsl' /proc/version; then

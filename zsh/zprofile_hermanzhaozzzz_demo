@@ -98,7 +98,7 @@ elif [[ `hostname` == "zhaohuanan-Ubuntu" || `hostname` == "ThreadRipper" ]]; th
    echo -e '\tmatch my Server @' $HOST 
 
 # ------------------------------------------------------------------->>>>>>>>>>
-elif [[ `hostname` == *"Mac"* ]]; then
+elif [[ `hostname` == *"Mac"* || `hostname` == "bogon" ]]; then
 # ------------------------------------------------------------------->>>>>>>>>>
     echo -e '\tmatch my Mac @ ' $HOST
 

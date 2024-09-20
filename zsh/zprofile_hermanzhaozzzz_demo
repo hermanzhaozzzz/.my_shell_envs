@@ -31,10 +31,10 @@ proxy.off
 # ------------------------------------------------------------------->>>>>>>>>>
 
 # ------------------------------------------------------------------->>>>>>>>>>
-if [[ `hostname` == "login"* ]]; then
+if [[ `hostname` == "login"* || `hostname` == "c"*"b"*"n"* ]]; then
 # ------------------------------------------------------------------->>>>>>>>>>
 
-    echo -e '\tmatch polars login-server @' $HOST
+    echo -e '\tmatch polaris server @' $HOST
 
     # on polars, I need to clean system PATH for DIY usage
     unset PATH

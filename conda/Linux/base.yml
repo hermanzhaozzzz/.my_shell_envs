@@ -344,7 +344,6 @@ dependencies:
 - neovim=0.3.1=pyhd8ed1ab_3
 - nest-asyncio=1.5.6=pyhd8ed1ab_0
 - netcdf-fortran=4.6.1=nompi_hacb5139_103
-- nglview=3.1.1=pyh15ce09e_0
 - nodejs=20.12.2=hb753e55_0
 - notebook=6.5.4=pyha770c72_0
 - notebook-shim=0.2.3=pyhd8ed1ab_0

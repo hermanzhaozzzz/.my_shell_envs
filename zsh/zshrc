@@ -152,7 +152,7 @@ export PATH=${HOME}/.my_shell_envs/bin:$PATH
 # ------------------------------------------------------------------->>>>>>>>>>
 if [ -z "${TRASH+x}" ]; then  
     TRASH=".mytrash"
-    if [ ! -d ${HOME}/$TRASH ]; then
+    if [ ! -d "${HOME}/$TRASH" ] && [ ! -L "${HOME}/$TRASH" ]; then
         echo -e '\t!!!!!ATTENTION!!!!!'
         echo -e '\tnot found var: TRASH in ~/.zprofile'
         echo -e '\tautomatically set TRASH @ '$HOME/$TRASH

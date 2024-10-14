@@ -152,7 +152,8 @@ unset PERL5LIB
 #     export CUDA_HOME=${HOME}/0.apps/cuda/cuda
 # fi
 
-
+# set trash
+export TRASH=${HOME}/.mytrash
 
 
 

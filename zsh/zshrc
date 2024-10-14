@@ -151,24 +151,24 @@ export PATH=${HOME}/.my_shell_envs/bin:$PATH
 # 自定义函数命令
 # ------------------------------------------------------------------->>>>>>>>>>
 if [ -z "${TRASH+x}" ]; then  
-    TRASH=".mytrash"
-    if [ ! -d "${HOME}/$TRASH" ] && [ ! -L "${HOME}/$TRASH" ]; then
+    TRASH=${HOME}/.mytrash
+    if [ ! -d "$TRASH" ] && [ ! -L "$TRASH" ]; then
         echo -e '\t!!!!!ATTENTION!!!!!'
         echo -e '\tnot found var: TRASH in ~/.zprofile'
-        echo -e '\tautomatically set TRASH @ '$HOME/$TRASH
-        mkdir -p $HOME/$TRASH
-        echo -e '\tyou can override it by adding `export TRASH=your_trash_path`, the trash folder will be create in ~/$TRASH'
+        echo -e '\tautomatically set TRASH @ '$TRASH
+        mkdir -p $TRASH
+        echo -e '\tyou can override it by adding `export TRASH=your_trash_path`, the trash folder will be create'
         echo -e '\tOR you need to do nothing if you want to use ~/.mytrash as your default trash folder'
         echo -e '\tthis warning will be shown ONLY ONCE.'
         echo -e '\t!!!!/ATTENTION!!!!!\n\n'
     fi
 else
-    /bin/rm -rf $HOME/.mytrash 2>/dev/null
-    echo -e '\tset TRASH @ '$HOME/$TRASH
+    mkdir -p $TRASH
+    echo -e '\tset TRASH @ '$TRASH
 fi
 # mv命令覆盖rm命令
 func_delfile(){
-    mv $@ $HOME/$TRASH/
+    mv $@ $TRASH/
 }
 # 保存原始rm命令的路径
 alias rm.real.rm=/bin/rm
@@ -179,29 +179,29 @@ alias rm=func_delfile
 # 显示回收站中垃圾清单
 func_dellist(){
     # ls -alt $HOME/$TRASH/*
-    exa --no-permissions --time-style long-iso -lh --tree -L 1 --no-user $HOME/$TRASH
+    exa --no-permissions --time-style long-iso -lh --tree -L 1 --no-user $TRASH
 
 }
 alias rm.trash.show=func_dellist
 # 找回回收站相应文件
 func_delback(){
-    echo "将执行 mv -i $HOME/$TRASH/* ./"
+    echo "将执行 mv -i $TRASH/* ./"
     echo "你可以自己写mv命令来恢复文件"
     echo "在那之前，建议执行rm.trash.show来检查垃圾箱的文件"
     echo "是否继续执行 [y/n]"
     read confirm
     if [ ${confirm} = "y" ]; then
-        mv -i $HOME/$TRASH/* ./
+        mv -i $TRASH/* ./
     fi
 }
 alias rm.trash.back=func_delback
 # 清空回收站
 func_delclear(){
-    echo "确认删除回收站所有文件？？？ ~/$TRASH [y/n]"
+    echo "确认删除回收站所有文件？？？ $TRASH [y/n]"
     read confirm
     if [ ${confirm} = "y"  ] ;then
-        /bin/rm -rf ~/$TRASH/* 
-        /bin/rm -rf ~/$TRASH/.* 2> /dev/null
+        /bin/rm -rf $TRASH/* 
+        /bin/rm -rf $TRASH/.* 2> /dev/null
         echo "完成"
     fi
 }

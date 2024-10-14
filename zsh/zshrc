@@ -275,3 +275,4 @@ echo -e '\talias conda=micromamba'
 echo -e '\talias mamba=micromamba'
 alias conda=micromamba
 alias mamba=micromamba
+conda deactivate

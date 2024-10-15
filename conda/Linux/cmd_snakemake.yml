@@ -1,4 +1,4 @@
-name: snakemake
+name: cmd_snakemake
 channels:
 - bioconda
 - conda-forge

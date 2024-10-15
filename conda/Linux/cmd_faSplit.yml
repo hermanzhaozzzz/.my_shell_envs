@@ -1,0 +1,19 @@
+name: cmd_faSplit
+channels:
+- bioconda
+- conda-forge
+dependencies:
+- _libgcc_mutex=0.1=conda_forge
+- _openmp_mutex=4.5=2_gnu
+- ca-certificates=2024.2.2=hbcca054_0
+- libgcc-ng=13.2.0=h807b86a_5
+- libgomp=13.2.0=h807b86a_5
+- libpng=1.6.42=h2797004_0
+- libstdcxx-ng=13.2.0=h7e041cc_5
+- libuuid=2.38.1=h0b41bf4_0
+- libzlib=1.2.13=hd590300_5
+- mysql-connector-c=6.1.11=h6eb9d5d_1007
+- openssl=1.1.1w=hd590300_0
+- ucsc-fasplit=377=ha8a8165_3
+- zlib=1.2.13=hd590300_5
+

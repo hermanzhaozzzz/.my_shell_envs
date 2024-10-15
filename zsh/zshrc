@@ -234,8 +234,6 @@ fi
 # Conda | Mamba (Must be at the end)
 # ------------------------------------------------------------------->>>>>>>>>>
 
-# >>> mamba initialize >>>
-# !! Contents within this block are managed by 'micromamba shell init' !!
 if [[ "$platform" == "Darwin" ]]; then
     export MAMBA_EXE="$HOME/micromamba/bin/micromamba";
     export MAMBA_ROOT_PREFIX="$HOME/micromamba";
@@ -268,7 +266,6 @@ else
    # alias micromamba="$MAMBA_EXE"  # Fallback on help from micromamba activate
 fi
 unset __mamba_setup
-# <<< mamba initialize <<<
 
 eval "$(micromamba shell hook --shell=zsh)"
 echo -e '\talias conda=micromamba'
@@ -276,3 +273,4 @@ echo -e '\talias mamba=micromamba'
 alias conda=micromamba
 alias mamba=micromamba
 conda deactivate
+

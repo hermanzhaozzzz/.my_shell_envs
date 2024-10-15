@@ -120,6 +120,7 @@ dependencies:
 - tomli=2.0.2=pyhd8ed1ab_0
 - toposort=1.10=pyhd8ed1ab_0
 - traitlets=5.14.3=pyhd8ed1ab_0
+- tree_sitter=0.20.4=py312h98912ed_0
 - typing_extensions=4.12.2=pyha770c72_0
 - tzdata=2024b=hc8b5060_0
 - ubiquerg=0.8.0=pyhd8ed1ab_0

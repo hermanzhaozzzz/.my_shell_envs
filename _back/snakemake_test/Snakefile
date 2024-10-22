@@ -1,0 +1,35 @@
+rule all:
+	input:
+		"final.txt"
+rule debug_hello:
+	output:
+		"results.txt"
+	resources:
+		ngpus=2,
+		ncpus=28
+	shell:
+		"""
+		sleep 10
+		echo 'Hello, Snakemake!' > {output}
+		"""
+rule debug_process:
+	input:
+		"results.txt"
+	output:
+		"processed.txt"
+	shell:
+		"""
+		sleep 10
+		cat {input} | awk '{{print $1}}' > {output}
+		"""
+rule debug_finalize:
+	input:
+		"processed.txt"
+	output:
+		"final.txt"
+	shell:
+		"""
+		sleep 10
+		cat {input} | sort > {output}
+		"""
+

@@ -5,7 +5,7 @@ cluster-generic-submit-cmd: mkdir -p logs/{rule} &&
   --account={resources.account}
   --qos={resources.qos}
   --cpus-per-task={threads}
-  --job-name=smk-{rule}-{wildcards}
+  --job-name=🐍{rule}-{wildcards}
   --output=logs/{rule}/{rule}-{wildcards}-%j.out
   --parsable
   -x c01b03n11

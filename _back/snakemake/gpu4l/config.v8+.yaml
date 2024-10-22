@@ -8,7 +8,7 @@ cluster-generic-submit-cmd: mkdir -p logs/{rule} &&
   --gres=gpu:{resources.ngpus}
   --overcommit
   --mincpus={resources.ncpus}
-  --job-name=smk-{rule}-{wildcards}
+  --job-name=🐍{rule}-{wildcards}
   --output=logs/{rule}/{rule}-{wildcards}-%j.out
   --parsable
   -x c01b03n11

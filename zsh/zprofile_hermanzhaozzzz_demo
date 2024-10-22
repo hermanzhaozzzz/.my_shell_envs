@@ -54,7 +54,12 @@ if [[ `hostname` == "login"* || `hostname` == "c"*"b"*"n"* ]]; then
     export PATH=$PATH:${HOME}/0.apps/bedops/bin
 
     # diy cmds for easily using slurm on polars
-    alias rm.slurmlogs='rm *.err; rm *.out; rm job.srp*'
+    func_delslrumlogs(){
+        /bin/rm *.err 2> /dev/null
+        /bin/rm *.out 2> /dev/null
+        /bin/rm job.srp* 2> /dev/null
+    }
+    alias rm.slurmlogs=func_delslrumlogs
     alias squeuez="for i in \`squeue -u chengqiyi_pkuhpc | grep -v 'QOS not permitted' | awk '{print \$1}'\`; do (pkujob | grep \$i | xargs echo); done | grep zhaohn | awk -F '=' '{print \$2}' | awk '{print \$1}'"
     alias squeuey="squeue -u chengqiyi_pkuhpc"
     alias ps.ef="ps -ef | grep chengqi | grep zhaohn"
@@ -137,8 +142,6 @@ unset R_HOME
 # for perl
 unset PERL5LIB
 #
-
-
 
 # C, CXX LIB
 # if [ $LD_LIBRARY_PATH ]; then

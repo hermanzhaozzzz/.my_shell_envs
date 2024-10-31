@@ -51,6 +51,7 @@ dependencies:
 - importlib-metadata=7.1.0=pyha770c72_0
 - importlib_metadata=7.1.0=hd8ed1ab_0
 - importlib_resources=6.4.0=pyhd8ed1ab_0
+- importnb=2023.11.1=pyhd8ed1ab_0
 - ipykernel=6.29.4=pyh57ce528_0
 - ipython=8.25.0=pyh707e725_0
 - ipywidgets=8.1.3=pyhd8ed1ab_0

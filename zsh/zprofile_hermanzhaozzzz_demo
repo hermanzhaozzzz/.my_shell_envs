@@ -68,6 +68,10 @@ if [[ `hostname` == "login"* || `hostname` == "c"*"b"*"n"* ]]; then
     alias salloc_fat8way="salloc -N 1 --job-name=notebook_zhn  --partition=fat8way --account=chengqiyi_g1 --qos=chengqiyif8w --cpus-per-task=64"
     alias salloc_cnnl="salloc -N 1 --job-name=notebook_zhn --partition=cn_nl --account=chengqiyi_g1 --qos=chengqiyicnnl --cpus-per-task=28"
     alias salloc_cns="salloc -N 1 --job-name=notebook_zhn --partition=cn-short --account=chengqiyi_g1 --qos=chengqiyicns --cpus-per-task=20"
+    alias salloc_gpu4l_1="salloc -N 1 --job-name=nb_gui  --partition=gpu_4l --account=chengqiyi_g1 --qos=chengqiyig4c --gres=gpu:1 --overcommit --mincpus=7"
+    alias salloc_gpu4l_2="salloc -N 1 --job-name=nb_gui  --partition=gpu_4l --account=chengqiyi_g1 --qos=chengqiyig4c --gres=gpu:2 --overcommit --mincpus=14"
+    alias salloc_gpu4l_3="salloc -N 1 --job-name=nb_gui  --partition=gpu_4l --account=chengqiyi_g1 --qos=chengqiyig4c --gres=gpu:3 --overcommit --mincpus=21"
+    alias salloc_gpu4l_4="salloc -N 1 --job-name=nb_gui  --partition=gpu_4l --account=chengqiyi_g1 --qos=chengqiyig4c --gres=gpu:4 --overcommit --mincpus=28"
 
     # 开启反向代理隧道
     func_ssh.tunnels.on(){

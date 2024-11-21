@@ -1,0 +1,39 @@
+executor: cluster-generic
+cluster-generic-submit-cmd: mkdir -p logs/{rule} &&
+  sbatch
+  --partition={resources.partition}
+  --account={resources.account}
+  --qos={resources.qos}
+  --cpus-per-task={threads}
+  --gres=gpu:{resources.ngpus}
+  --overcommit
+  --mincpus={resources.ncpus}
+  --job-name=🐍{rule}-{wildcards}
+  --output=logs/{rule}/{rule}-{wildcards}-%j.out
+  --parsable
+  -x c01b03n11
+# 2024-10-22
+# c01b03n11  节点卡死?导致snakemake一直running无法执行shell和命令导致一直卡住
+cluster-generic-status-cmd: "$HOME/.config/snakemake/mysacct.py"
+cluster-generic-cancel-cmd: "scancel"
+default-resources:
+  - account=chengqiyi_g1
+  - partition=gpu_l40
+  - qos=chengqiyil40
+  - ngpus=1
+  - ncpus=9
+  # 1 gpu : 7 cpu
+  # 2 gpu : 14 cpu
+  # 3 gpu : 20 cpu
+  # 4 gpu : 20 cpu
+restart-times: 2
+jobs: 500
+max-jobs-per-second: 500
+max-status-checks-per-second: 500
+local-cores: 1
+latency-wait: 60
+keep-going: True
+rerun-incomplete: True
+printshellcmds: True
+scheduler: greedy
+use-conda: True

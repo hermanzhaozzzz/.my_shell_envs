@@ -92,6 +92,7 @@ dependencies:
 - icu=75.1=he02047a_0
 - idna=3.10=pyhd8ed1ab_0
 - importlib-metadata=8.5.0=pyha770c72_0
+- importlib_metadata=8.5.0=hd8ed1ab_0
 - importlib_resources=6.4.5=pyhd8ed1ab_0
 - ipykernel=6.29.5=pyh3099207_0
 - ipython=8.28.0=pyh707e725_0
@@ -254,6 +255,7 @@ dependencies:
 - pydantic-core=2.23.4=py312h12e396e_0
 - pygments=2.18.0=pyhd8ed1ab_0
 - pyjwt=2.9.0=pyhd8ed1ab_1
+- pyngrok=7.2.1=pyhd8ed1ab_0
 - pyparsing=3.2.0=pyhd8ed1ab_1
 - pyproject_hooks=1.2.0=pyh7850678_0
 - pyside6=6.7.3=py312h91f0f75_1

@@ -86,7 +86,7 @@ dependencies:
 - hpack=4.0.0=pyh9f0ad1d_0
 - htop=3.3.0=h2475386_0
 - httpcore=1.0.6=pyhd8ed1ab_0
-- httpx=0.27.2=pyhd8ed1ab_0
+- httpx=0.28.0=pyhd8ed1ab_0
 - humanfriendly=10.0=pyhd81877a_7
 - hyperframe=6.0.1=pyhd8ed1ab_0
 - icu=75.1=he02047a_0
@@ -116,7 +116,7 @@ dependencies:
 - jupyter_server_terminals=0.5.3=pyhd8ed1ab_0
 - jupyterhub=5.2.1=pyh31011fe_0
 - jupyterhub-base=5.2.1=pyh31011fe_0
-- jupyterlab=4.3.1=pyhff2d567_0
+- jupyterlab=4.3.2=pyhd8ed1ab_0
 - jupyterlab_pygments=0.3.0=pyhd8ed1ab_1
 - jupyterlab_server=2.27.3=pyhd8ed1ab_0
 - jupyterlab_widgets=3.0.13=pyhd8ed1ab_0

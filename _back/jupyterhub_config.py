@@ -14,7 +14,7 @@ from tornado import gen
 
 # 定义允许的用户及其密码
 def load_user_passwords():
-    with open('./password.json', 'r') as f:
+    with open('./jupyterhub_password.json', 'r') as f:
         return json.load(f)
 # 加载用户密码数据
 ALLOWED_USERS = load_user_passwords()

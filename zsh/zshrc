@@ -228,7 +228,7 @@ if [ -f /proc/version ]; then
         echo -e '\tsee doc: https://wslutiliti.es/wslu/zh-CN/install.html to install wslview cmd'
         alias open='wslview'
         # 获取 Windows 的 IP 地址（WSL 默认网关）
-        WIN_IP=$(cat /etc/resolv.conf | grep nameserver | awk '{print $2}')
+        WIN_IP=$(cat /etc/resolv.conf | grep nameserver | head -1 | awk '{print $2}')
         echo "set proxy (http/https/socks5) port to ${WIN_IP}:8234, hope it managed by Clash for Windows!"
 
         export http_proxy="http://$WIN_IP:8234"

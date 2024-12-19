@@ -229,6 +229,7 @@ if [ -f /proc/version ]; then
         alias open='wslview'
         # 获取 Windows 的 IP 地址（WSL 默认网关）
         WIN_IP=$(cat /etc/resolv.conf | grep nameserver | head -1 | awk '{print $2}')
+        echo $WIN_IP > $HOME/.WIN_IP_FOR_WSL
         echo "set proxy (http/https/socks5) port to ${WIN_IP}:8234, hope it managed by Clash for Windows!"
 
         export http_proxy="http://$WIN_IP:8234"
@@ -284,3 +285,4 @@ conda deactivate
 
 export SCRCPY_SERVER_PATH=/Applications/极空间.app/Contents/Resources/app.asar.unpacked/bin/platform-tools/scrcpy-server
 export PATH=$PATH:/Applications/极空间.app/Contents/Resources/app.asar.unpacked/bin/platform-tools
+

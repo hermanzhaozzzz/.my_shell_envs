@@ -1,0 +1,7 @@
+[experimental]
+autoMemoryReclaim=gradual  # gradual  | dropcache | disabled
+networkingMode=mirrored
+dnsTunneling=true
+firewall=false
+
+bestEffortDnsParsing=true

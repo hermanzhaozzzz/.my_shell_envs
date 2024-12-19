@@ -227,6 +227,10 @@ if [ -f /proc/version ]; then
         echo 'alias open=wslview'
         echo -e '\tsee doc: https://wslutiliti.es/wslu/zh-CN/install.html to install wslview cmd'
         alias open='wslview'
+        echo "set proxy (http/https/socks5) port to 127.0.0.1:7890, hope it managed by Clash for Windows!"
+        export https_proxy=http://127.0.0.1:7890;
+        export http_proxy=http://127.0.0.1:7890;
+        export all_proxy=socks5://127.0.0.1:7890
     fi
 fi
 

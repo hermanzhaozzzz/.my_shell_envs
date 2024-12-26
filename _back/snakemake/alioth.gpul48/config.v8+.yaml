@@ -8,7 +8,7 @@ cluster-generic-submit-cmd: mkdir -p logs/{rule} &&
   --job-name=🐍{rule}-{wildcards}
   --output=logs/{rule}/{rule}-{wildcards}-%j.out
   --parsable
-# --overcommit
+  --overcommit
 cluster-generic-cancel-cmd: "scancel"
 default-resources:
   - partition=gpu_l48
@@ -28,4 +28,4 @@ keep-going: True
 rerun-incomplete: True
 printshellcmds: True
 scheduler: greedy
-use-conda: False
+use-conda: True

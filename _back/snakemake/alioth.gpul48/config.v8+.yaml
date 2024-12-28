@@ -11,7 +11,7 @@ cluster-generic-submit-cmd: mkdir -p logs/{rule} &&
   --overcommit
 cluster-generic-cancel-cmd: "scancel"
 default-resources:
-  - partition=gpu_l40
+  - partition=gpu_l48
   - ngpus=1
   - ncpus=9
   # 1 gpu : 7 cpu

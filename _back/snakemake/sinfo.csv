@@ -1,0 +1,6 @@
+partition,cpu,rom,gpu,overcommit_cmd
+alioth.cn-long,192,377,0,salloc -N 1 --job-name=nb_gui  --partition=cn-long --overcommit
+alioth.fat2way,64,1480,0,salloc -N 1 --job-name=nb_gui  --partition=fat2way --overcommit
+alioth.gpu_l40,50,512,4,salloc -N 1 --job-name=nb_gui  --partition=gpu_l40 --gres=gpu:4 --overcommit --mincpus=64
+alioth.gpu_l48,,,8,salloc -N 1 --job-name=nb_gui  --partition=gpu_l48 --gres=gpu:8 --overcommit --mincpus=64
+alioth.gpu_a800,,,8,salloc -N 1 --job-name=nb_gui  --partition=gpu_a800 --gres=gpu:8 --overcommit --mincpus=64

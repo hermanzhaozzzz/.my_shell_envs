@@ -1,52 +1,123 @@
+# 判断操作系统类型
+case "$(uname -s)" in
+    Darwin)
+        export OS="macOS"
+        ;;
+    Linux)
+        # 判断是否为 WSL
+        if grep -q Microsoft /proc/version 2>/dev/null; then
+            export OS="WSL"
+        else
+            export OS="Linux"
+        fi
+        ;;
+    *)
+        export OS="Unknown"
+        ;;
+esac
+# 获取CPU架构
+ARCH=$(uname -m)
+
 echo -e '\n\n'
 echo '>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>'
-echo '(~/.zprofile) is sourced @' `hostname` 
+echo -e "\033[1;34m(~/.zprofile)\033[0m is sourced @ \033[1;32m${OS}\033[0m (\033[1;36m${ARCH}\033[0m) platform"
 echo -e '\tapply @ ~/.zprofile (private) settings for zsh'
 echo '>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>'
 
+# ------------------------------------------------------------------->>>>>>>>>>
+# TRASH DIRCTORY
+# ------------------------------------------------------------------->>>>>>>>>>
+export TRASH=${HOME}/.mytrash
+
 
 # ------------------------------------------------------------------->>>>>>>>>>
-# global alias
+# PROXY SETTING
 # ------------------------------------------------------------------->>>>>>>>>>
-alias ssh.server.veteran="ssh zhaohuanan@162.105.250.73"
+# global alias for clash proxy 
+_func_proxy_on(){
+    export no_proxy="192.168.59.102,192.168.59.103"
+
+    export https_proxy=http://127.0.0.1:8234
+    export http_proxy=http://127.0.0.1:8234
+
+    if [[ $OS == "Linux" ]]; then
+        export all_proxy=socks5://127.0.0.1:8234
+    elif [[ $OS == "macOS" ]]; then
+        export all_proxy=socks5://127.0.0.1:8235
+    elif [[ $OS == "Unknown" ]]; then
+        export all_proxy=socks5://127.0.0.1:8234
+    fi
+}
+_func_proxy_off(){
+    unset https_proxy
+    unset http_proxy
+    unset all_proxy
+    git config --global --unset https.proxy
+    git config --global --unset http.proxy
+}
+
+alias proxy.on=_func_proxy_on
+alias proxy.off=_func_proxy_off
+
+if [[ $OS == "Linux" || $OS == "Unknown" ]]; then
+    proxy.off
+    echo 'proxy is off by default, run `proxy.on` to use proxy'
+
+elif [[ $OS == "macOS" ]]; then
+    proxy.on
+    echo 'proxy is on by default, run `proxy.off` to remove proxy'
+fi
+
+
+# ------------------------------------------------------------------->>>>>>>>>>
+# GLOBAL PATH SETTING
+# ------------------------------------------------------------------->>>>>>>>>>
+export PATH=$PATH:${HOME}/.local/bin
+export PATH=$PATH:${HOME}/.cargo/bin
+
+
+# ------------------------------------------------------------------->>>>>>>>>>
+# GLOBAL VAR SETTING
+# ------------------------------------------------------------------->>>>>>>>>>
+unset R_HOME  # R
+unset PERL5LIB  # perl
+
+############ nvm
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
+[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
+############ /nvm
+
+############ C, CXX LIB
+# if [ $LD_LIBRARY_PATH ]; then
+#     export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${HOME}/.my_shell_envs/ld_lib:${HOME}/0.apps/micromamba/lib
+# else
+#     export LD_LIBRARY_PATH=${HOME}/.my_shell_envs/ld_lib:${HOME}/0.apps/micromamba/lib
+# fi
+############ /C, CXX LIB
+
+############ CUDA_HOME
+# if [ $CUDA_HOME ]; then
+#     export CUDA_HOME=$CUDA_HOME:${HOME}/0.apps/cuda/cuda
+# else
+#     export CUDA_HOME=${HOME}/0.apps/cuda/cuda
+# fi
+############ /CUDA_HOME
+
+
+# ------------------------------------------------------------------->>>>>>>>>>
+# GLOBAL ALIAS
+# ------------------------------------------------------------------->>>>>>>>>>
 alias ssh.server.bioin="ssh zhaohuanan@bioin.vip -p 10006"
 alias ssh.server.polaris="ssh chengqiyi_zhn@10.100.1.88"
 alias ssh.server.alioth="ssh -o HostKeyAlgorithms=+ssh-rsa,ssh-dss hnzhao@10.100.0.99"
-
 alias checkbam="for i in *.bam ;do (samtools quickcheck \$i && echo \"ok    \" \$i || echo \"error    \" \$i);done"
 
 
-# global alias for clash proxy 
-alias proxy.start='ssh -qTnN -D 8234 zhaohuanan@zhaohuanan.cc'
-alias proxy.on='export https_proxy=http://127.0.0.1:8234;export http_proxy=http://127.0.0.1:8234;export all_proxy=socks5://127.0.0.1:8234;export no_proxy="192.168.59.102,192.168.59.103"'
-alias proxy.off='unset https_proxy;unset http_proxy;unset all_proxy;git config --global --unset https.proxy; git config --global --unset http.proxy'
-
-proxy.off
-
-
-
-
-
 # ------------------------------------------------------------------->>>>>>>>>>
-# set different settings on different machines
+# SETTINGS on DIFFERENT platforms
 # ------------------------------------------------------------------->>>>>>>>>>
-
-# ------------------------------------------------------------------->>>>>>>>>>
-if [[ `hostname` == "login"* || `hostname` == "c"*"b"*"n"*  || "autodl"* ]]; then
-# ------------------------------------------------------------------->>>>>>>>>>
-
-    echo -e '\tmatch polaris server @' $HOST
-
-    # on polars, I need to clean system PATH for DIY usage
-    unset PATH
-    # for system use
-    export PATH=/usr/bin:/usr/lib:/usr/lib64:/usr/libexec:/usr/sbin
-    export PATH=$PATH:/usr/local/bin:/usr/local/lib:/usr/local/lib64:/usr/local/libexec
-    # start with zsh
-    export PATH=/home/chengqiyi_pkuhpc/.local/share/zsh/bin:$PATH
-    # I need the slurm system cmds for work
-    export PATH=$PATH:/rm/rm_prog/slurm/18.08.7/bin:/data01/oldbin/newbin
-
+if [[ $OS == "Linux" ]]; then
     # optional bioinformatic cmds to add
     export PATH=$PATH:${HOME}/0.apps/homer/bin
     export PATH=$PATH:${HOME}/0.apps/HiC-Pro_installed/HiC-Pro_3.1.0/bin
@@ -54,122 +125,220 @@ if [[ `hostname` == "login"* || `hostname` == "c"*"b"*"n"*  || "autodl"* ]]; the
     export PATH=$PATH:${HOME}/0.apps/bedops/bin
 
     # diy cmds for easily using slurm on polars
-    func_delslrumlogs(){
+    _func_delslrumlogs(){
         /bin/rm *.err 2> /dev/null
         /bin/rm *.out 2> /dev/null
         /bin/rm job.srp* 2> /dev/null
     }
-    alias rm.slurmlogs=func_delslrumlogs
-    alias squeuez="for i in \`squeue -u chengqiyi_pkuhpc | grep -v 'QOS not permitted' | awk '{print \$1}'\`; do (pkujob | grep \$i | xargs echo); done | grep zhaohn | awk -F '=' '{print \$2}' | awk '{print \$1}'"
-    alias squeuey="squeue -u chengqiyi_pkuhpc"
-    alias ps.ef="ps -ef | grep chengqi | grep zhaohn"
-    
-    alias salloc_fat4way="salloc -N 1 --job-name=notebook_zhn  --partition=fat4way --account=chengqiyi_g1 --qos=chengqiyif4w --cpus-per-task=24"
-    alias salloc_fat8way="salloc -N 1 --job-name=notebook_zhn  --partition=fat8way --account=chengqiyi_g1 --qos=chengqiyif8w --cpus-per-task=64"
-    alias salloc_cnnl="salloc -N 1 --job-name=notebook_zhn --partition=cn_nl --account=chengqiyi_g1 --qos=chengqiyicnnl --cpus-per-task=28"
-    alias salloc_cns="salloc -N 1 --job-name=notebook_zhn --partition=cn-short --account=chengqiyi_g1 --qos=chengqiyicns --cpus-per-task=20"
-    alias salloc_gpu4l_1="salloc -N 1 --job-name=nb_gui  --partition=gpu_4l --account=chengqiyi_g1 --qos=chengqiyig4c --gres=gpu:1 --overcommit --mincpus=7"
-    alias salloc_gpu4l_2="salloc -N 1 --job-name=nb_gui  --partition=gpu_4l --account=chengqiyi_g1 --qos=chengqiyig4c --gres=gpu:2 --overcommit --mincpus=14"
-    alias salloc_gpu4l_3="salloc -N 1 --job-name=nb_gui  --partition=gpu_4l --account=chengqiyi_g1 --qos=chengqiyig4c --gres=gpu:3 --overcommit --mincpus=21"
-    alias salloc_gpu4l_4="salloc -N 1 --job-name=nb_gui  --partition=gpu_4l --account=chengqiyi_g1 --qos=chengqiyig4c --gres=gpu:4 --overcommit --mincpus=28"
+    ###########################
+    ## ON polars
+    ###########################
+    if [[ $HOME == "/lustre3/chengqiyi_pkuhpc/folder_for_learning/zhaohn" ]]; then
+        unset PATH
+        # for system use
+        export PATH=/usr/bin:/usr/lib:/usr/lib64:/usr/libexec:/usr/sbin
+        export PATH=$PATH:/usr/local/bin:/usr/local/lib:/usr/local/lib64:/usr/local/libexec
+        export PATH=/home/chengqiyi_pkuhpc/.local/share/zsh/bin:$PATH
 
-    # 开启反向代理隧道
-    func_ssh.tunnels.on(){
-        # 设置SSH隧道
-        ssh -fCNR 8899:localhost:8888 zhaohuanan@162.105.250.206
-        ssh -fCNR 8899:localhost:8888 zhaohuanan@zhaohuanan.cc
-        echo "隧道已建立"
-    }
-    alias ssh.tunnels.on=func_ssh.tunnels.on
-    # 关闭反向代理隧道
-    func_ssh.tunnels.off(){
-    # 清理SSH隧道
-    tunnels=`ps -ef | grep zhaohuanan | grep ssh | grep localhost`
-    echo "将清理以下隧道"
-    echo $tunnels
-    echo $tunnels | awk '{print "kill -9 "$2}' | sh
-    echo "SSH隧道清理完成。"
-    }
-    alias ssh.tunnels.off=func_ssh.tunnels.off
-    # 维持代理隧道服务
-    func_ssh.keep.on(){
-    # 每小时重启一次
-    while true; do
-        ssh.tunnels.off
-        ssh.tunnels.on
-        sleep 3600
-    done
-    }
-    alias ssh.tunnels.keep.on=func_ssh.keep.on
+        # I need the slurm system cmds for work
+        export PATH=$PATH:/rm/rm_prog/slurm/18.08.7/bin:/data01/oldbin/newbin
 
-# ------------------------------------------------------------------->>>>>>>>>>
-elif [[ `hostname` == "zhaohuanan-Ubuntu" || `hostname` == "ThreadRipper" ]]; then
-# ------------------------------------------------------------------->>>>>>>>>>
-   echo -e '\tmatch my Server @' $HOST 
+        # slurm operate alias
+        alias rm.slurmlogs=_func_delslrumlogs
+        alias squeuez="for i in \`squeue -u chengqiyi_pkuhpc | grep -v 'QOS not permitted' | awk '{print \$1}'\`; do (pkujob | grep \$i | xargs echo); done | grep zhaohn | awk -F '=' '{print \$2}' | awk '{print \$1}'"
+        alias squeuey="squeue -u chengqiyi_pkuhpc"
+        alias ps.ef="ps -ef | grep chengqi | grep zhaohn"
 
-# ------------------------------------------------------------------->>>>>>>>>>
-elif [[ `hostname` == *"Mac"* || `hostname` == "bogon" || `hostname` == "localhost" ]]; then
-# ------------------------------------------------------------------->>>>>>>>>>
-    echo -e '\tmatch my Mac @ ' $HOST
 
-    # macox alias for surge app proxy replace clash
-    alias proxy.on='export https_proxy=http://127.0.0.1:8234;export http_proxy=http://127.0.0.1:8234;export all_proxy=socks5://127.0.0.1:8235;export no_proxy="192.168.59.102,192.168.59.103"'
-    
-    proxy.on
+        # slurm salloc alias
+        alias salloc_fat4way="salloc -N 1 --job-name=notebook_zhn  --partition=fat4way --account=chengqiyi_g1 --qos=chengqiyif4w --cpus-per-task=24"
+        alias salloc_fat8way="salloc -N 1 --job-name=notebook_zhn  --partition=fat8way --account=chengqiyi_g1 --qos=chengqiyif8w --cpus-per-task=64"
+        alias salloc_cnnl="salloc -N 1 --job-name=notebook_zhn --partition=cn_nl --account=chengqiyi_g1 --qos=chengqiyicnnl --cpus-per-task=28"
+        alias salloc_cns="salloc -N 1 --job-name=notebook_zhn --partition=cn-short --account=chengqiyi_g1 --qos=chengqiyicns --cpus-per-task=20"
+        alias salloc_gpu4l_1="salloc -N 1 --job-name=nb_gui  --partition=gpu_4l --account=chengqiyi_g1 --qos=chengqiyig4c --gres=gpu:1 --overcommit --mincpus=7"
+        alias salloc_gpu4l_2="salloc -N 1 --job-name=nb_gui  --partition=gpu_4l --account=chengqiyi_g1 --qos=chengqiyig4c --gres=gpu:2 --overcommit --mincpus=14"
+        alias salloc_gpu4l_3="salloc -N 1 --job-name=nb_gui  --partition=gpu_4l --account=chengqiyi_g1 --qos=chengqiyig4c --gres=gpu:3 --overcommit --mincpus=21"
+        alias salloc_gpu4l_4="salloc -N 1 --job-name=nb_gui  --partition=gpu_4l --account=chengqiyi_g1 --qos=chengqiyig4c --gres=gpu:4 --overcommit --mincpus=28"
 
-    # alias on macos
-    alias zcat="gunzip -d -c"  # fix zcat
-    alias startsc.polaris="open -a DPSafeConnect.app 2> /dev/null || open -a SafeConnect 2> /dev/null && open -a Step\ Two.app"
-    alias startsc.alioth="open -a SafeConnect.app 2> /dev/null && open -a Step\ Two.app"
-    alias opena="open -a Sublime\ Text"
-    alias code="/Applications/Visual\ Studio\ Code.app/Contents/Resources/app/bin/code"
-    # for arm64
-    alias conda.conda=/Users/zhaohuanan/micromamba/bin/conda
-    alias conda.micromamba=/Users/zhaohuanan/micromamba/bin/micromamba
-    alias conda.readme_to_create_x86_env='\
-    echo "CONDA_SUBDIR=osx-64 conda create -n EnvName python\nconda activate EnvName\n\nconda.conda env config vars set CONDA_SUBDIR=osx-64\n\nconda deactivate\\nconda activate EnvName\n\npython -c \"import platform;print(platform.machine())\"  \n# should output x86_64"\
-    '
-    # set PATH
+    ###########################
+    # ON alioth
+    ###########################
+    elif [[ $HOME == "/appsnew/home/hnzhao" ]]; then
+        unset PATH
+        # for system use
+        export PATH=/usr/bin:/usr/lib:/usr/lib64:/usr/libexec:/usr/sbin
+        export PATH=$PATH:/usr/local/bin:/usr/local/lib:/usr/local/lib64:/usr/local/libexec
+
+        # I need the slurm system cmds for work
+        export PATH=$PATH:/rm/rm_prog/slurm/22.05.6/bin:/data01/oldbin/newbin
+
+        # slurm operate alias
+        alias rm.slurmlogs=_func_delslrumlogs
+        alias squeuez="for i in \`squeue -u hnzhao | grep -v 'QOS not permitted' | awk '{print \$1}'\`; do (pkujob | grep \$i | xargs echo); done | grep zhaohn | awk -F '=' '{print \$2}' | awk '{print \$1}'"
+        alias squeuey="squeue -u hnzhao"
+        
+        # slurm salloc alias
+        alias salloc_gpu_a800_8="salloc -N 1 --job-name=nb_gui  --partition=gpu_a800 --gres=gpu:8 --overcommit --mincpus=64"
+        alias salloc_gpu_l40_8="salloc -N 1 --job-name=nb_gui  --partition=gpu_l40 --gres=gpu:8 --overcommit --mincpus=64"
+
+    fi
+
+elif [[ $OS == "macOS" ]]; then
     export PATH=$PATH:/Library/TeX/texbin
     export PATH=/opt/homebrew/bin:/opt/homebrew/sbin:$PATH
     export PATH=$PATH:/opt/homebrew/opt/openjdk/bin
 
+    alias zcat="gunzip -d -c"  # fix zcat
+    alias opena="open -a Sublime\ Text"
+    alias code="/Applications/Visual\ Studio\ Code.app/Contents/Resources/app/bin/code"
+
+    alias startsc.polaris="open -a DPSafeConnect.app 2> /dev/null || open -a SafeConnect 2> /dev/null && open -a Step\ Two.app"
+    alias startsc.alioth="open -a SafeConnect.app 2> /dev/null && open -a Step\ Two.app"
+
+    if [[ $ARCH == "arm64" ]]; then
+        # for arm64
+        alias conda.conda=/Users/zhaohuanan/micromamba/bin/conda
+        alias conda.micromamba=/Users/zhaohuanan/micromamba/bin/micromamba
+        alias conda.readme_to_create_x86_env='\
+        echo "CONDA_SUBDIR=osx-64 conda create -n EnvName python\nconda activate EnvName\n\nconda.conda env config vars set CONDA_SUBDIR=osx-64\n\nconda deactivate\\nconda activate EnvName\n\npython -c \"import platform;print(platform.machine())\"  \n# should output x86_64"\
+        '
+    elif [[ $ARCH == "x86_64" ]]; then
+        echo ''
+    fi
 fi
 
-# global settings
-export PATH=$PATH:${HOME}/.local/bin
-export PATH=$PATH:${HOME}/.cargo/bin
-# ------------------------------------------------------------------->>>>>>>>>>
-# 软件环境变量
-# ------------------------------------------------------------------->>>>>>>>>>
-# for R
-unset R_HOME
 
-# for perl
-unset PERL5LIB
-#
-# for nvm
-export NVM_DIR="$HOME/.nvm"
-[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
-[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
-#
-# C, CXX LIB
-# if [ $LD_LIBRARY_PATH ]; then
-#     export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${HOME}/.my_shell_envs/ld_lib:${HOME}/0.apps/micromamba/lib
-# else
-#     export LD_LIBRARY_PATH=${HOME}/.my_shell_envs/ld_lib:${HOME}/0.apps/micromamba/lib
-# fi
-
-# CUDA_HOME
-# if [ $CUDA_HOME ]; then
-#     export CUDA_HOME=$CUDA_HOME:${HOME}/0.apps/cuda/cuda
-# else
-#     export CUDA_HOME=${HOME}/0.apps/cuda/cuda
-# fi
-
-# set trash
-export TRASH=${HOME}/.mytrash
-
+function run() {
+        local flag_a=0
+        local flag_n=0
+    
+        local partitions="cn-long fat2way gpu_4l gpu_l40 gpu_l48 gpu_a800"
+        local in_partitions="long 2w 4l l40 l48 a800"
+        local hangflag=0
+        local name='None'
+        local afterflag=0
+        local after=0
+        local argumentnum=1
+        local partition=""
+        local node=0
+        local core=0
+        local account='d_cqyi'
+        local thecommand=""
+        local tmparg=""
+        while [ $# -gt 0 ]; do
+                case $1 in
+                -n | --name)
+                        if [[ $flag_n == 0 ]]; then
+                                name=$2
+                                flag_n=1
+                                shift
+                                shift
+                                continue
+                        else
+                                thecommand="${thecommand} $1"
+                                shift
+                        fi
+                        ;;
+                -a | --hang)
+                        if [[ $flag_a == 0 ]]; then
+                                hangflag=1
+                                flag_a=1
+                                shift
+                        else
+                                thecommand="${thecommand} $1"
+                                shift
+                        fi
+                        ;;
+                -h | --help)
+                        echo "Usage: \n eg. 1. run [long|2w|         <nodes> <cores> [options] \"<command>\"\n eg. 2. run [4l|l40|l48|a800] <gpus>  <cores> [options] \"<command>\"\n\t-n|--name \tName of the job\n\t-a|--hang \tHang the task till submitted job finished.\nSupported partitions: ${partitions}"
+                        return 0
+                        ;;
+                *)
+                        tmparg=$1
+                        if [[ $argumentnum == 1 ]]; then # partition
+                                if [[ $in_partitions =~ $tmparg ]]; then
+                                        case $tmparg in
+                                        long)
+                                                partition="cn-long"
+                                                ;;
+                                        2w)
+                                                partition="fat2way"
+                                                ;;
+                                        4l)
+                                                partition="gpu_4l"
+                                                ;;
+                                        4l)
+                                                partition="gpu_4l"
+                                                ;;
+                                        l40)
+                                                partition="gpu_l40"
+                                                ;;
+                                        l48)
+                                                partition="gpu_l48"
+                                                ;;
+                                        a800)
+                                                partition="gpu_a800"
+                                                ;;
+                                        *)
+                                                echo "No valid parittion"
+                                                return 1
+                                                ;;
+                                        esac
+                                else
+                                        echo "No valid partition"
+                                        return 1
+                                fi
+                                argumentnum=$(($argumentnum + 1))
+                        elif [[ $argumentnum == 2 ]]; then
+                                if [[ $tmparg =~ [0-9] ]]; then
+                                        node=$tmparg
+                                else
+                                        echo "Node number must be like [0-9]"
+                                        return 1
+                                fi
+                                argumentnum=$(($argumentnum + 1))
+                        elif [[ $argumentnum == 3 ]]; then
+                                if [[ $tmparg =~ [0-9] ]]; then
+                                        core=$tmparg
+                                else
+                                        echo "Core number must be like [0-9]"
+                                        return 1
+                                fi
+                                argumentnum=$(($argumentnum + 1))
+                        elif [[ $argumentnum == 4 ]]; then
+                                thecommand="${thecommand} ${tmparg}"
+                        fi
+                        shift
+                        ;;
+                esac
+    
+        done
+    
+        thetime=$(date "+%d%H%M%S")
+        thetimeident=$(date +%s%3N)
+    
+        commandident=${thecommand:0:3}
+        commandidentf=${commandident// /}
+    
+        if [[ $name == 'None' ]]; then
+                name="zhn${thetime}_${commandidentf}"
+        else
+                name="zhn_$name"
+        fi
+    
+        if [[ ${partition} == "gpu_4l" || ${partition} == "gpu_l40" || ${partition} == "gpu_l48" || ${partition} == "gpu_a800" ]]; then
+                echo "#!/bin/bash\n#SBATCH -J ${name}\n#SBATCH -p ${partition}\n#SBATCH -o ${name}_${thetimeident}_%j.out\n#SBATCH -e ${name}_${thetimeident}_%j.err\n#SBATCH -A ${account}\n#SBATCH --mincpus=${core}\n#SBATCH --gres=gpu:${node}\nsrun ${thecommand}" >job.${name}.${thetimeident}
+        else
+                echo "#!/bin/bash\n#SBATCH -J ${name}\n#SBATCH -p ${partition}\n#SBATCH -N ${node}\n#SBATCH -o ${name}_${thetimeident}_%j.out\n#SBATCH -e ${name}_${thetimeident}_%j.err\n#SBATCH --no-requeue\n#SBATCH -A ${account}\n\n#SBATCH -c ${core}\nsrun ${thecommand}" >job.${name}.${thetimeident}
+        fi
+        chmod +x job.${name}.${thetimeident}
+        if [[ $hangflag == 0 ]]; then
+                sbatch job.${name}.${thetimeident}
+        elif [[ $hangflag == 1 ]]; then
+                srun -c ${core} -N ${node} -J ${name} -p ${partition} -A ${account} -o ${name}_${thetimeident}_%j.out -e ${name}_${thetimeident}_%j.err $(echo "$thecommand" | sed "s/['\"]//g")
+        fi
+        sleep 0.5
+    }
 
 
 

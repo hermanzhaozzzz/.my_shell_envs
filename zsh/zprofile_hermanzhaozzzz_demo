@@ -1,27 +1,28 @@
+export _ZPROFILE_IS_SOURCED=true
 # 判断操作系统类型
 case "$(uname -s)" in
     Darwin)
-        export OS="macOS"
+        export _OS="macOS"
         ;;
     Linux)
         # 判断是否为 WSL
         if grep -q Microsoft /proc/version 2>/dev/null; then
-            export OS="WSL"
+            export _OS="WSL"
         else
-            export OS="Linux"
+            export _OS="Linux"
         fi
         ;;
     *)
-        export OS="Unknown"
+        export _OS="Unknown"
         ;;
 esac
 # 获取CPU架构
-ARCH=$(uname -m)
+_ARCH=$(uname -m)
 
 echo -e '\n\n'
 echo '>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>'
-echo -e "\033[1;34m(~/.zprofile)\033[0m is sourced @ \033[1;32m${OS}\033[0m (\033[1;36m${ARCH}\033[0m) platform"
-echo -e '\tapply @ ~/.zprofile (private) settings for zsh'
+echo -e "\033[1;34m(~/.zprofile)\033[0m is sourced @ \033[1;32m${_OS}\033[0m (\033[1;36m${_ARCH}\033[0m) platform"
+echo -e '\tapply \033[1;31mprivate\033[0m settings for zsh @ ~/.zprofile'
 echo '>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>'
 
 # ------------------------------------------------------------------->>>>>>>>>>
@@ -35,18 +36,32 @@ export TRASH=${HOME}/.mytrash
 # ------------------------------------------------------------------->>>>>>>>>>
 # global alias for clash proxy 
 _func_proxy_on(){
-    export no_proxy="192.168.59.102,192.168.59.103"
-
-    export https_proxy=http://127.0.0.1:8234
-    export http_proxy=http://127.0.0.1:8234
-
-    if [[ $OS == "Linux" ]]; then
+    if [[ $_OS == "Linux" ]]; then
+        export https_proxy=http://127.0.0.1:8234
+        export http_proxy=http://127.0.0.1:8234
         export all_proxy=socks5://127.0.0.1:8234
-    elif [[ $OS == "macOS" ]]; then
+        export no_proxy="192.168.59.102,192.168.59.103"
+    elif [[ $_OS == "macOS" ]]; then
+        export https_proxy=http://127.0.0.1:8234
+        export http_proxy=http://127.0.0.1:8234
         export all_proxy=socks5://127.0.0.1:8235
-    elif [[ $OS == "Unknown" ]]; then
+        export no_proxy="192.168.59.102,192.168.59.103"
+    elif [[ $_OS == "WSL" ]]; then
+        echo "set proxy (http/https/socks5) port to 127.0.0.1:7890, hope it managed by Clash for Windows!"
+        export https_proxy=http://127.0.0.1:7890;
+        export http_proxy=http://127.0.0.1:7890;
+        export all_proxy=socks5://127.0.0.1:7890
+        export no_proxy="192.168.59.102,192.168.59.103"
+    elif [[ $_OS == "Unknown" ]]; then
+        export https_proxy=http://127.0.0.1:8234
+        export http_proxy=http://127.0.0.1:8234
         export all_proxy=socks5://127.0.0.1:8234
+        export no_proxy="192.168.59.102,192.168.59.103"
     fi
+    echo -e '\texport \033[1;35mhttps_proxy\033[0m='$https_proxy
+    echo -e '\texport \033[1;35mhttp_proxy\033[0m='$http_proxy
+    echo -e '\texport \033[1;35mall_proxy\033[0m='$all_proxy
+    echo -e '\texport \033[1;35mno_proxy\033[0m='$no_proxy
 }
 _func_proxy_off(){
     unset https_proxy
@@ -59,13 +74,13 @@ _func_proxy_off(){
 alias proxy.on=_func_proxy_on
 alias proxy.off=_func_proxy_off
 
-if [[ $OS == "Linux" || $OS == "Unknown" ]]; then
+if [[ $_OS == "Linux" || $_OS == "Unknown" ]]; then
     proxy.off
-    echo 'proxy is off by default, run `proxy.on` to use proxy'
+    echo -e '\tproxy is off by default, run `proxy.on` to use proxy'
 
-elif [[ $OS == "macOS" ]]; then
+elif [[ $_OS == "macOS" ]]; then
     proxy.on
-    echo 'proxy is on by default, run `proxy.off` to remove proxy'
+    echo -e '\tproxy is on by default, run `proxy.off` to remove proxy'
 fi
 
 
@@ -117,7 +132,7 @@ alias checkbam="for i in *.bam ;do (samtools quickcheck \$i && echo \"ok    \" \
 # ------------------------------------------------------------------->>>>>>>>>>
 # SETTINGS on DIFFERENT platforms
 # ------------------------------------------------------------------->>>>>>>>>>
-if [[ $OS == "Linux" ]]; then
+if [[ $_OS == "Linux" ]]; then
     # optional bioinformatic cmds to add
     export PATH=$PATH:${HOME}/0.apps/homer/bin
     export PATH=$PATH:${HOME}/0.apps/HiC-Pro_installed/HiC-Pro_3.1.0/bin
@@ -183,7 +198,7 @@ if [[ $OS == "Linux" ]]; then
 
     fi
 
-elif [[ $OS == "macOS" ]]; then
+elif [[ $_OS == "macOS" ]]; then
     export PATH=$PATH:/Library/TeX/texbin
     export PATH=/opt/homebrew/bin:/opt/homebrew/sbin:$PATH
     export PATH=$PATH:/opt/homebrew/opt/openjdk/bin
@@ -195,14 +210,14 @@ elif [[ $OS == "macOS" ]]; then
     alias startsc.polaris="open -a DPSafeConnect.app 2> /dev/null || open -a SafeConnect 2> /dev/null && open -a Step\ Two.app"
     alias startsc.alioth="open -a SafeConnect.app 2> /dev/null && open -a Step\ Two.app"
 
-    if [[ $ARCH == "arm64" ]]; then
+    if [[ $_ARCH == "arm64" ]]; then
         # for arm64
         alias conda.conda=/Users/zhaohuanan/micromamba/bin/conda
         alias conda.micromamba=/Users/zhaohuanan/micromamba/bin/micromamba
         alias conda.readme_to_create_x86_env='\
         echo "CONDA_SUBDIR=osx-64 conda create -n EnvName python\nconda activate EnvName\n\nconda.conda env config vars set CONDA_SUBDIR=osx-64\n\nconda deactivate\\nconda activate EnvName\n\npython -c \"import platform;print(platform.machine())\"  \n# should output x86_64"\
         '
-    elif [[ $ARCH == "x86_64" ]]; then
+    elif [[ $_ARCH == "x86_64" ]]; then
         echo ''
     fi
 fi

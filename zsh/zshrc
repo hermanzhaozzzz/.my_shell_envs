@@ -1,12 +1,15 @@
-source ~/.zprofile
+if [[ -z "${_ZPROFILE_IS_SOURCED}" || "${_ZPROFILE_IS_SOURCED}" != "true" ]]; then
+    export _ZPROFILE_IS_SOURCED=true
+    source ~/.zprofile
+fi
 echo -e '\n\n'
 echo '>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>'
-echo '(~/.zshrc) is sourced @' `hostname` 
-echo -e '\tapply @ ~/.my_shell_envs settings for zsh'
+echo -e "\033[1;34m(~/.zshrc)\033[0m is sourced @ \033[1;32m${_OS}\033[0m (\033[1;36m${_ARCH}\033[0m) platform"
+echo -e '\tapply \033[1;31mpublic\033[0m settings for zsh @ ~/.my_shell_envs/zsh/zshrc'
 echo '>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>'
-echo -e '\twelcome to use this zsh env'
-echo -e '\tnew features and issues can be raised at:'
-echo -e '\thttps://github.com/hermanzhaozzzz/.my_shell_envs/issues'
+echo -e '\t\033[1;35mhostname\033[0m @' "\033[1;33m`hostname`\033[0m"
+
+
 
 # ------------------------------------------------------------------->>>>>>>>>>
 # platform judgement and var setting
@@ -14,7 +17,6 @@ echo -e '\thttps://github.com/hermanzhaozzzz/.my_shell_envs/issues'
 platform="$(uname)"
 platform=$(echo $platform | awk -F '_' '{printf $1}')
 # Linux / Darwin / MINGW64
-echo
 HOST=`hostname`
 # 设置USER显示
 DEFAULT_USER=$USER
@@ -164,16 +166,18 @@ if [ -z "${TRASH+x}" ]; then
     fi
 else
     mkdir -p $TRASH
-    echo -e '\tset TRASH @ '$TRASH
+    echo -e '\t\033[1;35mTRASH\033[0m @ '$TRASH
 fi
 # mv命令覆盖rm命令
 func_delfile(){
     mv $@ $TRASH/
 }
 # 保存原始rm命令的路径
-alias rm.real.rm=/bin/rm
+echo -e '\talias \033[1;35mrrm\033[0m=/bin/rm'
+alias rrm=/bin/rm
  
 # 定义一个新的rm命令，它调用_del函数
+echo -e '\talias \033[1;35mrm\033[0m=func_delfile'
 alias rm=func_delfile
 
 # 显示回收站中垃圾清单
@@ -182,6 +186,7 @@ func_dellist(){
     exa --no-permissions --time-style long-iso -lh --tree -L 1 --no-user $TRASH
 
 }
+echo -e '\talias \033[1;35mrm.trash.show\033[0m=func_dellist'
 alias rm.trash.show=func_dellist
 # 找回回收站相应文件
 func_delback(){
@@ -194,6 +199,7 @@ func_delback(){
         mv -i $TRASH/* ./
     fi
 }
+echo -e '\talias \033[1;35mrm.trash.back\033[0m=func_delback'
 alias rm.trash.back=func_delback
 # 清空回收站
 func_delclear(){
@@ -205,6 +211,7 @@ func_delclear(){
         echo "完成"
     fi
 }
+echo -e '\talias \033[1;35mrm.trash.clear\033[0m=func_delclear'
 alias rm.trash.clear=func_delclear
 # ------------------------------------------------------------------->>>>>>>>>>
 # 自定义alias
@@ -214,24 +221,22 @@ alias btop='btop -lc'
 
 
 # 第三方命令别名
-alias llll="/bin/ls -lh"
-alias lll="eza -lh --time-style long-iso"
-alias ll="eza -lh --tree -L 1 --no-user --time-style long-iso"
+echo -e "\talias \033[1;35mlg\033[0m=eza -lh --tree -L 1 --no-user --time-style long-iso | grep -v 'job.srp' | grep -v '.err' | grep -v '.out'"
 alias lg="eza -lh --tree -L 1 --no-user --time-style long-iso | grep -v 'job.srp' | grep -v '.err' | grep -v '.out'"
+echo -e '\talias \033[1;35mllll\033[0m=/bin/ls -lh'
+alias llll="/bin/ls -lh"
+echo -e '\talias \033[1;35mlll\033[0m=eza -lh --time-style long-iso'
+alias lll="eza -lh --time-style long-iso"
+echo -e '\talias \033[1;35mll\033[0m=eza -lh --tree -L 1 --no-user --time-style long-iso'
+alias ll="eza -lh --tree -L 1 --no-user --time-style long-iso"
+echo -e '\talias \033[1;35ml\033[0m=eza -lha --tree -L 1 --time-style long-iso'
 alias l="eza -lha --tree -L 1 --time-style long-iso"
 
-if [ -f /proc/version ]; then
-    if grep -qEi 'wsl' /proc/version; then
-        # for Ubuntu WSL on Windows PC
-        echo 'seems you are in wsl'
-        echo 'alias open=wslview'
-        echo -e '\tsee doc: https://wslutiliti.es/wslu/zh-CN/install.html to install wslview cmd'
-        alias open='wslview'
-        echo "set proxy (http/https/socks5) port to 127.0.0.1:7890, hope it managed by Clash for Windows!"
-        export https_proxy=http://127.0.0.1:7890;
-        export http_proxy=http://127.0.0.1:7890;
-        export all_proxy=socks5://127.0.0.1:7890
-    fi
+if [[ $_OS == "WSL" ]]; then
+    echo 'seems you are in wsl'
+    echo -e '\tsee doc: https://wslutiliti.es/wslu/zh-CN/install.html to install wslview cmd'
+    echo -e '\talias \033[1;35mopen\033[0m=wslview'
+    alias open='wslview'
 fi
 
 # ------------------------------------------------------------------->>>>>>>>>>
@@ -272,8 +277,8 @@ fi
 unset __mamba_setup
 
 eval "$(micromamba shell hook --shell=zsh)"
-echo -e '\talias conda=micromamba'
-echo -e '\talias mamba=micromamba'
+echo -e '\talias \033[1;35mconda\033[0m=micromamba'
+echo -e '\talias \033[1;35mmamba\033[0m=micromamba'
 alias conda=micromamba
 alias mamba=micromamba
 conda deactivate
@@ -281,4 +286,10 @@ conda deactivate
 
 export SCRCPY_SERVER_PATH=/Applications/极空间.app/Contents/Resources/app.asar.unpacked/bin/platform-tools/scrcpy-server
 export PATH=$PATH:/Applications/极空间.app/Contents/Resources/app.asar.unpacked/bin/platform-tools
+
+echo '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
+echo -e '\twelcome to use this zsh env'
+echo -e '\tnew features and issues can be raised at:'
+echo -e '\thttps://github.com/hermanzhaozzzz/.my_shell_envs/issues'
+echo '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
 

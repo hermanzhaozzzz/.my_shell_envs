@@ -128,6 +128,34 @@ alias ssh.server.polaris="ssh chengqiyi_zhn@10.100.1.88"
 alias ssh.server.alioth="ssh -o HostKeyAlgorithms=+ssh-rsa,ssh-dss hnzhao@10.100.0.99"
 alias checkbam="for i in *.bam ;do (samtools quickcheck \$i && echo \"ok    \" \$i || echo \"error    \" \$i);done"
 
+_func_ssh.tunnal.alioth(){
+    echo "tunnal on for jupyterhub_alioth_login http://127.0.0.1:13127 via zhaohuanan.cc"
+    ssh -fCNL 13127:127.0.0.1:13126 zhaohuanan@zhaohuanan.cc
+    echo "tunnal on for syncthing_alioth_login http://127.0.0.1:13227 via zhaohuanan.cc"
+    ssh -fCNL 13227:127.0.0.1:13226 zhaohuanan@zhaohuanan.cc
+    # echo "tunnal on for syncthing_alioth_login http://127.0.0.1:16107 via zhaohuanan.cc"
+    # ssh -fCNL 16107:127.0.0.1:8385 zhaohuanan@zhaohuanan.cc
+}
+_func_ssh.tunnal.polaris(){
+    echo "tunnal on for jupyterhub_polaris_login http://127.0.0.1:16007 via 162.105.250.36"
+    ssh -fCNL 16007:127.0.0.1:8898 zhaohuanan@162.105.250.36
+    # echo "tunnal on for jupyterhub_alioth_node http://127.0.0.1:13227 via 162.105.250.36"
+    # ssh -fCNL 13227:127.0.0.1:13226 zhaohuanan@zhaohuanan.cc
+    echo "tunnal on for syncthing_polaris_login http://127.0.0.1:10023 via 162.105.250.36"
+    ssh -fCNL 10023:127.0.0.1:10023 zhaohuanan@162.105.250.36
+}
+_func_ssh.tunnal.all(){
+    _func_ssh.tunnal.alioth
+    _func_ssh.tunnal.polaris
+}
+_func_ssh.tunnal.killall(){
+    ps -ef | grep ssh | grep fCNL | awk '{print $2}' | xargs kill
+}
+alias tunnal_on_all=_func_ssh.tunnal.all
+alias tunnal_on_alioth=_func_ssh.tunnal.alioth
+alias tunnal_on_polaris=_func_ssh.tunnal.polaris
+alias tunnal_kill_all=_func_ssh.tunnal.killall
+
 
 # ------------------------------------------------------------------->>>>>>>>>>
 # SETTINGS on DIFFERENT platforms

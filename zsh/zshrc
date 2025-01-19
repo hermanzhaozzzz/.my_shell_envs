@@ -1,6 +1,7 @@
 if [[ -z "${_ZPROFILE_IS_SOURCED}" || "${_ZPROFILE_IS_SOURCED}" != "true" ]]; then
     export _ZPROFILE_IS_SOURCED=true
     source ~/.zprofile
+    unset _ZPROFILE_IS_SOURCED
 fi
 echo -e '\n\n'
 echo '>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>'

@@ -280,8 +280,8 @@ echo -e '\talias \033[1;35mconda\033[0m=micromamba'
 echo -e '\talias \033[1;35mmamba\033[0m=micromamba'
 alias conda=micromamba
 alias mamba=micromamba
-# conda deactivate
-
+echo -e '\tset   \033[1;35mauto_activate_base\033[0m=false'
+# micromamba config set auto_activate_base=false
 
 export SCRCPY_SERVER_PATH=/Applications/极空间.app/Contents/Resources/app.asar.unpacked/bin/platform-tools/scrcpy-server
 export PATH=$PATH:/Applications/极空间.app/Contents/Resources/app.asar.unpacked/bin/platform-tools
@@ -289,6 +289,6 @@ export PATH=$PATH:/Applications/极空间.app/Contents/Resources/app.asar.unpack
 echo '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
 echo -e '\twelcome to use this zsh env'
 echo -e '\tnew features and issues can be raised at:'
-echo -e '\thttps://github.com/hermanzhaozzzz/.my_shell_envs/issues'
+echo -e '\t\thttps://github.com/hermanzhaozzzz/.my_shell_envs/issues'
 echo '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
 

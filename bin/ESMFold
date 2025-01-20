@@ -30,6 +30,7 @@ def convert_outputs_to_pdb(outputs):
         pdbs.append(to_pdb(pred))
     return pdbs
 
+
 def main(input_fa, output_pdb):
     """ESMFold command-line interface.
 
@@ -37,14 +38,20 @@ def main(input_fa, output_pdb):
         input_fa: input fasta
         output_pdb: output predicted structure
     """
-    input_fa = SeqIO.parse(input_fa, 'fasta')
+    input_fa = SeqIO.parse(input_fa, "fasta")
     input_fa = [str(i.seq) for i in input_fa][0]
     try:
         tokenizer = AutoTokenizer.from_pretrained("facebook/esmfold_v1")
-        model = EsmForProteinFolding.from_pretrained("facebook/esmfold_v1", low_cpu_mem_usage=True)
+        model = EsmForProteinFolding.from_pretrained(
+            "facebook/esmfold_v1", low_cpu_mem_usage=True
+        )
     except requests.exceptions.ProxyError:
-        tokenizer = AutoTokenizer.from_pretrained("facebook/esmfold_v1", local_files_only=True)
-        model = EsmForProteinFolding.from_pretrained("facebook/esmfold_v1", low_cpu_mem_usage=True, local_files_only=True)
+        tokenizer = AutoTokenizer.from_pretrained(
+            "facebook/esmfold_v1", local_files_only=True
+        )
+        model = EsmForProteinFolding.from_pretrained(
+            "facebook/esmfold_v1", low_cpu_mem_usage=True, local_files_only=True
+        )
     model = model.cuda()
     # Uncomment to switch the stem to float16
     model.esm = model.esm.half()
@@ -52,17 +59,20 @@ def main(input_fa, output_pdb):
     # Uncomment this line if your GPU memory is 16GB or less, or if you're folding longer (over 600 or so) sequences
     model.trunk.set_chunk_size(64)
 
-    tokenized_input = tokenizer([input_fa], return_tensors="pt", add_special_tokens=False)['input_ids']
+    tokenized_input = tokenizer(
+        [input_fa], return_tensors="pt", add_special_tokens=False
+    )["input_ids"]
     tokenized_input = tokenized_input.cuda()
-    
+
     with torch.no_grad():
         output = model(tokenized_input)
 
     pdb = convert_outputs_to_pdb(output)
     # print(len(pdb))
-    with open(output_pdb, 'w') as f:
+    with open(output_pdb, "w") as f:
         f.write(pdb[0])
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     fire.core.Display = lambda lines, out: print(*lines, file=out)
-    fire.Fire(main, name='ESMFold')
+    fire.Fire(main, name="ESMFold")

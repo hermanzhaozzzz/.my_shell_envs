@@ -133,8 +133,8 @@ _func_ssh.tunnal.alioth(){
     ssh -fCNL 13127:127.0.0.1:13126 zhaohuanan@zhaohuanan.cc
     echo "tunnal on for syncthing_alioth_login http://127.0.0.1:13227 via zhaohuanan.cc"
     ssh -fCNL 13227:127.0.0.1:13226 zhaohuanan@zhaohuanan.cc
-    # echo "tunnal on for syncthing_alioth_login http://127.0.0.1:16107 via zhaohuanan.cc"
-    # ssh -fCNL 16107:127.0.0.1:8385 zhaohuanan@zhaohuanan.cc
+    echo "tunnal on for jupyterlab_alioth_GpuNode http://127.0.0.1:13327 via zhaohuanan.cc"
+    ssh -fCNL 13327:127.0.0.1:13326 zhaohuanan@zhaohuanan.cc
 }
 _func_ssh.tunnal.polaris(){
     echo "tunnal on for jupyterhub_polaris_login http://127.0.0.1:16007 via 162.105.250.36"

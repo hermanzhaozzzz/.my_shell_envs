@@ -115,7 +115,7 @@ dependencies:
 - graphite2=1.3.13=h59595ed_1003
 - greenlet=3.1.1=py312h2ec8cdc_1
 - gsl=2.7=he838d99_0
-- gtest=1.16.0=h84d6215_0
+- gtest=1.15.2=h434a139_0
 - gxx_impl_linux-64=14.2.0=h2c03514_1
 - h11=0.14.0=pyhd8ed1ab_1
 - h2=4.2.0=pyhd8ed1ab_0
@@ -235,7 +235,7 @@ dependencies:
 - libstdcxx-ng=14.2.0=h4852527_1
 - libtermkey=0.22=hb9d3cd8_2
 - libtiff=4.7.0=hd9ff511_3
-- libtree-sitter=0.25.1=hd0c01bc_0
+- libtree-sitter=0.24.7=hd0c01bc_0
 - libuuid=2.38.1=h0b41bf4_0
 - libuv=1.50.0=hb9d3cd8_0
 - libvterm=0.3.3=hb9d3cd8_1
@@ -263,7 +263,7 @@ dependencies:
 - menuinst=2.2.0=py312h7900ff3_0
 - mistune=3.1.1=pyhd8ed1ab_0
 - more-itertools=10.6.0=pyhd8ed1ab_0
-- msgpack-c=6.0.0=hfc55251_0
+- msgpack-c=6.1.0=h7955e40_1
 - msgpack-python=1.1.0=py312h68727a3_0
 - munkres=1.1.4=pyh9f0ad1d_0
 - mypy_extensions=1.0.0=pyha770c72_1
@@ -280,7 +280,7 @@ dependencies:
 - notebook-shim=0.2.4=pyhd8ed1ab_1
 - numpy=2.2.3=py312h72c5963_0
 - nvidia-ml-py=12.570.86=pyhd8ed1ab_0
-- nvim=0.10.2=hdcb76b1_0
+- nvim=0.10.4=hdcb76b1_0
 - nvitop=1.4.2=pyh707e725_0
 - oauthlib=3.2.2=pyhd8ed1ab_1
 - openjpeg=2.5.3=h5fbd93e_0

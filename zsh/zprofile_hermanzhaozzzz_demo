@@ -83,14 +83,6 @@ elif [[ $_OS == "macOS" ]]; then
     echo -e '\tproxy is on by default, run `proxy.off` to remove proxy'
 fi
 
-
-# ------------------------------------------------------------------->>>>>>>>>>
-# GLOBAL PATH SETTING
-# ------------------------------------------------------------------->>>>>>>>>>
-export PATH=$PATH:${HOME}/.local/bin
-export PATH=$PATH:${HOME}/.cargo/bin
-
-
 # ------------------------------------------------------------------->>>>>>>>>>
 # GLOBAL VAR SETTING
 # ------------------------------------------------------------------->>>>>>>>>>
@@ -249,6 +241,12 @@ elif [[ $_OS == "macOS" ]]; then
         echo ''
     fi
 fi
+
+# ------------------------------------------------------------------->>>>>>>>>>
+# GLOBAL PATH SETTING
+# ------------------------------------------------------------------->>>>>>>>>>
+export PATH=$PATH:${HOME}/.local/bin
+export PATH=$PATH:${HOME}/.cargo/bin
 
 
 function run() {

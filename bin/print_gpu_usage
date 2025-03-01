@@ -1,0 +1,94 @@
+#!/lustre1/cqyi/hnzhao/apps/micromamba/bin/python
+import argparse
+import subprocess
+import threading
+import time
+
+
+def get_gpu_usage():
+    """
+    查询 GPU 使用情况并返回格式化的字符串列表。
+    """
+    try:
+        # 使用 `nvidia-smi` 查询 GPU 统计信息
+        result = subprocess.run(
+            [
+                "nvidia-smi",
+                "--query-gpu=memory.used,memory.free,memory.total,utilization.gpu,gpu_name",
+                "--format=csv,noheader,nounits",
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+
+        # 检查是否有错误
+        if result.returncode != 0:
+            return [f"Error running nvidia-smi: {result.stderr.strip()}"]
+
+        # 解析输出
+        gpu_stats = result.stdout.strip().splitlines()
+        output_lines = []
+
+        # 遍历每张 GPU 的信息并格式化输出
+        output_lines.append("=" * 40)
+        for gpu_stat in gpu_stats:
+            # 解析 `nvidia-smi` 输出的数据
+            memory_used, memory_free, memory_total, gpu_util, gpu_name = gpu_stat.split(",")
+
+            # 转换内存单位为 GB
+            memory_used = int(memory_used) / 1024
+            memory_free = int(memory_free) / 1024
+            memory_total = int(memory_total) / 1024
+
+            # 格式化 GPU 利用率（百分比）
+            gpu_util = int(gpu_util.strip("%"))
+
+            # 格式化并存储 GPU 信息
+            output_lines.append(f"GPU: {gpu_name}")
+            output_lines.append(f"  - Memory Used: {memory_used:.2f} GB / {memory_total:.2f} GB")
+            # output_lines.append(f"  - Memory Free: {memory_free:.2f} GB")  # 可选
+            output_lines.append(f"  - GPU Utilization: {gpu_util}%")
+            output_lines.append("-" * 40)  # 分隔符
+
+        output_lines.append("=" * 40)
+        return output_lines
+
+    except Exception as e:
+        return [f"Error fetching GPU usage: {e}"]
+
+
+def print_gpu_usage(interval=300):
+    """
+    持续打印 GPU 使用情况，每隔 `interval` 秒刷新一次。
+    """
+    while True:
+        gpu_info = get_gpu_usage()
+        for line in gpu_info:
+            print(line)
+        time.sleep(interval)
+
+
+def run_as_daemon(interval=300):
+    """
+    以后台线程方式运行 GPU 监控。
+    """
+    gpu_thread = threading.Thread(target=print_gpu_usage, args=(interval,), daemon=True)
+    gpu_thread.start()
+    while True:
+        time.sleep(3600)  # 保持主线程运行
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="GPU 监控程序")
+    parser.add_argument("--daemon", action="store_true", help="以后台线程方式运行")
+    parser.add_argument("--interval", type=int, default=300, help="刷新 GPU 监控的时间间隔（秒）")
+
+    args = parser.parse_args()
+
+    if args.daemon:
+        print("GPU 监控程序以守护进程模式运行...")
+        run_as_daemon(args.interval)
+    else:
+        print("GPU 监控程序启动...")
+        print_gpu_usage(args.interval)

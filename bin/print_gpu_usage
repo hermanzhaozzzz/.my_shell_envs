@@ -58,22 +58,33 @@ def get_gpu_usage():
         return [f"Error fetching GPU usage: {e}"]
 
 
-def print_gpu_usage(interval=300):
+def print_gpu_usage(interval=300, logfile=None):
     """
     持续打印 GPU 使用情况，每隔 `interval` 秒刷新一次。
     """
-    while True:
-        gpu_info = get_gpu_usage()
-        for line in gpu_info:
-            print(line)
-        time.sleep(interval)
+    if logfile:
+        with open(logfile, 'a') as f:
+            while True:
+                gpu_info = get_gpu_usage()
+
+                for line in gpu_info:
+                    f.write(f"{line}\n")
+                    f.flush() # 立即刷新缓冲
+                time.sleep(interval)
+    else:
+        while True:
+            gpu_info = get_gpu_usage()
+
+            for line in gpu_info:
+                print(line)
+            time.sleep(interval)
 
 
-def run_as_daemon(interval=300):
+def run_as_daemon(interval=300, logfile=None):
     """
     以后台线程方式运行 GPU 监控。
     """
-    gpu_thread = threading.Thread(target=print_gpu_usage, args=(interval,), daemon=True)
+    gpu_thread = threading.Thread(target=print_gpu_usage, args=(interval,logfile), daemon=True)
     gpu_thread.start()
     while True:
         time.sleep(3600)  # 保持主线程运行
@@ -83,12 +94,13 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="GPU 监控程序")
     parser.add_argument("--daemon", action="store_true", help="以后台线程方式运行")
     parser.add_argument("--interval", type=int, default=300, help="刷新 GPU 监控的时间间隔（秒）")
+    parser.add_argument("--logfile", type= str, default=None,help="如果指定,则写入文件中")
 
     args = parser.parse_args()
 
     if args.daemon:
         print("GPU 监控程序以守护进程模式运行...")
-        run_as_daemon(args.interval)
+        run_as_daemon(args.interval, args.logfile)
     else:
         print("GPU 监控程序启动...")
-        print_gpu_usage(args.interval)
+        print_gpu_usage(args.interval, args.logfile)

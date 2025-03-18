@@ -18,7 +18,7 @@ default-resources:
   # 2 gpu : 14 cpu
   # 3 gpu : 20 cpu
   # 4 gpu : 20 cpu
-restart-times: 2
+restart-times: 0
 jobs: 500
 max-jobs-per-second: 500
 max-status-checks-per-second: 500

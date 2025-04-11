@@ -500,7 +500,6 @@ dependencies:
 - wsproto=1.2.0=pyhd8ed1ab_1
 - xorg-libxau=1.0.12=h6e16a3a_0
 - xorg-libxdmcp=1.1.5=h00291cd_0
-- xz=5.2.6=h775f41a_0
 - yaml=0.2.5=h0d85af4_2
 - yaml-cpp=0.8.0=he965462_0
 - yapf=0.43.0=pyhd8ed1ab_1

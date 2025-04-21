@@ -155,8 +155,11 @@ if test -e $HOME/.config/nvim/init.lua; then
 	git pull
 else
 	echo 'old setting does not exist, running git clone steps...'
-	/bin/rm -rf ~/.cache/nvim ~/.local/share/nvim 2>/dev/null
-	git clone ${url_root}ayamir/nvimdots.git $HOME/.config/nvim
+	/bin/rm -rf ~/.cache/nvim 2>/dev/null
+	/bin/rm -rf ~/.local/share/nvim 2>/dev/null
+	/bin/rm -rf ~/.local/state/nvim 2>/dev/null
+	/bin/rm -rf ~/.cache/nvim 2>/dev/null
+	git clone ${url_root}hermanzhaozzzz/MyLazyVim.git $HOME/.config/nvim
 	echo "nvim config file @ $HOME/.config/nvim"
 fi
 echo "set nvim successful"

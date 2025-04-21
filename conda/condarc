@@ -1,5 +1,4 @@
 channels:
-  - https://conda.rosettacommons.org
   - conda-forge
   - bioconda
   - r

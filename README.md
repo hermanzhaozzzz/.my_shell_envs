@@ -123,7 +123,7 @@ vim config refs to [vim-for-coding](https://github.com/Leptune/vim-for-coding), 
 
 ![](https://pic4.zhimg.com/v2-9587f7dca82dc9b6e700b661e96207db_b.jpg)
 
-neovim config refs to [nvimdots](https://github.com/ayamir/nvimdots), I really enjoy using it to write code on the server!
+neovim config refs to my LazyVim config -- [MyLazyVim](https://github.com/hermanzhaozzzz/MyLazyVim), I really enjoy using it to write code on the server!
 
 ### 3. **ZSH**: Clear and practical ZSH themes and plugins
 

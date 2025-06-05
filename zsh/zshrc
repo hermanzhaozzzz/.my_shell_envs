@@ -228,10 +228,10 @@ echo -e '\talias \033[1;35mllll\033[0m=/bin/ls -lh'
 alias llll="/bin/ls -lh"
 echo -e '\talias \033[1;35mlll\033[0m=eza -lh --time-style long-iso'
 alias lll="eza -lh --time-style long-iso"
-echo -e '\talias \033[1;35mll\033[0m=eza -lh --tree -L 1 --no-user --time-style long-iso'
-alias ll="eza -lh --tree -L 1 --no-user --time-style long-iso"
-echo -e '\talias \033[1;35ml\033[0m=eza -lha --tree -L 1 --time-style long-iso'
-alias l="eza -lha --tree -L 1 --time-style long-iso"
+echo -e '\talias \033[1;35mll\033[0m=eza -lh --no-user --time-style long-iso'
+alias ll="eza -lh --no-user --time-style long-iso"
+echo -e '\talias \033[1;35ml\033[0m=eza -lha --time-style long-iso'
+alias l="eza -lha --time-style long-iso"
 
 if [[ $_OS == "WSL" ]]; then
     echo 'seems you are in wsl'

@@ -1,8 +1,10 @@
 # Read more about SSH config files: https://linux.die.net/man/5/ssh_config
+Host Legend_pgz
+    HostName 162.105.250.75
+    User gengpz
 Host ZSpace
     HostName 162.105.250.36
     User zhaohuanan
 Host Ubuntu22
     HostName 162.105.250.145
     User zhaohuanan
-

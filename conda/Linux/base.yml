@@ -1,5 +1,6 @@
 name: base
 channels:
+- bioconda
 - conda-forge
 dependencies:
 - _go_select=2.3.0=cgo
@@ -28,7 +29,7 @@ dependencies:
 - bat=0.25.0=h8fae777_0
 - beautifulsoup4=4.13.3=pyha770c72_0
 - binutils_impl_linux-64=2.43=h4bf12b8_2
-- bioat=0.15.7=pyhd8ed1ab_0
+- bioat=0.15.8=pyhd8ed1ab_0
 - biopython=1.85=py312h66e93f0_1
 - black=25.1.0=py312h7900ff3_0
 - bleach=6.2.0=pyh29332c3_4
@@ -484,6 +485,7 @@ dependencies:
 - unzip=6.0=h7f98852_3
 - uri-template=1.3.0=pyhd8ed1ab_1
 - urllib3=2.3.0=pyhd8ed1ab_0
+- usalign=20241201=h503566f_0
 - virtualenv=20.29.2=pyhd8ed1ab_0
 - wayland=1.23.1=h3e06ad9_0
 - wcwidth=0.2.13=pyhd8ed1ab_1

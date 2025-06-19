@@ -215,6 +215,10 @@ if [[ $_OS == "Linux" ]]; then
         # slurm salloc alias
         alias salloc_gpu_a800_8="salloc -N 1 --job-name=nb_gui  --partition=gpu_a800 --gres=gpu:8 --overcommit --mincpus=64"
         alias salloc_gpu_l40_8="salloc -N 1 --job-name=nb_gui  --partition=gpu_l40 --gres=gpu:8 --overcommit --mincpus=64"
+        echo 'source /appsnew/source/gcc-12.1.0.sh'
+        echo 'source /appsnew/source/cuda-12.8.1.sh'
+        source /appsnew/source/gcc-12.1.0.sh 
+        source /appsnew/source/cuda-12.8.1.sh
 
     fi
 

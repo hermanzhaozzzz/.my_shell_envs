@@ -1,4 +1,9 @@
 # Read more about SSH config files: https://linux.die.net/man/5/ssh_config
+  Host Sunny_Alioth
+    HostName s7.tunnelfrp.com
+    Port 10027
+    User hnzhao
+
 Host Legend_pgz
     HostName 162.105.250.75
     User gengpz

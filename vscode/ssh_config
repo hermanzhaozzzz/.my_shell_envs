@@ -1,7 +1,7 @@
 # Read more about SSH config files: https://linux.die.net/man/5/ssh_config
 Host Sunny_Alioth_Login
-    HostName s7.tunnelfrp.com  # Sunny 服务器地址
-    Port 10027  # Sunny 转发端口
+    HostName sv6.tunnelfrp.com  # Sunny 服务器地址
+    Port 10028  # Sunny 转发端口
     User hnzhao
     IdentityFile ~/.ssh/id_rsa  # 替换为你的私钥路径（可选）,记得在Sunny_Alioth_Login节点配置好公钥
     ServerAliveInterval 60  # 保持连接的心跳包时间间隔（可选）

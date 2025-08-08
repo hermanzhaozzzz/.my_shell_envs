@@ -5,7 +5,7 @@ Host Sunny_Alioth_Login_384K
     User hnzhao
     IdentityFile ~/.ssh/id_rsa  # 替换为你的私钥路径（可选）,记得在Sunny_Alioth_Login节点配置好公钥
     ServerAliveInterval 60  # 保持连接的心跳包时间间隔（可选）
-Host Sunny_Alioth_Login_1M
+Host Sunny_Alioth_Login
     HostName sv6.tunnelfrp.com  # Sunny 服务器地址
     Port 10028  # Sunny 转发端口
     User hnzhao
@@ -15,7 +15,7 @@ Host Alioth_A800_c54b01n01
     HostName c54b01n01
     Port 32985
     User hnzhao
-    ProxyJump Sunny_Alioth_Login_1M
+    ProxyJump Sunny_Alioth_Login
     IdentityFile ~/.ssh/id_rsa
     ServerAliveInterval 60
 Host Alioth_A800_c58b01n01

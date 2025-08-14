@@ -1,15 +1,16 @@
 # Author: Hua-nan Herman ZHAO
 # E-Mail: hermanzhaozzzz@gmail.com
 # Date  : 2023-8-10
-
+# 自动刷新 PATH
+# $env:PATH = [System.Environment]::GetEnvironmentVariable("PATH","User") + ";" + [System.Environment]::GetEnvironmentVariable("PATH","Machine")
 # ----------------------------------------------->
 # 设置代理信息
 # ----------------------------------------------->
 
-$env:http_proxy = "http://127.0.0.1:1080"
-$env:https_proxy = "http://127.0.0.1:1080"
-git config --global http.proxy 'socks5://127.0.0.1:1080' 
-git config --global https.proxy 'socks5://127.0.0.1:1080'
+$env:http_proxy = "http://127.0.0.1:7890"
+$env:https_proxy = "http://127.0.0.1:7890"
+git config --global http.proxy 'socks5://127.0.0.1:7890' 
+git config --global https.proxy 'socks5://127.0.0.1:7890'
 
 # ----------------------------------------------->
 # 下载 Powershell命令手册
@@ -23,10 +24,22 @@ git config --global https.proxy 'socks5://127.0.0.1:1080'
 # ----------------------------------------------->
 function Check-Command($cmdname) { return [bool](Get-Command -Name $cmdname -ErrorAction SilentlyContinue) }
 
-if (Check-Command -cmdname 'scoop')
-{}
+if (Check-Command -cmdname 'scoop') {
+    Write-Host "[scoop] 已安装" -ForegroundColor Green
+}
 else {
-    "Find no scoop!"
+    Write-Warning "[scoop] 未检测到，开始安装…"
+    try {
+        # 确保允许执行本地脚本（仅限当前用户）
+        Set-ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
+        # 安装 scoop（官方推荐）
+        Invoke-RestMethod get.scoop.sh | Invoke-Expression
+        Write-Host "[scoop] 安装完成" -ForegroundColor Green
+		scoop bucket add extras
+    }
+    catch {
+        Write-Error ("[scoop] 安装失败: {0}" -f $_.Exception.Message)
+    }
 }
 
 # ----------------------------------------------->
@@ -76,29 +89,67 @@ Invoke-Expression (&starship init powershell)
 # 检查micromamba是否安装
 #     https://github.com/mamba-org/micromamba-releases
 # ----------------------------------------------->
-$Env:PATH += -Join (";", $HOME, "\AppData\Local\micromamba")
+# 路径定义
+$MambaHome          = Join-Path $HOME 'AppData\Local\micromamba'
+$MambaExe           = Join-Path $MambaHome 'micromamba.exe'
+$Env:MAMBA_ROOT_PREFIX = Join-Path $HOME 'micromamba'
 
-if (Check-Command -cmdname 'micromamba') {
-    #region mamba initialize
-    # !! Contents within this block are managed by 'mamba shell init' !!
-    $Env:MAMBA_ROOT_PREFIX = -Join ($HOME, "\micromamba")
-    $Env:MAMBA_EXE = -Join ($HOME, "\AppData\Local\micromamba\micromamba.exe")
-    $MambaModuleArgs = @{}
-	(& $Env:MAMBA_EXE 'shell' 'hook' -s 'powershell' -p $Env:MAMBA_ROOT_PREFIX) | Out-String | Invoke-Expression
-    #endregion
-}
-else {
-    "Find no micromamba!"
-    "!!!!"
-    "Chose (Y/n) n"
-    "!!!!"
-    Invoke-Expression ((Invoke-WebRequest -Uri https://micromamba.pfx.dev/install.ps1).Content)
-    micromamba install -n base python -y
+# 目录幂等创建
+foreach ($d in @($MambaHome, $Env:MAMBA_ROOT_PREFIX)) {
+    if (-not (Test-Path -LiteralPath $d)) {
+        New-Item -ItemType Directory -Path $d -Force | Out-Null
+    }
 }
 
+# 将 micromamba 目录添加进当前会话 PATH（去重）
+if ((($env:PATH -split ';') -notcontains $MambaHome)) {
+    $env:PATH = ($env:PATH.TrimEnd(';')) + ';' + $MambaHome
+}
 
-Set-Alias conda micromamba
-Set-Alias mamba micromamba
+function Invoke-MambaHook {
+    try {
+        # 用 --prefix 兼容性更好；捕获输出避免空串
+        $hook = & $MambaExe 'shell' 'hook' '-s' 'powershell' '--prefix' $Env:MAMBA_ROOT_PREFIX 2>$null
+        if ($LASTEXITCODE -eq 0 -and $hook -and $hook.Trim().Length -gt 0) {
+            Invoke-Expression $hook
+        } else {
+            Write-Warning '[micromamba] shell hook 无输出或返回码非0，跳过初始化。'
+        }
+    } catch {
+        Write-Warning ("[micromamba] 初始化异常: {0}" -f $_.Exception.Message)
+    }
+}
+
+if (Test-Path -LiteralPath $MambaExe) {
+    # 已安装：直接初始化
+    Invoke-MambaHook
+} else {
+    Write-Host '[micromamba] 未找到，开始安装…' -ForegroundColor Yellow
+    try {
+        # 官方安装脚本
+        iwr -UseBasicParsing -UseB 'https://micromamba.pfx.dev/install.ps1' | iex
+    } catch {
+        Write-Error ("[micromamba] 安装脚本执行失败: {0}" -f $_.Exception.Message)
+        return
+    }
+
+    # 重新定位可执行文件（有些版本会放到同一路径）
+    if (-not (Test-Path -LiteralPath $MambaExe)) {
+        Start-Sleep -Seconds 1
+    }
+    if (Test-Path -LiteralPath $MambaExe) {
+        # 可选：确保 base 有 python
+        & $MambaExe create -y -n base python 2>$null | Out-Null
+        Invoke-MambaHook
+    } else {
+        Write-Error "[micromamba] 安装后仍未找到: $MambaExe"
+    }
+}
+
+# 方便习惯：别名
+Set-Alias conda micromamba -Scope Global
+Set-Alias mamba micromamba -Scope Global
+# --- end micromamba block ---
 
 # ----------------------------------------------->
 # 引入Emacs快捷键设置

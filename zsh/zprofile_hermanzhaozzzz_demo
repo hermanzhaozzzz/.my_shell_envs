@@ -111,6 +111,13 @@ export NVM_DIR="$HOME/.nvm"
 # fi
 ############ /CUDA_HOME
 
+############ CLAUDE CODE
+# SuperClaude API Key
+export TWENTYFIRST_API_KEY="adcc7128a5039cca32a01d78d001d42221ecd2a4519db0ceb10d357045e5241cadcc7128a5039cca32a01d78d001d42221ecd2a4519db0ceb10d357045e5241c"
+
+# SuperClaude API Key
+export MORPH_API_KEY="morph_N7IfgdWUJ43fjnd6gd3Kxa"
+############ /CLAUDE CODE
 
 # ------------------------------------------------------------------->>>>>>>>>>
 # GLOBAL ALIAS

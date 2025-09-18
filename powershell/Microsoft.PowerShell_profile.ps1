@@ -9,10 +9,10 @@
 # 设置代理信息
 # ----------------------------------------------->
 
-$env:http_proxy = "http://127.0.0.1:7890"
-$env:https_proxy = "http://127.0.0.1:7890"
-git config --global http.proxy 'socks5://127.0.0.1:7890' 
-git config --global https.proxy 'socks5://127.0.0.1:7890'
+$env:http_proxy  = 'http://127.0.0.1:7890'
+$env:https_proxy = 'http://127.0.0.1:7890'
+& git config --global http.proxy  'socks5://127.0.0.1:7890'
+& git config --global https.proxy 'socks5://127.0.0.1:7890'
 
 # ----------------------------------------------->
 # 下载 Powershell命令手册
@@ -187,8 +187,7 @@ Set-PSReadLineKeyHandler -Key DownArrow -ScriptBlock {
 # 创建ls命令（重新定义）
 # ----------------------------------------------->
 function getFileName { Get-ChildItem -Name }
-Remove-Item alias:\ls
-Set-Alias ls  getFileName
+Set-Alias -Name ls -Value getFileName -Force -Option AllScope
 
 # 因为ls是Windows PowerShell中的默认别名，因此必须先删除再创建，
 # 所以先Remove-Item再Set-Alias或New-Alias。

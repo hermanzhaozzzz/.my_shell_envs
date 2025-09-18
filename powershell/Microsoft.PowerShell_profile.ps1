@@ -1,6 +1,8 @@
-# Author: Hua-nan Herman ZHAO
+﻿# Author: Hua-nan Herman ZHAO
 # E-Mail: hermanzhaozzzz@gmail.com
-# Date  : 2023-8-10
+# Date  : 2025-09-18
+# 需要保存为 UTF-8 with BOM!!!
+# 暂时micromamba只支持64位windows系统，不支持arm windows系统，所以会报warning
 # 自动刷新 PATH
 # $env:PATH = [System.Environment]::GetEnvironmentVariable("PATH","User") + ";" + [System.Environment]::GetEnvironmentVariable("PATH","Machine")
 # ----------------------------------------------->
@@ -127,7 +129,7 @@ if (Test-Path -LiteralPath $MambaExe) {
     Write-Host '[micromamba] 未找到，开始安装…' -ForegroundColor Yellow
     try {
         # 官方安装脚本
-        iwr -UseBasicParsing -UseB 'https://micromamba.pfx.dev/install.ps1' | iex
+        iwr -UseBasicParsing 'https://micromamba.pfx.dev/install.ps1' | iex
     } catch {
         Write-Error ("[micromamba] 安装脚本执行失败: {0}" -f $_.Exception.Message)
         return

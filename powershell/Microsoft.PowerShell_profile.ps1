@@ -2,7 +2,14 @@
 # E-Mail: hermanzhaozzzz@gmail.com
 # Date  : 2025-09-18
 # 需要保存为 UTF-8 with BOM!!!
-# 暂时micromamba只支持64位windows系统，不支持arm windows系统，所以会报warning
+
+
+# ❯ $proFILE | Select-Object *Host* | Format-List
+# AllUsersAllHosts       : C:\Program Files\PowerShell\7\profile.ps1
+# AllUsersCurrentHost    : C:\Program Files\PowerShell\7\Microsoft.PowerShell_profile.ps1
+# CurrentUserAllHosts    : C:\Mac\Home\Documents\PowerShell\profile.ps1
+# CurrentUserCurrentHost : C:\Mac\Home\Documents\PowerShell\Microsoft.PowerShell_profile.ps1
+
 # 自动刷新 PATH
 # $env:PATH = [System.Environment]::GetEnvironmentVariable("PATH","User") + ";" + [System.Environment]::GetEnvironmentVariable("PATH","Machine")
 # ----------------------------------------------->

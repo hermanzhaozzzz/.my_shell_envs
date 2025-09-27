@@ -13,7 +13,10 @@ $env:http_proxy  = 'http://127.0.0.1:7890'
 $env:https_proxy = 'http://127.0.0.1:7890'
 & git config --global http.proxy  'socks5://127.0.0.1:7890'
 & git config --global https.proxy 'socks5://127.0.0.1:7890'
-
+# ----------------------------------------------->
+# 设置 PATH
+# ----------------------------------------------->
+$env:Path += ";$env:USERPROFILE\.cargo\bin"
 # ----------------------------------------------->
 # 下载 Powershell命令手册
 #     man     帮助查询

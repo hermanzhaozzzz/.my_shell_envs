@@ -241,7 +241,7 @@ echo "set tldr successful"
 if [[ "$platform" == "Windows" ]]; then
 	cd $REPO_PATH
 
-        mkdir -p "/c/Program Files/PowerShell/7"
+    mkdir -p "/c/Program Files/PowerShell/7"
 	WinProfile="/c/Program Files/PowerShell/7/profile.ps1"
 	RepoProfile="$REPO_PATH/powershell/Microsoft.PowerShell_profile.ps1"
 	echo -e "---------------------------------|\nset profile softlink @ $WinProfile..."

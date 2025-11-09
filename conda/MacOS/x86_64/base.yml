@@ -27,7 +27,7 @@ dependencies:
 - backports.functools_lru_cache=1.6.4=pyhd8ed1ab_0
 - beautifulsoup4=4.12.3=pyha770c72_1
 - bedtools=2.31.1=hbb299f0_3
-- bioat=0.13.5=pyhd8ed1ab_0
+- bioat=0.16.4=pyhd8ed1ab_0
 - biopython=1.84=py312hbd25219_0
 - black=24.10.0=py312hb401068_0
 - bleach=6.0.0=pyhd8ed1ab_0
@@ -275,6 +275,7 @@ dependencies:
 - ptyprocess=0.7.0=pyhd3deb0d_0
 - pulp=2.8.0=py312hb401068_0
 - pure_eval=0.2.2=pyhd8ed1ab_0
+- py3dmol=2.5.0=pyhd8ed1ab_0
 - pybedtools=0.12.0=py312he0d4a5b_0
 - pybind11-abi=4=hd8ed1ab_3
 - pycodestyle=2.12.1=pyhd8ed1ab_1

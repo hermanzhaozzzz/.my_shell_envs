@@ -14,7 +14,7 @@ cluster-generic-submit-cmd: mkdir -p logs/{rule} &&
   -x c01b03n11
 # 2024-10-22
 # c01b03n11  节点卡死?导致snakemake一直running无法执行shell和命令导致一直卡住
-cluster-generic-status-cmd: "$HOME/.config/snakemake/mysacct.py"
+# cluster-generic-status-cmd: "$HOME/.config/snakemake/mysacct.py"
 cluster-generic-cancel-cmd: "scancel"
 default-resources:
   - account=chengqiyi_g1

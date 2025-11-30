@@ -122,9 +122,8 @@ export MORPH_API_KEY="morph_N7IfgdWUJ43fjnd6gd3Kxa"
 # ------------------------------------------------------------------->>>>>>>>>>
 # GLOBAL ALIAS
 # ------------------------------------------------------------------->>>>>>>>>>
-alias ssh.server.bioin="ssh zhaohuanan@bioin.vip -p 10006"
 alias ssh.server.polaris="ssh chengqiyi_zhn@10.100.1.88"
-alias ssh.server.alioth="ssh -o HostKeyAlgorithms=+ssh-rsa,ssh-dss hnzhao@10.100.0.99"
+alias ssh.server.alioth="ssh hnzhao@10.100.0.99"
 alias checkbam="for i in *.bam ;do (samtools quickcheck \$i && echo \"ok    \" \$i || echo \"error    \" \$i);done"
 
 _func_ssh.tunnal.alioth(){

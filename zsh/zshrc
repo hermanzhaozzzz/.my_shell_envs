@@ -1,14 +1,3 @@
-# ============ 自动激活 base 环境 ============
-if [[ -z "$CONDA_DEFAULT_ENV" ]]; then
-    export MAMBA_ROOT_PREFIX="$HOME/0.apps/micromamba"
-    export PATH="$MAMBA_ROOT_PREFIX/bin:$PATH"
-    if [[ -f "$MAMBA_ROOT_PREFIX/bin/micromamba" ]]; then
-        eval "$($MAMBA_ROOT_PREFIX/bin/micromamba shell hook --shell zsh)" 2>/dev/null
-        micromamba activate base 2>/dev/null
-    fi
-fi
-# ============================================
-
 if [[ -z "${_ZPROFILE_IS_SOURCED}" || "${_ZPROFILE_IS_SOURCED}" != "true" ]]; then
     export _ZPROFILE_IS_SOURCED=true
     source ~/.zprofile

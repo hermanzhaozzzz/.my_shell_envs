@@ -1,3 +1,14 @@
+# ============ 自动激活 base 环境 ============
+if [[ -z "$CONDA_DEFAULT_ENV" ]]; then
+    export MAMBA_ROOT_PREFIX="$HOME/0.apps/micromamba"
+    export PATH="$MAMBA_ROOT_PREFIX/bin:$PATH"
+    if [[ -f "$MAMBA_ROOT_PREFIX/bin/micromamba" ]]; then
+        eval "$($MAMBA_ROOT_PREFIX/bin/micromamba shell hook --shell zsh)" 2>/dev/null
+        micromamba activate base 2>/dev/null
+    fi
+fi
+# ============================================
+
 if [[ -z "${_ZPROFILE_IS_SOURCED}" || "${_ZPROFILE_IS_SOURCED}" != "true" ]]; then
     export _ZPROFILE_IS_SOURCED=true
     source ~/.zprofile
@@ -169,10 +180,26 @@ else
     mkdir -p $TRASH
     echo -e '\t\033[1;35mTRASH\033[0m @ '$TRASH
 fi
-# mv命令覆盖rm命令
+# mv命令覆盖rm命令（时间戳避免）
 func_delfile(){
-    mv $@ $TRASH/
+    local timestamp=$(date +%Y%m%d_%H%M%S)
+    for item in "$@"; do
+        # 跳过 -rf 等选项参数
+        if [[ "$item" == -* ]]; then
+            continue
+        fi
+        # 检查文件/文件夹是否存在
+        if [ -e "$item" ]; then
+            local basename=$(basename "$item")
+            local newname="${timestamp}_${basename}"
+            mv "$item" "$TRASH/$newname"
+            echo "✓ 已移动: $item → $newname"
+        else
+            echo "✗ 不存在: $item" >&2
+        fi
+    done
 }
+
 # 保存原始rm命令的路径
 echo -e '\talias \033[1;35mrrm\033[0m=/bin/rm'
 alias rrm=/bin/rm
@@ -182,11 +209,11 @@ echo -e '\talias \033[1;35mrm\033[0m=func_delfile'
 alias rm=func_delfile
 
 # 显示回收站中垃圾清单
+# 显示回收站中垃圾清单
 func_dellist(){
-    # ls -alt $HOME/$TRASH/*
-    exa --no-permissions --time-style long-iso -lh --tree -L 1 --no-user $TRASH
-
+    eza --no-permissions --time-style long-iso -lh --tree -L 1 --no-user "$TRASH/"
 }
+
 echo -e '\talias \033[1;35mrm.trash.show\033[0m=func_dellist'
 alias rm.trash.show=func_dellist
 # 找回回收站相应文件
@@ -292,3 +319,6 @@ echo -e '\tnew features and issues can be raised at:'
 echo -e '\t\thttps://github.com/hermanzhaozzzz/.my_shell_envs/issues'
 echo '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
 
+
+
+micromamba activate base 2>/dev/null

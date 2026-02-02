@@ -198,7 +198,6 @@ echo -e '\talias \033[1;35mrm\033[0m=func_delfile'
 alias rm=func_delfile
 
 # 显示回收站中垃圾清单
-# 显示回收站中垃圾清单
 func_dellist(){
     eza --no-permissions --time-style long-iso -lh --tree -L 1 --no-user "$TRASH/"
 }

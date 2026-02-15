@@ -65,5 +65,21 @@ Host PKUSLS_Legend_GPZ
     HostName 162.105.250.75
     User gengpz
 Host ZSpace
-    HostName 162.105.250.36
+    HostName 192.168.3.238
     User zhaohuanan
+Host ZSpace_V_Windows
+    HostName 192.168.3.10
+    User herma
+    Port 22
+
+    IdentityFile ~/.ssh/id_ed25519_win
+    IdentitiesOnly yes
+
+    # 稳定性（可选但推荐）
+    ServerAliveInterval 30
+    ServerAliveCountMax 4
+
+    # 复用连接（可选但推荐）
+    ControlMaster auto
+    ControlPath ~/.ssh/cm-%r@%h:%p
+    ControlPersist 10m

@@ -164,6 +164,8 @@ if [[ $_OS == "Linux" ]]; then
     export PATH=$PATH:${HOME}/0.apps/HiC-Pro_installed/HiC-Pro_3.1.0/bin
     export PATH=$PATH:${HOME}/0.apps/hisat-3n_allType
     export PATH=$PATH:${HOME}/0.apps/bedops/bin
+    export PATH=$PATH:${HOME}/.npm-global/bin
+    eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv zsh)"
 
     # diy cmds for easily using slurm on polars
     _func_delslrumlogs(){

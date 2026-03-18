@@ -309,4 +309,4 @@ echo '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
 
 
 
-micromamba activate base 2>/dev/null
+# micromamba activate base 2>/dev/null

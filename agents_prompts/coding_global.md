@@ -23,6 +23,27 @@
   - **严禁擅自推送**：未经用户明确允许，不得执行 `git push`
   - 每次提交前必须征得用户同意，询问提交信息内容
 
+## 绘图默认约定
+
+- **论文级图件默认初始化方式**：若无项目内强约束，默认优先使用 `bioat.lib.libplot.init_matplotlib`
+- **默认初始化模板**：
+  ```python
+  from bioat.lib.libplot import init_matplotlib
+
+  SET_BACKEND_PDF = True
+  SET_BACKEND_PS = True
+
+  init_matplotlib(
+      sns_style="white",
+      sns_font_scale=1.0,
+      set_backend_pdf=SET_BACKEND_PDF,
+      set_backend_ps=SET_BACKEND_PS,
+  )
+  ```
+- **默认尺寸**：`figsize` 的宽度强制设为 `7`，高度按内容与版式合理调整
+- **默认分辨率**：`dpi` 设为 `300`
+- **默认后端与输出考虑**：优先启用 `pdf` 和 `ps` backend，便于后期矢量编辑与版式微调
+
 ## 其他全局习惯（待补充）
 
 - 可根据需要在此添加更多跨项目通用的工作习惯

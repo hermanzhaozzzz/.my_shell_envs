@@ -447,6 +447,7 @@ alias proxy.off=proxy_off
 - 一个“回收站式”的删除机制，避免误用 `rm -rf`
 - `l` / `ll` / `lll` / `llll` 这些更顺手的目录查看命令
 - `btop`、`open` 等常用别名
+- `conda/micromamba-pycharm`：给 PyCharm 用的 micromamba 兼容桥接，让 PyCharm 可以把 micromamba 当成 conda 可执行文件
 - 可以通过在 `~/.my_shell_envs/bin` 下建立软链接，把你自己的命令加入 PATH
 
 ## 贡献

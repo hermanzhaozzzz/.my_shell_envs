@@ -446,6 +446,7 @@ The repo also includes a few convenience helpers:
 - a trash-style deletion workflow to reduce `rm -rf` mistakes
 - `l` / `ll` / `lll` / `llll` shortcuts
 - aliases such as `btop` and `open`
+- `conda/micromamba-pycharm`: a small compatibility bridge for PyCharm so it can use micromamba as a conda executable
 - an easy way to expose your own commands by linking them into `~/.my_shell_envs/bin`
 
 ## Contributing

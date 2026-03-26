@@ -187,43 +187,28 @@ mse update
 
 ### Conda 环境
 
-`mse deploy` 里的 `micromamba` 步骤主要做两件事：
+这个仓库里，`conda` 就是 `micromamba` 的 alias。
+
+`mse deploy` 主要做两件事：
 
 - 安装 `micromamba`
 - 把当前平台对应的环境文件从 `conda/<platform>/` 软链接到 `conda_local_env_settings/`
 
-它不会自动把所有环境都创建出来。部署完成后，你可以按需要手动重建或更新环境。
+它不会自动把所有环境都创建出来。部署完成后，直接用 `conda` 即可。
 
 当前平台的 `base` 环境文件会被链接到：
 
 ```shell
-conda_local_env_settings/base.yml
+~/.my_shell_envs/conda_local_env_settings/base.yml
 ```
 
-更新已有 `base` 环境：
+更新或部署 `base` 环境时，直接执行：
 
 ```shell
-micromamba env update -n base -f conda_local_env_settings/base.yml --prune
+conda activate base && conda install -f ~/.my_shell_envs/conda_local_env_settings/base.yml
 ```
 
-在一个全新的 `micromamba` 前缀里重建 `base` 环境：
-
-```shell
-micromamba create -y -n base -f conda_local_env_settings/base.yml
-```
-
-其他环境也是同样的模式，例如 Linux 下的 `esmfold`：
-
-```shell
-micromamba create -y -f conda/Linux/esmfold.yml
-micromamba env update -n esmfold -f conda/Linux/esmfold.yml --prune
-```
-
-补充说明：
-
-- `mse deploy` 负责准备 `micromamba` 和环境描述文件，不负责自动安装所有 Conda 环境
-- `--prune` 会删除环境文件里已经不存在的包，适合做同步更新
-- 如果你只想快速把当前平台的 `base` 环境对齐，优先使用 `micromamba env update`
+如果你要装别的环境，就把 `base.yml` 换成对应的 `.yml` 文件。
 
 ### 个人配置
 
@@ -309,6 +294,8 @@ alias proxy.off=proxy_off
 
 - conda / miniconda 速度偏慢
 - mamba 在更新某些已有环境时有时不够稳
+
+在这个仓库里，日常命令直接写 `conda` 即可，因为 `conda` 已经被 alias 到 `micromamba`。
 
 如果你只想保留自己的 conda，不想安装 micromamba，可以直接使用：
 

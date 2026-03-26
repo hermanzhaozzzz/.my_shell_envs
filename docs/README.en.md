@@ -186,43 +186,28 @@ Behavior:
 
 ### Conda Environments
 
-The `micromamba` step in `mse deploy` mainly does two things:
+In this repo, `conda` is an alias of `micromamba`.
+
+`mse deploy` mainly does two things:
 
 - install `micromamba`
 - link the environment files for the current platform from `conda/<platform>/` into `conda_local_env_settings/`
 
-It does not automatically create every Conda environment. After deployment, create or update environments explicitly as needed.
+It does not automatically create every Conda environment. After deployment, just use `conda`.
 
 The current platform's `base` environment file is linked to:
 
 ```shell
-conda_local_env_settings/base.yml
+~/.my_shell_envs/conda_local_env_settings/base.yml
 ```
 
-Update an existing `base` environment:
+To update or deploy the `base` environment, run:
 
 ```shell
-micromamba env update -n base -f conda_local_env_settings/base.yml --prune
+conda activate base && conda install -f ~/.my_shell_envs/conda_local_env_settings/base.yml
 ```
 
-Rebuild the `base` environment in a fresh `micromamba` prefix:
-
-```shell
-micromamba create -y -n base -f conda_local_env_settings/base.yml
-```
-
-Other environments follow the same pattern. For example, `esmfold` on Linux:
-
-```shell
-micromamba create -y -f conda/Linux/esmfold.yml
-micromamba env update -n esmfold -f conda/Linux/esmfold.yml --prune
-```
-
-Notes:
-
-- `mse deploy` prepares `micromamba` and environment spec files; it does not install every Conda environment automatically
-- `--prune` removes packages that are no longer present in the environment file
-- if you only want to sync the current platform's `base` environment, prefer `micromamba env update`
+For other environments, replace `base.yml` with the corresponding `.yml` file.
 
 ### Personal Settings
 
@@ -308,6 +293,8 @@ I use micromamba instead of conda / miniconda / mamba because:
 
 - conda / miniconda can feel slow
 - mamba is not always ideal for updating an existing base environment
+
+In this repo, you can just type `conda` in daily use, because `conda` is already aliased to `micromamba`.
 
 If you want to keep your own conda setup and skip micromamba, use:
 

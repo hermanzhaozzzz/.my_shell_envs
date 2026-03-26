@@ -1,7 +1,31 @@
 if [[ -z "${_ZPROFILE_IS_SOURCED}" || "${_ZPROFILE_IS_SOURCED}" != "true" ]]; then
-    export _ZPROFILE_IS_SOURCED=true
-    source ~/.zprofile
-    unset _ZPROFILE_IS_SOURCED
+    if [[ -f ~/.zprofile ]]; then
+        export _ZPROFILE_IS_SOURCED=true
+        source ~/.zprofile
+        unset _ZPROFILE_IS_SOURCED
+    fi
+fi
+
+if [[ -z "${_OS}" ]]; then
+    case "$(uname -s)" in
+        Darwin)
+            export _OS="macOS"
+            ;;
+        Linux)
+            if grep -q Microsoft /proc/version 2>/dev/null; then
+                export _OS="WSL"
+            else
+                export _OS="Linux"
+            fi
+            ;;
+        *)
+            export _OS="Unknown"
+            ;;
+    esac
+fi
+
+if [[ -z "${_ARCH}" ]]; then
+    export _ARCH="$(uname -m)"
 fi
 echo -e '\n\n'
 echo '>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>'

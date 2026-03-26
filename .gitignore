@@ -7,18 +7,6 @@
 /tools/jcat/jcat
 /tools/jgi-query/
 /tools/nvim/plugin/
-##############
-# spyder
-##############
-**/.spyproject/
-spyder/general/arm64/spyder-py3/help
-**/spyder-py3/config/backups/
-**/spyder.ini
-**/transient.ini
-**/spyder-py3/history.py
-**/pdb_history.sqlite
-**/spyder-py3/workingdir
-**/spyder.lock
 
 ##############
 # common project
@@ -51,6 +39,6 @@ sna*.out
 job.srp*
 slurm-*.out
 # Others
+/.mse-install.env
 /tmpdir_*/
 .localized
-

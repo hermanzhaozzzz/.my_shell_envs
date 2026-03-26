@@ -60,7 +60,6 @@ dependencies:
 - colorama=0.4.6=pyhd8ed1ab_1
 - coloredlogs=15.0.1=pyhd8ed1ab_4
 - comm=0.2.2=pyhd8ed1ab_1
-- commitizen=4.2.2=pyhd8ed1ab_0
 - conda=24.11.3=py312h7900ff3_0
 - conda-libmamba-solver=24.9.0=pyhd8ed1ab_0
 - conda-pack=0.8.1=pyhff2d567_0
@@ -493,7 +492,6 @@ dependencies:
 - tinycss2=1.4.0=pyhd8ed1ab_0
 - tk=8.6.13=noxft_h4845f30_101
 - tktable=2.10=h8bc8fbc_6
-- tldr=3.3.0=pyh0aa0b10_1
 - tmux=3.5=h4463017_0
 - tomli=2.2.1=pyhd8ed1ab_1
 - tomlkit=0.13.2=pyha770c72_1
@@ -562,4 +560,3 @@ dependencies:
 - zoxide=0.9.7=h8fae777_0
 - zstandard=0.23.0=py312hef9b889_1
 - zstd=1.5.6=ha6fb4c9_0
-

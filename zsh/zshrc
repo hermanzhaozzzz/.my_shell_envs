@@ -112,6 +112,7 @@ ZSH_THEME="fino"
 
 # Would you like to use another custom folder than $ZSH/custom?
 # ZSH_CUSTOM=/path/to/new-custom-folder
+export ZSH_CUSTOM="${ZSH_CUSTOM:-$ZSH/custom}"
 
 # Which plugins would you like to load?
 # Standard plugins can be found in $ZSH/plugins/
@@ -129,7 +130,7 @@ plugins=(
 source $ZSH/oh-my-zsh.sh
 
 # 高亮插件,需要配置在所有插件之后！
-source ~/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+source "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh"
 
 # User configuration
 

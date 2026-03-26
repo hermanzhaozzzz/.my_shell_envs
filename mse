@@ -11,7 +11,11 @@ DEFAULT_REPO_URL="https://github.com/hermanzhaozzzz/.my_shell_envs.git"
 DEFAULT_REPO_SSH_URL="git@github.com:hermanzhaozzzz/.my_shell_envs.git"
 DEFAULT_BRANCH="main"
 DEFAULT_ARCHIVE_URL="https://codeload.github.com/hermanzhaozzzz/.my_shell_envs/tar.gz/refs/heads/${DEFAULT_BRANCH}"
-AVAILABLE_STEPS="micromamba condarc zsh pip vim nvim jcat wd powershell"
+AVAILABLE_STEPS="micromamba condarc pip vim nvim jcat wd powershell"
+OH_MY_ZSH_PATH="$HOME/.oh-my-zsh"
+OH_MY_ZSH_INSTALL_URL="https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh"
+ZSH_HIGHLIGHTING_REPO_PATH="zsh-users/zsh-syntax-highlighting.git"
+ZSH_AUTOSUGGESTIONS_REPO_PATH="zsh-users/zsh-autosuggestions"
 
 git_method="https"
 deploy_mode="fast"
@@ -50,6 +54,9 @@ Usage:
 Defaults:
   git method: https
   deploy mode: fast
+
+Mandatory base setup on non-Windows:
+  zsh + Oh My Zsh + required plugins + ~/.zshrc + default shell switch
 
 Examples:
   ./mse deploy
@@ -92,7 +99,6 @@ describe_step() {
     case "$1" in
         micromamba) echo "install micromamba and link conda env yml files" ;;
         condarc) echo "link ~/.condarc to the repo config" ;;
-        zsh) echo "link ~/.zshrc to the repo config" ;;
         pip) echo "link pip.conf" ;;
         vim) echo "clone or update vim-for-coding" ;;
         nvim) echo "clone or update MyLazyVim" ;;
@@ -123,22 +129,43 @@ step_selected() {
     return 1
 }
 
+step_supported_on_platform() {
+    case "$1" in
+        powershell)
+            [ "$platform" = "Windows" ]
+            ;;
+        jcat)
+            [ "$platform" != "Windows" ]
+            ;;
+        *)
+            return 0
+            ;;
+    esac
+}
+
 print_available_steps() {
     local step
-    echo "Available steps:"
+    echo "Optional steps:"
+    echo "  mandatory base on non-Windows: zsh, Oh My Zsh, required plugins, ~/.zshrc, default shell switch"
     for step in $AVAILABLE_STEPS; do
+        if ! step_supported_on_platform "$step"; then
+            continue
+        fi
         printf '  - %-10s %s\n' "$step" "$(describe_step "$step")"
     done
 }
 
 print_selected_steps() {
     local step
-    echo "selected steps:"
+    echo "selected optional steps:"
     if [ -z "$SELECTED_STEPS" ]; then
         echo "  - (none)"
         return 0
     fi
     for step in $AVAILABLE_STEPS; do
+        if ! step_supported_on_platform "$step"; then
+            continue
+        fi
         if step_selected "$step"; then
             printf '  - %-10s %s\n' "$step" "$(describe_step "$step")"
         fi
@@ -149,6 +176,14 @@ print_deploy_warnings() {
     echo "This deployment may create, replace, or back up files under your home directory."
     echo "Review the paths below before continuing:"
 
+    if [ "$platform" != "Windows" ]; then
+        printf '  - %s\n' "$HOME/.zshrc"
+        printf '  - %s\n' "$OH_MY_ZSH_PATH"
+        printf '  - %s\n' "${ZSH_CUSTOM:-$OH_MY_ZSH_PATH/custom}/plugins/zsh-syntax-highlighting"
+        printf '  - %s\n' "${ZSH_CUSTOM:-$OH_MY_ZSH_PATH/custom}/plugins/zsh-autosuggestions"
+        printf '  - %s\n' "default shell for the current user (via chsh)"
+    fi
+
     if step_selected "micromamba"; then
         printf '  - %s\n' "$ROOT_PATH/bin/micromamba"
         printf '  - %s\n' "$CONDA_ENVS/*.yml"
@@ -156,9 +191,6 @@ print_deploy_warnings() {
     fi
     if step_selected "condarc"; then
         printf '  - %s\n' "$HOME/.condarc"
-    fi
-    if step_selected "zsh"; then
-        printf '  - %s\n' "$HOME/.zshrc"
     fi
     if step_selected "pip"; then
         printf '  - %s\n' "$HOME/.pip/pip.conf"
@@ -186,7 +218,6 @@ print_deploy_warnings() {
     if [ "$use_zprofile_template" -eq 1 ] && [ "$platform" != "Windows" ]; then
         printf '  - %s\n' "$HOME/.zprofile"
         printf '  - %s\n' "$HOME/.zprofile_bak"
-        printf '  - %s\n' "$HOME/.zshenv (removed if present)"
     fi
 
     echo "Existing files are backed up to *_bak or *.backup.* when possible."
@@ -222,6 +253,14 @@ force_link() {
 
 require_cmd() {
     command -v "$1" >/dev/null 2>&1 || fail "Seems the command '$1' is not installed on your system, please install it first."
+}
+
+get_zsh_custom_path() {
+    printf '%s\n' "${ZSH_CUSTOM:-$OH_MY_ZSH_PATH/custom}"
+}
+
+get_clone_url() {
+    printf '%s%s\n' "$url_root" "$1"
 }
 
 detect_git_repo_url() {
@@ -361,12 +400,19 @@ choose_steps() {
     local answer
 
     if [ "$deploy_mode" = "fast" ]; then
-        SELECTED_STEPS="$AVAILABLE_STEPS"
+        for step in $AVAILABLE_STEPS; do
+            if step_supported_on_platform "$step"; then
+                append_selected_step "$step"
+            fi
+        done
         return 0
     fi
 
     echo "interactive mode: press y to enable a step, press Enter to skip it."
     for step in $AVAILABLE_STEPS; do
+        if ! step_supported_on_platform "$step"; then
+            continue
+        fi
         printf "Apply %-10s (%s)? [y/N]: " "$step" "$(describe_step "$step")"
         read answer
         case "$answer" in
@@ -380,6 +426,10 @@ choose_steps() {
 run_step() {
     local step="$1"
     local function_name="$2"
+
+    if ! step_supported_on_platform "$step"; then
+        return 0
+    fi
 
     if step_selected "$step"; then
         print_section "run step: $step"
@@ -559,12 +609,141 @@ apply_zprofile_template() {
     fi
 
     print_section "apply personal zprofile template"
-    /bin/rm "$HOME/.zshenv" "$HOME/.zshenv_bak" 2>/dev/null
     /bin/rm "$HOME/.zprofile_bak" 2>/dev/null
     mv "$HOME/.zprofile" "$HOME/.zprofile_bak" 2>/dev/null || true
     /bin/rm -f "$HOME/.zprofile" 2>/dev/null
     ln -s "$ZPROFILE_TEMPLATE_PATH" "$HOME/.zprofile" || fail "failed to link $HOME/.zprofile to $ZPROFILE_TEMPLATE_PATH"
     echo "zprofile template linked @ $HOME/.zprofile -> $ZPROFILE_TEMPLATE_PATH"
+}
+
+install_zsh_with_supported_package_manager() {
+    if [ "$platform_family" = "MacOS" ]; then
+        command -v brew >/dev/null 2>&1 || fail "automatic zsh installation on macOS requires Homebrew (brew)"
+        brew install zsh || fail "failed to install zsh with Homebrew"
+    elif [ "$platform" = "Linux" ]; then
+        command -v sudo >/dev/null 2>&1 || fail "automatic zsh installation on Linux/WSL requires sudo and apt-get"
+        command -v apt-get >/dev/null 2>&1 || fail "automatic zsh installation on Linux/WSL requires sudo and apt-get"
+        sudo apt-get update || fail "failed to run apt-get update for zsh installation"
+        sudo apt-get install -y zsh || fail "failed to install zsh with apt-get"
+    else
+        fail "automatic zsh installation is only supported on macOS (brew) and Linux/WSL (apt)"
+    fi
+}
+
+ensure_zsh_installed() {
+    if [ "$platform" = "Windows" ]; then
+        return 0
+    fi
+
+    print_section "ensure zsh is installed"
+    if command -v zsh >/dev/null 2>&1; then
+        echo "zsh exists @ $(command -v zsh)"
+        return 0
+    fi
+
+    echo "zsh not found, installing with the supported package manager..."
+    install_zsh_with_supported_package_manager
+    command -v zsh >/dev/null 2>&1 || fail "zsh installation completed but 'zsh' is still not available in PATH"
+    echo "zsh installed @ $(command -v zsh)"
+}
+
+ensure_oh_my_zsh_installed() {
+    if [ "$platform" = "Windows" ]; then
+        return 0
+    fi
+
+    print_section "ensure Oh My Zsh is installed"
+    if [ -d "$OH_MY_ZSH_PATH" ]; then
+        echo "Oh My Zsh exists @ $OH_MY_ZSH_PATH"
+        return 0
+    fi
+
+    require_cmd git
+    require_cmd curl
+    echo "Oh My Zsh not found, installing..."
+    RUNZSH=no CHSH=no KEEP_ZSHRC=yes /bin/sh -c "$(curl -fsSL "$OH_MY_ZSH_INSTALL_URL")" || fail "failed to install Oh My Zsh"
+    [ -d "$OH_MY_ZSH_PATH" ] || fail "Oh My Zsh installation completed but $OH_MY_ZSH_PATH was not created"
+    echo "Oh My Zsh installed @ $OH_MY_ZSH_PATH"
+}
+
+sync_zsh_plugin_repo() {
+    local plugin_dir="$1"
+    local plugin_url="$2"
+
+    if [ -d "$plugin_dir/.git" ]; then
+        git -C "$plugin_dir" fetch || fail "failed to fetch plugin updates for $plugin_dir"
+        git -C "$plugin_dir" pull --ff-only || fail "failed to update plugin at $plugin_dir"
+        echo "plugin updated @ $plugin_dir"
+    elif [ -d "$plugin_dir" ]; then
+        echo "plugin directory exists @ $plugin_dir, keeping current contents"
+    else
+        git clone "$plugin_url" "$plugin_dir" || fail "failed to clone plugin from $plugin_url"
+        echo "plugin installed @ $plugin_dir"
+    fi
+}
+
+ensure_zsh_plugins_installed() {
+    local custom_path
+
+    if [ "$platform" = "Windows" ]; then
+        return 0
+    fi
+
+    print_section "ensure required zsh plugins are installed"
+    require_cmd git
+    custom_path="$(get_zsh_custom_path)"
+    mkdir -p "$custom_path/plugins"
+
+    sync_zsh_plugin_repo "$custom_path/plugins/zsh-syntax-highlighting" "$(get_clone_url "$ZSH_HIGHLIGHTING_REPO_PATH")"
+    sync_zsh_plugin_repo "$custom_path/plugins/zsh-autosuggestions" "$(get_clone_url "$ZSH_AUTOSUGGESTIONS_REPO_PATH")"
+
+    echo "standard Oh My Zsh plugins required by this repo: git, z"
+    echo "custom plugin root @ $custom_path/plugins"
+}
+
+ensure_zshrc_linked() {
+    if [ "$platform" = "Windows" ]; then
+        return 0
+    fi
+
+    print_section "ensure zshrc is linked"
+    backup_and_link "$REPO_PATH/zsh/zshrc" "$HOME/.zshrc"
+    echo "zsh config file @: $REPO_PATH/zsh/zshrc"
+    echo "~/.zshrc linked successfully"
+}
+
+ensure_default_shell_is_zsh() {
+    local zsh_path
+    local current_shell="${SHELL:-}"
+
+    if [ "$platform" = "Windows" ]; then
+        return 0
+    fi
+
+    print_section "ensure default shell is zsh"
+    zsh_path="$(command -v zsh)" || fail "zsh is required before switching the default shell"
+
+    if [ "${current_shell##*/}" = "zsh" ]; then
+        echo "default shell already looks like zsh @ $current_shell"
+        return 0
+    fi
+
+    require_cmd chsh
+    chsh -s "$zsh_path" || fail "failed to switch the default shell to zsh using chsh"
+    export SHELL="$zsh_path"
+    echo "default shell switched to zsh @ $zsh_path"
+}
+
+ensure_non_windows_zsh_core() {
+    if [ "$platform" = "Windows" ]; then
+        return 0
+    fi
+
+    ensure_zsh_installed
+    ensure_oh_my_zsh_installed
+    ensure_zsh_plugins_installed
+    ensure_zshrc_linked
+    ensure_default_shell_is_zsh
 }
 
 step_micromamba() {
@@ -620,18 +799,6 @@ step_condarc() {
     echo "set condarc..."
     backup_and_link "$REPO_PATH/conda/condarc" "$HOME/.condarc"
     echo "set condarc successful"
-}
-
-step_zsh() {
-    if [ "$platform" = "Windows" ]; then
-        echo "zsh not support platform: $platform"
-        return 0
-    fi
-
-    echo "set zsh config file"
-    backup_and_link "$REPO_PATH/zsh/zshrc" "$HOME/.zshrc"
-    echo "zsh config file @: $REPO_PATH/zsh/zshrc"
-    echo "set zsh config (zshrc) successful"
 }
 
 step_pip() {
@@ -763,11 +930,6 @@ step_powershell() {
 command_deploy() {
     parse_deploy_args "$@"
 
-    if [ "$list_steps" -eq 1 ]; then
-        print_available_steps
-        exit 0
-    fi
-
     mkdir -p "$BIN_PATH"
 
     case "$git_method" in
@@ -785,6 +947,11 @@ command_deploy() {
     SELECTED_STEPS=""
     detect_platform_settings
 
+    if [ "$list_steps" -eq 1 ]; then
+        print_available_steps
+        exit 0
+    fi
+
     echo "set git connect method: $git_method (https (default) / ssh)"
     echo "set deploy mode: $deploy_mode (fast / interactive)"
     print_section "platform detected: $platform"
@@ -793,7 +960,7 @@ command_deploy() {
 
     choose_steps
 
-    if [ -z "$SELECTED_STEPS" ] && [ "$use_zprofile_template" -eq 0 ]; then
+    if [ "$platform" = "Windows" ] && [ -z "$SELECTED_STEPS" ] && [ "$use_zprofile_template" -eq 0 ]; then
         echo "no steps selected, nothing to do."
         exit 0
     fi
@@ -801,9 +968,10 @@ command_deploy() {
     print_selected_steps
     print_deploy_warnings
 
+    ensure_non_windows_zsh_core
+
     run_step "micromamba" step_micromamba
     run_step "condarc" step_condarc
-    run_step "zsh" step_zsh
     run_step "pip" step_pip
     run_step "vim" step_vim
     run_step "nvim" step_nvim
@@ -828,9 +996,7 @@ command_deploy() {
             echo "  open PowerShell to use your environment"
         fi
     else
-        if step_selected "zsh"; then
-            echo "  source ~/.zshrc"
-        fi
+        echo "  open a new zsh session or run: exec zsh"
         if [ "$use_zprofile_template" -eq 1 ]; then
             echo "  review ~/.zprofile and replace personal values before long-term use"
         else

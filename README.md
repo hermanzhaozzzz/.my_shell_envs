@@ -1,8 +1,9 @@
-# Shell 环境快速部署
+# My Shell Env (MSE)
 
 Fast deployment for shell environments.
 
-别把时间浪费在配置环境上。花十分钟装上 MSE，然后开始干活。
+> [!TIP]
+> 🚀 别把时间浪费在配置环境上。花十分钟装上 MSE，然后开始干活。
 
 [简体中文](README.md) | [English](docs/README.en.md)
 
@@ -14,7 +15,7 @@ Fast deployment for shell environments.
 - [开始使用](#开始使用)
   - [前置依赖](#前置依赖)
   - [普通用户安装](#普通用户安装)
-  - [通过 Git 安装](#通过-git-安装)
+  - [开发者安装](#开发者安装)
   - [更新](#更新)
   - [Conda 环境](#conda-环境)
   - [个人配置](#个人配置)
@@ -44,46 +45,33 @@ Fast deployment for shell environments.
 
 ## 开始使用
 
+推荐安装路径只有两条：
+
+- 普通用户：使用 `curl | sh`
+- Owner / 开发者：使用 SSH `git clone`，然后执行 `./mse deploy --ssh --use-zprofile-template`
+
 ### 前置依赖
 
-如果你希望使用仓库里的 Zsh 配置，建议先准备这些依赖：
+在非 Windows 平台上，`mse deploy` 会自动完成这组基础环境：
 
 - `zsh`
-- `git`
-- `curl`
 - `oh-my-zsh`
+- Oh My Zsh 标准插件：`git`、`z`
+- 自定义插件：`zsh-syntax-highlighting`、`zsh-autosuggestions`
 
-Linux 示例：
+你需要提前准备的是：
 
 ```shell
-# system packages
-sudo apt update
-sudo apt install -y zsh git curl
-
-# verify zsh
-zsh --version
-
-# set zsh as the default shell
-chsh -s "$(which zsh)"
-# usually requires logging out and logging back in
-
-# install oh-my-zsh (official)
-sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
-
-# install plugins required by this repo
-ZSH_CUSTOM="${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}"
-
-[ -d "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting" ] || \
-  git clone https://github.com/zsh-users/zsh-syntax-highlighting.git "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting"
-
-[ -d "$ZSH_CUSTOM/plugins/zsh-autosuggestions" ] || \
-  git clone https://github.com/zsh-users/zsh-autosuggestions "$ZSH_CUSTOM/plugins/zsh-autosuggestions"
+# required on macOS / Linux / WSL
+git
+curl
 ```
 
 说明：
 
-- 上面使用的是 Oh My Zsh 官方仓库地址
-- 插件目录用的是 `$ZSH_CUSTOM`
+- macOS 需要 `brew`，因为 MSE 会用它自动安装 `zsh`
+- Linux / WSL 需要 `apt-get` 和 `sudo`，因为 MSE 会用它自动安装 `zsh`
+- 非 Windows 平台部署时，MSE 会自动链接 `~/.zshrc`，安装所需插件，并尝试执行 `chsh -s "$(which zsh)"`
 - 如果你使用本仓库里的 `zshrc`，部署后不需要再手工维护 `plugins=(...)`
 
 ### 普通用户安装
@@ -111,8 +99,9 @@ curl -fsSL https://raw.githubusercontent.com/hermanzhaozzzz/.my_shell_envs/main/
 
 - 这条路径主要面向 macOS / Linux / WSL
 - 安装脚本会先下载 GitHub `main` 分支 archive，再执行一次 `mse deploy`
-- 安装开始前，脚本会先打印即将修改的路径，例如 `~/.zshrc`、`~/.condarc`、`~/.vim`、`~/.config/nvim`
-- 只有在显式传入 `--use-zprofile-template` 时，才会改动 `~/.zprofile` 和 `~/.zshenv`
+- 非 Windows 平台会先执行强制基础层：安装 `zsh`、安装 Oh My Zsh、安装必需插件、链接 `~/.zshrc`，并把默认 shell 切到 `zsh`
+- 安装开始前，脚本会先打印即将修改的路径，例如 `~/.zshrc`、`~/.oh-my-zsh`、插件目录、`~/.condarc`、`~/.vim`、`~/.config/nvim`
+- 只有在显式传入 `--use-zprofile-template` 时，才会改动 `~/.zprofile`
 - 如果 `~/.local/bin` 不在 `PATH`，脚本会提示你手动添加，但不会自动修改你的 shell 配置
 
 Windows 不使用这条 `curl | sh` 安装路径。
@@ -152,34 +141,26 @@ git-bash ./mse update
 - Windows 端文档默认使用 HTTPS clone；如果你已经配置好 SSH，也可以自行替换成 SSH 地址
 - `curl | sh` 安装器面向类 Unix 环境，不作为 Windows 入口
 
-### 通过 Git 安装
+### 开发者安装
 
-适合希望完整保留 Git 历史、直接在本地管理仓库，或计划参与维护与提交修改的用户。
-
-```shell
-cd "$HOME"
-git clone https://github.com/hermanzhaozzzz/.my_shell_envs.git
-cd ~/.my_shell_envs
-
-./mse deploy
-# or
-./mse deploy --interactive
-# or
-./mse deploy --interactive --use-zprofile-template
-# or
-git remote set-url origin git@github.com:hermanzhaozzzz/.my_shell_envs.git
-./mse deploy --ssh --interactive
-```
-
-如果你已经配置好了 GitHub SSH，也可以从一开始就直接使用 SSH clone：
+适合仓库 owner、长期维护者和需要完整 Git 历史的开发者。
 
 ```shell
 cd "$HOME"
 git clone git@github.com:hermanzhaozzzz/.my_shell_envs.git
 cd ~/.my_shell_envs
 
-./mse deploy --ssh
+./mse deploy --ssh --use-zprofile-template
 ```
+
+说明：
+
+- 这条路径默认使用 SSH clone
+- 非 Windows 平台会自动执行强制基础层：`zsh`、Oh My Zsh、必需插件、`~/.zshrc` 和默认 shell 切换
+- 部署时默认走 `fast` 模式，也就是非交互式安装
+- `--ssh` 会让附属 Git 仓库也使用 SSH
+- `--use-zprofile-template` 会把仓库里的示例 `zprofile` 模板链接到 `~/.zprofile`
+- 如果你想保留自己的登录配置，可以去掉 `--use-zprofile-template`
 
 ### 更新
 
@@ -248,6 +229,7 @@ micromamba env update -n esmfold -f conda/Linux/esmfold.yml --prune
 
 仓库里的公共配置和个人配置现在都统一收口到 `mse deploy`，但默认策略更保守：
 
+- 非 Windows 平台下，`./mse deploy` 总会安装 Zsh 基础层并链接 `~/.zshrc`
 - `./mse deploy` 默认不会改动 `~/.zprofile`
 - 如果你明确希望把仓库里的示例模板软链接到 `~/.zprofile`，再额外加 `--use-zprofile-template`
 
@@ -261,9 +243,10 @@ micromamba env update -n esmfold -f conda/Linux/esmfold.yml --prune
 补充说明：
 
 - `~/.zprofile` 会在登录时先于 `~/.zshrc` 被加载
-- `zsh/zshrc` 可以在没有 demo `~/.zprofile` 的情况下独立运行，所以只部署公共配置是默认推荐路径
+- `zsh/zshrc` 可以在没有 demo `~/.zprofile` 的情况下独立运行，所以 `zprofile` 仍然保持可选
 - 仓库里的 `zsh/zprofile_hermanzhaozzzz_demo` 是个人化示例，包含主机、代理和命令习惯假设；如果你使用它，请先完整审阅并改成自己的版本
 - 更推荐的做法是自己维护一个 `~/.zprofile`，把登录时才需要的环境变量、PATH、代理和主机别名放进去
+- 当前仓库不跟踪 `zshenv` 文件；历史上曾有 `zsh/zshenv_demo`，在 `4236a13` 加入、在 `84d9230` 删除
 
 建议把 `~/.zprofile` 用在这些场景：
 

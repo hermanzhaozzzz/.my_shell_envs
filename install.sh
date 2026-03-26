@@ -33,10 +33,10 @@ print_install_warning() {
     echo "Expected paths:"
     echo "  - ${TARGET_DIR}"
     echo "  - ${GLOBAL_WRAPPER}"
-    echo "  - deployment-managed files such as ~/.zshrc, ~/.condarc, ~/.pip/pip.conf, ~/.vim, ~/.vimrc, ~/.config/nvim, ~/.Wudao-dict, and ~/.local/bin tools"
+    echo "  - non-Windows mandatory base setup such as ~/.zshrc, ~/.oh-my-zsh, required Zsh plugins, and your default shell via chsh"
+    echo "  - deployment-managed files such as ~/.condarc, ~/.pip/pip.conf, ~/.vim, ~/.vimrc, ~/.config/nvim, ~/.Wudao-dict, and ~/.local/bin tools"
     if [ "${uses_zprofile_template}" -eq 1 ]; then
         echo "  - ~/.zprofile"
-        echo "  - ~/.zshenv (removed if present)"
     fi
     echo "Existing files are backed up to *_bak or *.backup.* when possible."
     echo

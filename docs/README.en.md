@@ -319,8 +319,7 @@ Use this pattern:
 # keep existing PATH, then prepend your own paths
 export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
 
-# add toolchain paths only when they exist
-[ -d "$HOME/micromamba/bin" ] && export PATH="$HOME/micromamba/bin:$PATH"
+# add extra toolchain paths only when they exist
 [ -d "/opt/homebrew/bin" ] && export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
 ```
 
@@ -329,6 +328,8 @@ When editing `PATH`:
 - always keep `$PATH`; do not replace it with a hard-coded value such as `export PATH="/some/path"`
 - this keeps system commands, `~/.my_shell_envs/bin`, and the repo-managed `zshrc` additions working
 - keep your own bin directories near the front, for example `~/.local/bin`
+- in this repo, you usually do not need to manually add `micromamba/bin` in `~/.zprofile`, because the repo `zsh/zshrc` already handles `micromamba` / `conda`
+- only add it to `~/.zprofile` if you explicitly want `micromamba` to be available before `zsh/zshrc` runs
 - guard platform-specific paths with existence checks
 - avoid `unset PATH` unless you fully understand the implications
 
@@ -339,8 +340,6 @@ A minimal `~/.zprofile` example:
 export PATH="$HOME/.local/bin:$PATH"
 export EDITOR="nvim"
 export PAGER="less"
-
-[ -d "$HOME/micromamba/bin" ] && export PATH="$HOME/micromamba/bin:$PATH"
 ```
 
 Proxy example:

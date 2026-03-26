@@ -320,8 +320,7 @@ export MSE_ZSH_PLUGINS="git z zsh-syntax-highlighting zsh-autosuggestions"
 # keep existing PATH, then prepend your own paths
 export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
 
-# add toolchain paths only when they exist
-[ -d "$HOME/micromamba/bin" ] && export PATH="$HOME/micromamba/bin:$PATH"
+# add extra toolchain paths only when they exist
 [ -d "/opt/homebrew/bin" ] && export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
 ```
 
@@ -330,6 +329,8 @@ export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
 - 一定要保留 `$PATH`，不要写成 `export PATH="/some/path"` 这种覆盖式写法
 - 这样系统已有命令、仓库里的 `~/.my_shell_envs/bin`、以及 `zsh/zshrc` 后续追加的内容都不会丢
 - 优先把你自己的 bin 目录放在前面，例如 `~/.local/bin`
+- 在这个仓库里，通常不需要在 `~/.zprofile` 里手动加入 `micromamba/bin`，因为仓库的 `zsh/zshrc` 已经会处理 `micromamba` / `conda`
+- 只有当你明确希望在 `zsh/zshrc` 执行之前就能直接使用 `micromamba` 时，才自己把它加到 `~/.zprofile`
 - 对平台相关路径做存在性判断，避免在别的机器上报错
 - 除非你非常确定后果，否则不要随意 `unset PATH`
 
@@ -340,8 +341,6 @@ export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
 export PATH="$HOME/.local/bin:$PATH"
 export EDITOR="nvim"
 export PAGER="less"
-
-[ -d "$HOME/micromamba/bin" ] && export PATH="$HOME/micromamba/bin:$PATH"
 ```
 
 代理配置示例：

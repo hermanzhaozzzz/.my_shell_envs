@@ -14,8 +14,8 @@ Fast deployment for shell environments.
 - [简介](#简介)
 - [开始使用](#开始使用)
   - [前置依赖](#前置依赖)
-  - [普通用户安装](#普通用户安装)
-  - [开发者安装](#开发者安装)
+  - [HTTPS 安装（普通用户）](#https-安装普通用户)
+  - [SSH 安装（开发者）](#ssh-安装开发者)
   - [更新](#更新)
   - [Conda 环境](#conda-环境)
   - [个人配置](#个人配置)
@@ -31,30 +31,26 @@ Fast deployment for shell environments.
 
 ## 简介
 
-这个仓库主要用于：
+这个仓库用来部署我自己的 Shell / Python / 编辑器环境。
 
-- 快速部署一套我常用的 Shell 环境
-- 同步常用的 Zsh、pip、Vim/Neovim 配置
-- 在 `fast` 和 `interactive` 两种部署模式之间切换
-- 用 `--https` / `--ssh` 控制附属 Git 仓库的拉取方式
+在仓库目录里，直接用这两个命令：
 
-统一入口现在是 `mse`：
-
-- 仓库内使用：`./mse deploy`、`./mse update`
-- 普通用户安装后可直接使用：`mse update`
+- `./mse deploy`
+- `./mse update`
 
 ## 开始使用
 
-推荐安装路径只有两条：
+按你的情况选一种安装方式：
 
-- 普通用户：使用 `curl | sh`
-- Owner / 开发者：使用 SSH `git clone`，然后执行 `./mse deploy --ssh --use-zprofile-template`
+- 普通用户：使用 HTTPS `git clone`
+- Owner / 开发者：使用 SSH `git clone`
 
 ### 前置依赖
 
-在非 Windows 平台上，`mse deploy` 会自动完成这组基础环境：
+在 Linux / macOS / WSL 上，执行 `./mse deploy` 之前，请先确认系统里已经有 `zsh`。
 
-- `zsh`
+`./mse deploy` 会继续处理这些内容：
+
 - `oh-my-zsh`
 - Oh My Zsh 标准插件：`git`、`z`
 - 自定义插件：`zsh-syntax-highlighting`、`zsh-autosuggestions`
@@ -64,59 +60,42 @@ Fast deployment for shell environments.
 ```shell
 # required on macOS / Linux / WSL
 git
-curl
 ```
 
-说明：
+脚本会按下面的规则处理：
 
-- macOS 需要 `brew`，因为 MSE 会用它自动安装 `zsh`
-- Linux / WSL 需要 `apt-get` 和 `sudo`，因为 MSE 会用它自动安装 `zsh`
-- 非 Windows 平台部署时，MSE 会自动链接 `~/.zshrc`，安装所需插件，并尝试执行 `chsh -s "$(which zsh)"`
+- macOS / Linux / WSL 都一样：脚本会先检查 `zsh`
+- 如果系统里没有 `zsh`，脚本会直接报错退出，并提示你先手动安装 `zsh`
+- 如果系统里已经有 `zsh`，脚本会继续配置 `oh-my-zsh`、标准插件 `git` / `z`、自定义插件 `zsh-syntax-highlighting` / `zsh-autosuggestions`
+- 部署会自动链接 `~/.zshrc`，并尝试执行 `chsh -s "$(which zsh)"`
+- 仓库默认的 Oh My Zsh 主题是 `fino`
 - 如果你使用本仓库里的 `zshrc`，部署后不需要再手工维护 `plugins=(...)`
 
-### 普通用户安装
+### HTTPS 安装（普通用户）
 
-适合只想快速用起来，不想完整 `git clone` 仓库的人。默认会把源码安装到 `~/.my_shell_envs`，并在 `~/.local/bin/mse` 放一个全局 wrapper。
-
-```shell
-curl -fsSL https://raw.githubusercontent.com/hermanzhaozzzz/.my_shell_envs/main/install.sh | sh
-```
-
-常见变体：
+普通用户直接执行：
 
 ```shell
-# interactive deploy
-curl -fsSL https://raw.githubusercontent.com/hermanzhaozzzz/.my_shell_envs/main/install.sh | sh -s -- --interactive
+cd "$HOME"
+git clone https://github.com/hermanzhaozzzz/.my_shell_envs.git
+cd ~/.my_shell_envs
 
-# use ssh for secondary git clones during deployment
-curl -fsSL https://raw.githubusercontent.com/hermanzhaozzzz/.my_shell_envs/main/install.sh | sh -s -- --ssh --interactive
-
-# also link the demo zprofile template (review before use)
-curl -fsSL https://raw.githubusercontent.com/hermanzhaozzzz/.my_shell_envs/main/install.sh | sh -s -- --interactive --use-zprofile-template
+./mse deploy
 ```
 
-说明：
+如果你要交互式部署，或者要链接 demo `zprofile`，用下面的命令：
 
-- 这条路径主要面向 macOS / Linux / WSL
-- 安装脚本会先下载 GitHub `main` 分支 archive，再执行一次 `mse deploy`
-- 非 Windows 平台会先执行强制基础层：安装 `zsh`、安装 Oh My Zsh、安装必需插件、链接 `~/.zshrc`，并把默认 shell 切到 `zsh`
-- 安装开始前，脚本会先打印即将修改的路径，例如 `~/.zshrc`、`~/.oh-my-zsh`、插件目录、`~/.condarc`、`~/.vim`、`~/.config/nvim`
+```shell
+./mse deploy --interactive
+./mse deploy --interactive --use-zprofile-template
+```
+
+执行 `./mse deploy` 时：
+
+- 在 Linux / macOS / WSL 上，部署会先检查 `zsh`；如果没有，就报错退出，并提示你先手动安装 `zsh`
+- 如果 `zsh` 已经存在，脚本会安装 Oh My Zsh、安装必需插件、链接 `~/.zshrc`，并把默认 shell 切到 `zsh`
+- 部署开始前，脚本会先打印即将修改的路径，例如 `~/.zshrc`、`~/.oh-my-zsh`、插件目录、`~/.condarc`、`~/.vim`、`~/.config/nvim`
 - 只有在显式传入 `--use-zprofile-template` 时，才会改动 `~/.zprofile`
-- 如果 `~/.local/bin` 不在 `PATH`，脚本会提示你手动添加，但不会自动修改你的 shell 配置
-
-Windows 不使用这条 `curl | sh` 安装路径。
-
-首次安装完成后，推荐更新方式：
-
-```shell
-mse update
-```
-
-如果 `mse` 还不在 PATH，可用：
-
-```shell
-~/.local/bin/mse update
-```
 
 Windows 安装与更新：
 
@@ -135,15 +114,14 @@ git-bash ./mse deploy --interactive
 git-bash ./mse update
 ```
 
-说明：
+Windows 上直接这样做：
 
 - Windows 主流程是 `PowerShell` + `git-bash`
-- Windows 端文档默认使用 HTTPS clone；如果你已经配置好 SSH，也可以自行替换成 SSH 地址
-- `curl | sh` 安装器面向类 Unix 环境，不作为 Windows 入口
+- 普通用户默认使用 HTTPS clone
 
-### 开发者安装
+### SSH 安装（开发者）
 
-适合仓库 owner、长期维护者和需要完整 Git 历史的开发者。
+本仓库开发者直接执行：
 
 ```shell
 cd "$HOME"
@@ -153,10 +131,11 @@ cd ~/.my_shell_envs
 ./mse deploy --ssh --use-zprofile-template
 ```
 
-说明：
+执行 `./mse deploy --ssh --use-zprofile-template` 时：
 
 - 这条路径默认使用 SSH clone
-- 非 Windows 平台会自动执行强制基础层：`zsh`、Oh My Zsh、必需插件、`~/.zshrc` 和默认 shell 切换
+- 在 Linux / macOS / WSL 上，会先检查 `zsh`；如果没有，就报错退出，并提示你先手动安装 `zsh`
+- 如果 `zsh` 已经存在，脚本会继续配置 Oh My Zsh、必需插件、`~/.zshrc` 和默认 shell 切换
 - 部署时默认走 `fast` 模式，也就是非交互式安装
 - `--ssh` 会让附属 Git 仓库也使用 SSH
 - `--use-zprofile-template` 会把仓库里的示例 `zprofile` 模板链接到 `~/.zprofile`
@@ -164,13 +143,9 @@ cd ~/.my_shell_envs
 
 ### 更新
 
-统一更新命令现在是：
+更新时直接执行：
 
 ```shell
-# global wrapper path (recommended for archive installs)
-mse update
-
-# inside the repo
 ./mse update
 
 # pass deploy flags through update
@@ -179,30 +154,63 @@ mse update
 ./mse update --interactive --use-zprofile-template
 ```
 
-行为说明：
+安装或部署完成后，仓库会把 `mse` 放到：
+
+```shell
+~/.my_shell_envs/bin/mse
+```
+
+仓库的 `zsh/zshrc` 会把这个目录加入 PATH：
+
+```shell
+~/.my_shell_envs/bin
+```
+
+所以打开一个新的 zsh 终端后，你可以在任意目录直接执行：
+
+```shell
+mse update
+mse deploy
+```
+
+执行 `./mse update` 时：
 
 - `mse update` 会先更新源码，再重新执行部署
 - Git 安装会走 `git fetch` + `git pull --rebase`
-- Archive 安装会重新下载 GitHub archive，并在更新前做本地备份
+
+如果你希望把自己的命令也做成全局可用，直接放到这个目录里即可：
+
+```shell
+ln -s /absolute/path/to/your_tool ~/.my_shell_envs/bin/your_tool
+```
+
+或者把可执行文件直接复制进去：
+
+```shell
+cp /absolute/path/to/your_tool ~/.my_shell_envs/bin/
+chmod +x ~/.my_shell_envs/bin/your_tool
+```
+
+这样打开一个新的 zsh 终端后，你就可以在任意目录直接运行 `your_tool`。
 
 ### Conda 环境
 
 这个仓库里，`conda` 就是 `micromamba` 的 alias。
 
-`mse deploy` 主要做两件事：
+执行 `./mse deploy` 时，脚本会：
 
 - 安装 `micromamba`
 - 把当前平台对应的环境文件从 `conda/<platform>/` 软链接到 `conda_local_env_settings/`
 
-它不会自动把所有环境都创建出来。部署完成后，直接用 `conda` 即可。
+它不会自动创建所有环境。部署完成后，需要你自己执行 `conda` 命令。
 
-当前平台的 `base` 环境文件会被链接到：
+当前平台的 `base.yml` 会链接到：
 
 ```shell
 ~/.my_shell_envs/conda_local_env_settings/base.yml
 ```
 
-更新或部署 `base` 环境时，直接执行：
+要更新或安装 `base` 环境，直接执行：
 
 ```shell
 conda activate base && conda install -f ~/.my_shell_envs/conda_local_env_settings/base.yml
@@ -212,11 +220,11 @@ conda activate base && conda install -f ~/.my_shell_envs/conda_local_env_setting
 
 ### 个人配置
 
-仓库里的公共配置和个人配置现在都统一收口到 `mse deploy`，但默认策略更保守：
+默认情况下，`./mse deploy` 只处理公共配置，不改你的个人登录配置：
 
-- 非 Windows 平台下，`./mse deploy` 总会安装 Zsh 基础层并链接 `~/.zshrc`
+- 在 Linux / macOS / WSL 上，`./mse deploy` 要求系统里已经有 `zsh`；确认后会继续配置 Oh My Zsh、插件，并链接 `~/.zshrc`
 - `./mse deploy` 默认不会改动 `~/.zprofile`
-- 如果你明确希望把仓库里的示例模板软链接到 `~/.zprofile`，再额外加 `--use-zprofile-template`
+- `--use-zprofile-template` 只会把仓库里的 demo 模板链接到 `~/.zprofile`
 
 ```shell
 ./mse deploy --interactive
@@ -225,25 +233,66 @@ conda activate base && conda install -f ~/.my_shell_envs/conda_local_env_setting
 ./mse deploy --interactive --use-zprofile-template
 ```
 
-补充说明：
+这里直接说明白：
 
-- `~/.zprofile` 会在登录时先于 `~/.zshrc` 被加载
-- `zsh/zshrc` 可以在没有 demo `~/.zprofile` 的情况下独立运行，所以 `zprofile` 仍然保持可选
-- 仓库里的 `zsh/zprofile_hermanzhaozzzz_demo` 是个人化示例，包含主机、代理和命令习惯假设；如果你使用它，请先完整审阅并改成自己的版本
-- 更推荐的做法是自己维护一个 `~/.zprofile`，把登录时才需要的环境变量、PATH、代理和主机别名放进去
-- 当前仓库不跟踪 `zshenv` 文件；历史上曾有 `zsh/zshenv_demo`，在 `4236a13` 加入、在 `84d9230` 删除
+- 对普通用户来说，不建议直接链接我的 `zprofile` 模板
+- `zsh/zprofile_hermanzhaozzzz_demo` 只是 demo，主要方便我自己使用，里面是个人习惯示例，不是通用配置
+- 如果你要 DIY 自己的环境，建议你自己新建 `~/.zprofile`
+- 这个仓库的公共交互配置在 `zsh/zshrc`，个人机器相关配置放你自己的 `~/.zprofile`
 
-建议把 `~/.zprofile` 用在这些场景：
+Zsh 的加载顺序是：
 
-- 配置 `PATH`
-- 配置代理开关
-- 设置只在登录 shell 中需要的环境变量
-- 按机器类型加载不同工具链或主机别名
+```text
+.zshenv -> .zprofile -> .zshrc -> .zlogin -> .zlogout
+```
 
-推荐的 `PATH` 写法：
+每个文件建议这样用：
+
+- `~/.zshenv`
+  作用：每次启动 zsh 都会加载，包括非交互 shell
+  建议：尽量少放东西。不要放代理、别名、插件、复杂逻辑。这个仓库现在不要求你改它
+- `~/.zprofile`
+  作用：login shell 时加载，在 `~/.zshrc` 之前
+  建议：把你自己的 PATH、代理、机器相关环境变量、私有 token、主机别名放这里
+- `~/.zshrc`
+  作用：interactive shell 时加载，是你平时开终端最常用的配置文件
+  建议：这个仓库已经帮你管理公共配置，里面负责 Oh My Zsh、主题、插件、alias、函数和 `~/.my_shell_envs/bin`
+- `~/.zlogin`
+  作用：login shell 的最后阶段才加载
+  建议：大多数用户不用它
+
+如果你要 DIY，推荐这样放：
+
+- PATH：放在 `~/.zprofile`
+- 代理开关：放在 `~/.zprofile`
+- 私有 token / 公司内网配置：放在 `~/.zprofile`，或者再 `source` 一个只有本机有的私有文件
+- 公共 alias / 函数：继续让仓库的 `zsh/zshrc` 管理
+- 如果你只想改 Oh My Zsh 主题或插件，不要改仓库里的 `zsh/zshrc`，直接在你自己的 `~/.zprofile` 里覆盖
+
+`PATH` 最重要的规则只有一条：不要覆盖现有的 `$PATH`，要在现有值前后追加。
+
+如果你要覆盖主题或插件，直接把下面这些变量写进 `~/.zprofile`：
 
 ```shell
-# keep user-level bin directories near the front
+# optional: override Oh My Zsh theme
+export MSE_ZSH_THEME="robbyrussell"
+
+# optional: override plugin list
+export MSE_ZSH_PLUGINS="git z zsh-syntax-highlighting zsh-autosuggestions"
+```
+
+规则很简单：
+
+- `MSE_ZSH_THEME`：覆盖仓库默认主题 `fino`
+- `MSE_ZSH_PLUGINS`：整体覆盖仓库默认插件列表
+- 这些变量放在 `~/.zprofile` 里即可，仓库的 `zsh/zshrc` 会读取它们
+
+如果你不想改主题和插件，就不要写这两个变量。
+
+推荐写法：
+
+```shell
+# keep existing PATH, then prepend your own paths
 export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
 
 # add toolchain paths only when they exist
@@ -251,8 +300,10 @@ export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
 [ -d "/opt/homebrew/bin" ] && export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
 ```
 
-说明：
+写 `PATH` 时注意：
 
+- 一定要保留 `$PATH`，不要写成 `export PATH="/some/path"` 这种覆盖式写法
+- 这样系统已有命令、仓库里的 `~/.my_shell_envs/bin`、以及 `zsh/zshrc` 后续追加的内容都不会丢
 - 优先把你自己的 bin 目录放在前面，例如 `~/.local/bin`
 - 对平台相关路径做存在性判断，避免在别的机器上报错
 - 除非你非常确定后果，否则不要随意 `unset PATH`
@@ -260,6 +311,7 @@ export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
 一个最小可用的 `~/.zprofile` 示例：
 
 ```shell
+# keep existing PATH
 export PATH="$HOME/.local/bin:$PATH"
 export EDITOR="nvim"
 export PAGER="less"
@@ -284,7 +336,13 @@ alias proxy.on=proxy_on
 alias proxy.off=proxy_off
 ```
 
-如果你希望把敏感 token、私有主机名或公司内网配置也放进去，建议再从 `~/.zprofile` 里 `source` 一个本机私有文件，而不是直接改仓库里的公共配置。
+如果你要放敏感 token、私有主机名或公司内网配置，更稳妥的做法是：
+
+```shell
+[ -f "$HOME/.zprofile.private" ] && source "$HOME/.zprofile.private"
+```
+
+把这些私密内容放进你自己的 `~/.zprofile.private`，不要直接写进仓库里的公共配置。
 
 ## 主要特性
 
@@ -316,9 +374,28 @@ alias proxy.off=proxy_off
 
 包含一套我常用的 Zsh 插件和命令习惯：
 
+- Oh My Zsh 主题：`fino`
+- Oh My Zsh 标准插件：`git`、`z`
 - [zsh-syntax-highlighting](https://github.com/zsh-users/zsh-syntax-highlighting.git)
 - [zsh-autosuggestions](https://github.com/zsh-users/zsh-autosuggestions)
 - [z](https://github.com/rupa/z)
+
+默认插件的作用和常用用法：
+
+- `git`
+  作用：提供常用 git alias
+  例子：`gst` 查看状态，`gco <branch>` 切分支，`gaa` 添加全部修改
+- `z`
+  作用：记录你常去的目录，之后可以快速跳转
+  例子：先多 `cd` 几次，之后直接 `z project`、`z Downloads`
+- `zsh-syntax-highlighting`
+  作用：命令行里直接高亮语法
+  用法：输入命令时，通常可执行的命令会高亮，拼错的命令不会高亮
+- `zsh-autosuggestions`
+  作用：根据历史命令自动补全建议
+  用法：终端里会显示灰色建议，通常按右方向键接受建议
+
+如果你不改任何个人配置，部署后这些插件就会直接生效。
 
 ![](https://pic2.zhimg.com/v2-1d5b7cade272ec46c293bf80353d36e5_b.jpg)
 

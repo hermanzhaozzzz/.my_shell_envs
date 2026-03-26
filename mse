@@ -6,6 +6,7 @@ BIN_PATH="$REPO_PATH/bin"
 CONDA_ENVS="$REPO_PATH/conda_local_env_settings"
 METADATA_FILE="$REPO_PATH/.mse-install.env"
 GLOBAL_WRAPPER_PATH="$HOME/.local/bin/mse"
+REPO_BIN_MSE_PATH="$BIN_PATH/mse"
 ZPROFILE_TEMPLATE_PATH="$REPO_PATH/zsh/zprofile_hermanzhaozzzz_demo"
 DEFAULT_REPO_URL="https://github.com/hermanzhaozzzz/.my_shell_envs.git"
 DEFAULT_REPO_SSH_URL="git@github.com:hermanzhaozzzz/.my_shell_envs.git"
@@ -56,7 +57,7 @@ Defaults:
   deploy mode: fast
 
 Mandatory base setup on non-Windows:
-  zsh + Oh My Zsh + required plugins + ~/.zshrc + default shell switch
+  requires zsh in PATH, then installs Oh My Zsh + required plugins + ~/.zshrc + default shell switch
 
 Examples:
   ./mse deploy
@@ -86,13 +87,81 @@ EOF
 }
 
 fail() {
-    echo "Error: $*" >&2
+    printf '%s %s\n' "$(badge "$COLOR_RED" "ERR")" "$*" >&2
     exit 1
 }
 
+setup_colors() {
+    local esc
+    esc="$(printf '\033')"
+
+    COLOR_RESET=""
+    COLOR_BOLD=""
+    COLOR_BLUE=""
+    COLOR_CYAN=""
+    COLOR_GREEN=""
+    COLOR_YELLOW=""
+    COLOR_RED=""
+    COLOR_MAGENTA=""
+    COLOR_DIM=""
+
+    if [ -t 1 ] && [ "${TERM:-}" != "dumb" ]; then
+        COLOR_RESET="${esc}[0m"
+        COLOR_BOLD="${esc}[1m"
+        COLOR_DIM="${esc}[2m"
+        COLOR_BLUE="${esc}[34m"
+        COLOR_CYAN="${esc}[36m"
+        COLOR_GREEN="${esc}[32m"
+        COLOR_YELLOW="${esc}[33m"
+        COLOR_RED="${esc}[31m"
+        COLOR_MAGENTA="${esc}[35m"
+    fi
+}
+
+badge() {
+    local color="$1"
+    local text="$2"
+    printf '%s[%s]%s' "${color}${COLOR_BOLD}" "$text" "$COLOR_RESET"
+}
+
+fmt_path() {
+    printf '%s%s%s' "${COLOR_CYAN}" "$1" "$COLOR_RESET"
+}
+
+fmt_key() {
+    printf '%s%s%s' "${COLOR_MAGENTA}${COLOR_BOLD}" "$1" "$COLOR_RESET"
+}
+
+fmt_step() {
+    printf '%s%s%s' "${COLOR_MAGENTA}${COLOR_BOLD}" "$1" "$COLOR_RESET"
+}
+
+log_info() {
+    printf '%s %s\n' "$(badge "$COLOR_BLUE" "INFO")" "$*"
+}
+
+log_ok() {
+    printf '%s %s\n' "$(badge "$COLOR_GREEN" " OK ")" "$*"
+}
+
+log_warn() {
+    printf '%s %s\n' "$(badge "$COLOR_YELLOW" "WARN")" "$*"
+}
+
+print_path_item() {
+    printf '  - %s\n' "$(fmt_path "$1")"
+}
+
+print_list_item() {
+    printf '  - %s\n' "$1"
+}
+
+print_kv() {
+    printf '  %s %s\n' "$(fmt_key "$1")" "$2"
+}
+
 print_section() {
-    echo "---------------------------------|"
-    echo "$1"
+    printf '\n%s==>%s %b\n' "${COLOR_BLUE}${COLOR_BOLD}" "${COLOR_RESET}" "$1"
 }
 
 describe_step() {
@@ -143,23 +212,25 @@ step_supported_on_platform() {
     esac
 }
 
+setup_colors
+
 print_available_steps() {
     local step
-    echo "Optional steps:"
-    echo "  mandatory base on non-Windows: zsh, Oh My Zsh, required plugins, ~/.zshrc, default shell switch"
+    print_section "available steps"
+    print_kv "base" "requires zsh in PATH, then configures Oh My Zsh, required plugins, ~/.zshrc, default shell switch"
     for step in $AVAILABLE_STEPS; do
         if ! step_supported_on_platform "$step"; then
             continue
         fi
-        printf '  - %-10s %s\n' "$step" "$(describe_step "$step")"
+        printf '  - %-10b %s\n' "$(fmt_step "$step")" "$(describe_step "$step")"
     done
 }
 
 print_selected_steps() {
     local step
-    echo "selected optional steps:"
+    print_section "selected steps"
     if [ -z "$SELECTED_STEPS" ]; then
-        echo "  - (none)"
+        log_warn "no optional steps selected"
         return 0
     fi
     for step in $AVAILABLE_STEPS; do
@@ -167,60 +238,60 @@ print_selected_steps() {
             continue
         fi
         if step_selected "$step"; then
-            printf '  - %-10s %s\n' "$step" "$(describe_step "$step")"
+            printf '  - %-10b %s\n' "$(fmt_step "$step")" "$(describe_step "$step")"
         fi
     done
 }
 
 print_deploy_warnings() {
-    echo "This deployment may create, replace, or back up files under your home directory."
-    echo "Review the paths below before continuing:"
+    print_section "paths that may change"
+    log_warn "deployment may create, replace, or back up files under your home directory"
 
     if [ "$platform" != "Windows" ]; then
-        printf '  - %s\n' "$HOME/.zshrc"
-        printf '  - %s\n' "$OH_MY_ZSH_PATH"
-        printf '  - %s\n' "${ZSH_CUSTOM:-$OH_MY_ZSH_PATH/custom}/plugins/zsh-syntax-highlighting"
-        printf '  - %s\n' "${ZSH_CUSTOM:-$OH_MY_ZSH_PATH/custom}/plugins/zsh-autosuggestions"
-        printf '  - %s\n' "default shell for the current user (via chsh)"
+        print_path_item "$HOME/.zshrc"
+        print_path_item "$OH_MY_ZSH_PATH"
+        print_path_item "${ZSH_CUSTOM:-$OH_MY_ZSH_PATH/custom}/plugins/zsh-syntax-highlighting"
+        print_path_item "${ZSH_CUSTOM:-$OH_MY_ZSH_PATH/custom}/plugins/zsh-autosuggestions"
+        print_list_item "default shell for the current user (via chsh)"
     fi
 
     if step_selected "micromamba"; then
-        printf '  - %s\n' "$ROOT_PATH/bin/micromamba"
-        printf '  - %s\n' "$CONDA_ENVS/*.yml"
-        printf '  - %s\n' "$REPO_PATH/conda/micromamba-pycharm"
+        print_path_item "$ROOT_PATH/bin/micromamba"
+        print_path_item "$CONDA_ENVS/*.yml"
+        print_path_item "$REPO_PATH/conda/micromamba-pycharm"
     fi
     if step_selected "condarc"; then
-        printf '  - %s\n' "$HOME/.condarc"
+        print_path_item "$HOME/.condarc"
     fi
     if step_selected "pip"; then
-        printf '  - %s\n' "$HOME/.pip/pip.conf"
+        print_path_item "$HOME/.pip/pip.conf"
     fi
     if step_selected "vim"; then
-        printf '  - %s\n' "$HOME/.vim"
-        printf '  - %s\n' "$HOME/.vimrc"
+        print_path_item "$HOME/.vim"
+        print_path_item "$HOME/.vimrc"
     fi
     if step_selected "nvim"; then
-        printf '  - %s\n' "$HOME/.config/nvim"
-        printf '  - %s\n' "$HOME/.cache/nvim"
-        printf '  - %s\n' "$HOME/.local/share/nvim"
-        printf '  - %s\n' "$HOME/.local/state/nvim"
+        print_path_item "$HOME/.config/nvim"
+        print_path_item "$HOME/.cache/nvim"
+        print_path_item "$HOME/.local/share/nvim"
+        print_path_item "$HOME/.local/state/nvim"
     fi
     if step_selected "jcat"; then
-        printf '  - %s\n' "$BIN_PATH/jcat"
+        print_path_item "$BIN_PATH/jcat"
     fi
     if step_selected "wd"; then
-        printf '  - %s\n' "$HOME/.Wudao-dict"
-        printf '  - %s\n' "$BIN_PATH/wd"
+        print_path_item "$HOME/.Wudao-dict"
+        print_path_item "$BIN_PATH/wd"
     fi
     if step_selected "powershell"; then
-        printf '  - %s\n' "/c/Program Files/PowerShell/7/profile.ps1"
+        print_path_item "/c/Program Files/PowerShell/7/profile.ps1"
     fi
     if [ "$use_zprofile_template" -eq 1 ] && [ "$platform" != "Windows" ]; then
-        printf '  - %s\n' "$HOME/.zprofile"
-        printf '  - %s\n' "$HOME/.zprofile_bak"
+        print_path_item "$HOME/.zprofile"
+        print_path_item "$HOME/.zprofile_bak"
     fi
 
-    echo "Existing files are backed up to *_bak or *.backup.* when possible."
+    log_info "existing files are backed up to *_bak or *.backup.* when possible"
 }
 
 backup_existing_path() {
@@ -309,8 +380,19 @@ refresh_git_install_metadata() {
 
 install_global_wrapper() {
     local backup_path
+    local repo_bin_backup_path
 
     mkdir -p "$HOME/.local/bin"
+    mkdir -p "$BIN_PATH"
+
+    if [ -e "$REPO_BIN_MSE_PATH" ] || [ -L "$REPO_BIN_MSE_PATH" ]; then
+        if [ ! -L "$REPO_BIN_MSE_PATH" ]; then
+            repo_bin_backup_path="${REPO_BIN_MSE_PATH}.bak.$(date +%Y%m%d_%H%M%S)"
+            cp -f "$REPO_BIN_MSE_PATH" "$repo_bin_backup_path" 2>/dev/null || true
+        fi
+        /bin/rm -f "$REPO_BIN_MSE_PATH"
+    fi
+    ln -s "$REPO_PATH/mse" "$REPO_BIN_MSE_PATH" || fail "failed to create symlink $REPO_BIN_MSE_PATH -> $REPO_PATH/mse"
 
     if [ -e "$GLOBAL_WRAPPER_PATH" ] || [ -L "$GLOBAL_WRAPPER_PATH" ]; then
         if [ ! -L "$GLOBAL_WRAPPER_PATH" ]; then
@@ -334,9 +416,11 @@ EOF
         *":$HOME/.local/bin:"*)
             ;;
         *)
-            echo "Tips: add \$HOME/.local/bin to PATH to use 'mse' globally."
+            log_warn "add \$HOME/.local/bin to PATH if you want the wrapper command 'mse' globally"
             ;;
     esac
+
+    log_ok "repo bin entry created: $(fmt_path "$REPO_BIN_MSE_PATH") -> $(fmt_path "$REPO_PATH/mse")"
 }
 
 cleanup_legacy_spyder() {
@@ -348,9 +432,9 @@ cleanup_legacy_spyder() {
         case "$target_path" in
             "$REPO_PATH"/spyder|"$REPO_PATH"/spyder/*)
                 if /bin/rm -f "$spyder_path"; then
-                    echo "removed legacy Spyder symlink @ $spyder_path"
+                    log_ok "removed legacy Spyder symlink: $(fmt_path "$spyder_path")"
                 else
-                    echo "failed to remove legacy Spyder symlink @ $spyder_path"
+                    log_warn "failed to remove legacy Spyder symlink: $(fmt_path "$spyder_path")"
                 fi
                 ;;
         esac
@@ -398,6 +482,7 @@ detect_platform_settings() {
 choose_steps() {
     local step
     local answer
+    local step_no=0
 
     if [ "$deploy_mode" = "fast" ]; then
         for step in $AVAILABLE_STEPS; do
@@ -405,19 +490,26 @@ choose_steps() {
                 append_selected_step "$step"
             fi
         done
+        log_info "fast mode selected all supported optional steps automatically"
         return 0
     fi
 
-    echo "interactive mode: press y to enable a step, press Enter to skip it."
+    print_section "interactive step selection"
+    log_info "press y to enable a step, press Enter to skip it"
     for step in $AVAILABLE_STEPS; do
         if ! step_supported_on_platform "$step"; then
             continue
         fi
-        printf "Apply %-10s (%s)? [y/N]: " "$step" "$(describe_step "$step")"
+        step_no=$((step_no + 1))
+        printf '  %s %-2s %-12b %s [y/N]: ' "$(badge "$COLOR_BLUE" "STEP")" "$step_no" "$(fmt_step "$step")" "$(describe_step "$step")"
         read answer
         case "$answer" in
             y|Y|yes|YES)
                 append_selected_step "$step"
+                log_ok "enabled step: $step"
+                ;;
+            *)
+                log_warn "skipped step: $step"
                 ;;
         esac
     done
@@ -432,10 +524,11 @@ run_step() {
     fi
 
     if step_selected "$step"; then
-        print_section "run step: $step"
+        print_section "step $(fmt_step "$step")"
         "$function_name"
+        log_ok "step completed: $step"
     else
-        echo "skip step: $step"
+        log_warn "skip step: $step"
     fi
 }
 
@@ -604,7 +697,7 @@ update_from_archive() {
 
 apply_zprofile_template() {
     if [ "$platform" = "Windows" ]; then
-        echo "skip zprofile template on platform: $platform"
+        log_warn "skip zprofile template on platform: $platform"
         return 0
     fi
 
@@ -613,21 +706,7 @@ apply_zprofile_template() {
     mv "$HOME/.zprofile" "$HOME/.zprofile_bak" 2>/dev/null || true
     /bin/rm -f "$HOME/.zprofile" 2>/dev/null
     ln -s "$ZPROFILE_TEMPLATE_PATH" "$HOME/.zprofile" || fail "failed to link $HOME/.zprofile to $ZPROFILE_TEMPLATE_PATH"
-    echo "zprofile template linked @ $HOME/.zprofile -> $ZPROFILE_TEMPLATE_PATH"
-}
-
-install_zsh_with_supported_package_manager() {
-    if [ "$platform_family" = "MacOS" ]; then
-        command -v brew >/dev/null 2>&1 || fail "automatic zsh installation on macOS requires Homebrew (brew)"
-        brew install zsh || fail "failed to install zsh with Homebrew"
-    elif [ "$platform" = "Linux" ]; then
-        command -v sudo >/dev/null 2>&1 || fail "automatic zsh installation on Linux/WSL requires sudo and apt-get"
-        command -v apt-get >/dev/null 2>&1 || fail "automatic zsh installation on Linux/WSL requires sudo and apt-get"
-        sudo apt-get update || fail "failed to run apt-get update for zsh installation"
-        sudo apt-get install -y zsh || fail "failed to install zsh with apt-get"
-    else
-        fail "automatic zsh installation is only supported on macOS (brew) and Linux/WSL (apt)"
-    fi
+    log_ok "zprofile template linked: $(fmt_path "$HOME/.zprofile") -> $(fmt_path "$ZPROFILE_TEMPLATE_PATH")"
 }
 
 ensure_zsh_installed() {
@@ -637,14 +716,11 @@ ensure_zsh_installed() {
 
     print_section "ensure zsh is installed"
     if command -v zsh >/dev/null 2>&1; then
-        echo "zsh exists @ $(command -v zsh)"
+        log_ok "zsh found at $(fmt_path "$(command -v zsh)")"
         return 0
     fi
 
-    echo "zsh not found, installing with the supported package manager..."
-    install_zsh_with_supported_package_manager
-    command -v zsh >/dev/null 2>&1 || fail "zsh installation completed but 'zsh' is still not available in PATH"
-    echo "zsh installed @ $(command -v zsh)"
+    fail "zsh is required but was not found in PATH. Please install zsh manually for your system, then rerun ./mse deploy"
 }
 
 ensure_oh_my_zsh_installed() {
@@ -654,16 +730,16 @@ ensure_oh_my_zsh_installed() {
 
     print_section "ensure Oh My Zsh is installed"
     if [ -d "$OH_MY_ZSH_PATH" ]; then
-        echo "Oh My Zsh exists @ $OH_MY_ZSH_PATH"
+        log_ok "Oh My Zsh found at $(fmt_path "$OH_MY_ZSH_PATH")"
         return 0
     fi
 
     require_cmd git
     require_cmd curl
-    echo "Oh My Zsh not found, installing..."
+    log_info "Oh My Zsh not found, installing"
     RUNZSH=no CHSH=no KEEP_ZSHRC=yes /bin/sh -c "$(curl -fsSL "$OH_MY_ZSH_INSTALL_URL")" || fail "failed to install Oh My Zsh"
     [ -d "$OH_MY_ZSH_PATH" ] || fail "Oh My Zsh installation completed but $OH_MY_ZSH_PATH was not created"
-    echo "Oh My Zsh installed @ $OH_MY_ZSH_PATH"
+    log_ok "Oh My Zsh installed at $(fmt_path "$OH_MY_ZSH_PATH")"
 }
 
 sync_zsh_plugin_repo() {
@@ -673,12 +749,12 @@ sync_zsh_plugin_repo() {
     if [ -d "$plugin_dir/.git" ]; then
         git -C "$plugin_dir" fetch || fail "failed to fetch plugin updates for $plugin_dir"
         git -C "$plugin_dir" pull --ff-only || fail "failed to update plugin at $plugin_dir"
-        echo "plugin updated @ $plugin_dir"
+        log_ok "plugin updated: $(fmt_path "$plugin_dir")"
     elif [ -d "$plugin_dir" ]; then
-        echo "plugin directory exists @ $plugin_dir, keeping current contents"
+        log_info "plugin directory exists, keeping current contents: $(fmt_path "$plugin_dir")"
     else
         git clone "$plugin_url" "$plugin_dir" || fail "failed to clone plugin from $plugin_url"
-        echo "plugin installed @ $plugin_dir"
+        log_ok "plugin installed: $(fmt_path "$plugin_dir")"
     fi
 }
 
@@ -697,8 +773,8 @@ ensure_zsh_plugins_installed() {
     sync_zsh_plugin_repo "$custom_path/plugins/zsh-syntax-highlighting" "$(get_clone_url "$ZSH_HIGHLIGHTING_REPO_PATH")"
     sync_zsh_plugin_repo "$custom_path/plugins/zsh-autosuggestions" "$(get_clone_url "$ZSH_AUTOSUGGESTIONS_REPO_PATH")"
 
-    echo "standard Oh My Zsh plugins required by this repo: git, z"
-    echo "custom plugin root @ $custom_path/plugins"
+    log_info "standard Oh My Zsh plugins required by this repo: git, z"
+    log_info "custom plugin root: $(fmt_path "$custom_path/plugins")"
 }
 
 ensure_zshrc_linked() {
@@ -708,8 +784,8 @@ ensure_zshrc_linked() {
 
     print_section "ensure zshrc is linked"
     backup_and_link "$REPO_PATH/zsh/zshrc" "$HOME/.zshrc"
-    echo "zsh config file @: $REPO_PATH/zsh/zshrc"
-    echo "~/.zshrc linked successfully"
+    log_info "repo zshrc: $(fmt_path "$REPO_PATH/zsh/zshrc")"
+    log_ok "$(fmt_path "$HOME/.zshrc") linked successfully"
 }
 
 ensure_default_shell_is_zsh() {
@@ -724,14 +800,14 @@ ensure_default_shell_is_zsh() {
     zsh_path="$(command -v zsh)" || fail "zsh is required before switching the default shell"
 
     if [ "${current_shell##*/}" = "zsh" ]; then
-        echo "default shell already looks like zsh @ $current_shell"
+        log_ok "default shell already looks like zsh: $(fmt_path "$current_shell")"
         return 0
     fi
 
     require_cmd chsh
     chsh -s "$zsh_path" || fail "failed to switch the default shell to zsh using chsh"
     export SHELL="$zsh_path"
-    echo "default shell switched to zsh @ $zsh_path"
+    log_ok "default shell switched to zsh: $(fmt_path "$zsh_path")"
 }
 
 ensure_non_windows_zsh_core() {
@@ -751,14 +827,14 @@ step_micromamba() {
     local found_any=0
 
     if [ "$platform" = "Windows" ]; then
-        echo "skip micromamba installing on Windows"
+        log_warn "skip micromamba on Windows"
         return 0
     fi
 
-    echo "set conda env config files..."
+    log_info "prepare micromamba and conda env config files"
 
     if [ ! -x "$ROOT_PATH/bin/micromamba" ]; then
-        echo "micromamba not found @$ROOT_PATH/bin/! start to install..."
+        log_info "micromamba not found at $(fmt_path "$ROOT_PATH/bin/micromamba"), starting install"
         require_cmd bzip2
         require_cmd curl
         require_cmd tar
@@ -769,16 +845,16 @@ step_micromamba() {
             curl -Ls "$MICROMAMBA_URL" | tar -xvj bin/micromamba
         ) || fail "micromamba installation failed"
     else
-        echo "micromamba exists @$ROOT_PATH/bin/! skip installing..."
+        log_ok "micromamba already exists at $(fmt_path "$ROOT_PATH/bin/micromamba")"
     fi
 
     if [ ! -d "$REPO_PATH/conda/micromamba-pycharm/.git" ]; then
         git clone "${url_root}jonashaag/micromamba-pycharm.git" "$REPO_PATH/conda/micromamba-pycharm"
     else
-        echo "micromamba-pycharm exists @ $REPO_PATH/conda/micromamba-pycharm"
+        log_ok "micromamba-pycharm exists at $(fmt_path "$REPO_PATH/conda/micromamba-pycharm")"
     fi
 
-    echo "start to choose env.yml..."
+    log_info "link env yml files for platform $(fmt_step "$platform")"
     mkdir -p "$CONDA_ENVS"
 
     for yml in "$REPO_PATH"/conda/"$platform"/*.yml; do
@@ -788,88 +864,88 @@ step_micromamba() {
     done
 
     if [ "$found_any" -eq 0 ]; then
-        echo "no env.yml files found for platform: $platform"
+        log_warn "no env.yml files found for platform: $platform"
     fi
 
-    echo "conda config files @: $CONDA_ENVS"
-    echo "set micromamba as conda / mamba successful"
+    log_ok "conda env config directory ready: $(fmt_path "$CONDA_ENVS")"
+    log_ok "micromamba is ready to act as conda / mamba"
 }
 
 step_condarc() {
-    echo "set condarc..."
+    log_info "link condarc"
     backup_and_link "$REPO_PATH/conda/condarc" "$HOME/.condarc"
-    echo "set condarc successful"
+    log_ok "condarc linked: $(fmt_path "$HOME/.condarc")"
 }
 
 step_pip() {
-    echo "set pip config file"
+    log_info "link pip config"
     mkdir -p "$HOME/.pip"
     backup_and_link "$REPO_PATH/pip/pip.conf" "$HOME/.pip/pip.conf"
-    echo "pip config file @: $REPO_PATH/pip/pip.conf"
-    echo "set pip config successful"
+    log_info "repo pip config: $(fmt_path "$REPO_PATH/pip/pip.conf")"
+    log_ok "pip config linked: $(fmt_path "$HOME/.pip/pip.conf")"
 }
 
 step_vim() {
-    echo "set vim config file"
+    log_info "prepare vim config"
 
     if [ -d "$HOME/.vim/.git" ]; then
-        echo "old setting exists, running update steps..."
+        log_info "existing vim config found, updating"
         git -C "$HOME/.vim" fetch
         git -C "$HOME/.vim" pull
     else
-        echo "old setting does not exist, running git clone steps..."
+        log_info "vim config not found, cloning"
         backup_existing_path "$HOME/.vim"
         backup_existing_path "$HOME/.vimrc"
         git clone "${url_root}hermanzhaozzzz/vim-for-coding.git" "$HOME/.vim"
         ln -s "$HOME/.vim/vimrc" "$HOME/.vimrc"
-        echo "vim config file @ $HOME/.vim"
+        log_info "vim config cloned to $(fmt_path "$HOME/.vim")"
     fi
 
-    echo "set vim successful"
+    log_ok "vim config ready"
 }
 
 step_nvim() {
-    echo "set nvim config file"
+    log_info "prepare nvim config"
 
     if [ -d "$HOME/.config/nvim/.git" ]; then
-        echo "old setting exists, running update steps..."
+        log_info "existing nvim config found, updating"
         git -C "$HOME/.config/nvim" fetch
         git -C "$HOME/.config/nvim" pull
     else
-        echo "old setting does not exist, running git clone steps..."
+        log_info "nvim config not found, cloning"
         mkdir -p "$HOME/.config"
         /bin/rm -rf "$HOME/.cache/nvim" 2>/dev/null
         /bin/rm -rf "$HOME/.local/share/nvim" 2>/dev/null
         /bin/rm -rf "$HOME/.local/state/nvim" 2>/dev/null
         backup_existing_path "$HOME/.config/nvim"
         git clone "${url_root}hermanzhaozzzz/MyLazyVim.git" "$HOME/.config/nvim"
-        echo "nvim config file @ $HOME/.config/nvim"
+        log_info "nvim config cloned to $(fmt_path "$HOME/.config/nvim")"
     fi
 
-    echo "set nvim successful"
+    log_ok "nvim config ready"
 }
 
 step_jcat() {
     if [ "$platform" = "Windows" ]; then
-        echo "jcat not support platform: $platform"
+        log_warn "jcat is not supported on platform: $platform"
         return 0
     fi
 
-    echo "set jcat"
+    log_info "prepare jcat"
 
     if [ ! -x "$REPO_PATH/tools/jcat/jcat" ]; then
-        echo "old setting does not exist, running jcat compiling steps..."
+        log_info "jcat binary not found, building"
         require_cmd make
         (
             cd "$REPO_PATH/tools/jcat" || exit 1
             make
         ) || fail "jcat build failed"
     else
-        echo "old setting exists, nothing to do..."
+        log_ok "jcat binary already exists"
     fi
 
     force_link "$REPO_PATH/tools/jcat/jcat" "$BIN_PATH/jcat"
-    echo "set jcat successful"
+    log_ok "jcat ready at $(fmt_path "$BIN_PATH/jcat")"
 }
 
 step_wd() {
@@ -877,14 +953,14 @@ step_wd() {
     local wd_root="$dict_root/wudao-dict"
     local wd_script="$wd_root/wd"
 
-    echo "set wd"
+    log_info "prepare wd"
 
     if [ -d "$dict_root/.git" ]; then
-        echo "old setting exists, running update steps..."
+        log_info "existing Wudao-dict found, updating"
         git -C "$dict_root" fetch
         git -C "$dict_root" pull
     else
-        echo "old setting does not exist, running git clone steps..."
+        log_info "Wudao-dict not found, cloning"
         backup_existing_path "$dict_root"
         git clone "${url_root}hermanzhaozzzz/Wudao-dict.git" "$dict_root"
         pip install bs4 lxml
@@ -902,7 +978,7 @@ cd "\$save_path" || exit 1
 EOF
     chmod +x "$wd_script"
     force_link "$wd_script" "$BIN_PATH/wd"
-    echo "set wd successful"
+    log_ok "wd ready at $(fmt_path "$BIN_PATH/wd")"
 }
 
 step_powershell() {
@@ -910,7 +986,7 @@ step_powershell() {
     local repo_profile
 
     if [ "$platform" != "Windows" ]; then
-        echo "skip PowerShell profile on platform: $platform"
+        log_warn "skip PowerShell profile on platform: $platform"
         return 0
     fi
 
@@ -920,11 +996,11 @@ step_powershell() {
     repo_profile="$REPO_PATH/powershell/Microsoft.PowerShell_profile.ps1"
 
     mkdir -p "/c/Program Files/PowerShell/7"
-    echo "set profile softlink @ $win_profile..."
+    log_info "link PowerShell profile to $(fmt_path "$win_profile")"
     /bin/rm -rf "$HOME/.condarc" 2>/dev/null
     powershell -File "$repo_profile"
     backup_and_link "$repo_profile" "$win_profile"
-    echo "profile config file @ $repo_profile"
+    log_ok "PowerShell profile linked from $(fmt_path "$repo_profile")"
 }
 
 command_deploy() {
@@ -952,16 +1028,17 @@ command_deploy() {
         exit 0
     fi
 
-    echo "set git connect method: $git_method (https (default) / ssh)"
-    echo "set deploy mode: $deploy_mode (fast / interactive)"
-    print_section "platform detected: $platform"
+    print_section "deployment context"
+    print_kv "git" "$git_method"
+    print_kv "mode" "$deploy_mode"
+    print_kv "platform" "$platform"
 
     cleanup_legacy_spyder
 
     choose_steps
 
     if [ "$platform" = "Windows" ] && [ -z "$SELECTED_STEPS" ] && [ "$use_zprofile_template" -eq 0 ]; then
-        echo "no steps selected, nothing to do."
+        log_warn "no steps selected, nothing to do"
         exit 0
     fi
 
@@ -985,34 +1062,47 @@ command_deploy() {
 
     refresh_git_install_metadata
 
-    print_section "all done"
-
-    echo "selected steps completed:"
+    print_section "deployment complete"
+    log_ok "all selected steps finished"
     print_selected_steps
 
-    echo "Next steps:"
+    print_section "commands"
+    if [ "$platform" = "Windows" ]; then
+        print_list_item "run updates in the repo: git-bash ./mse update"
+    else
+        print_list_item "inside the repo: ./mse deploy"
+        print_list_item "inside the repo: ./mse update"
+        print_list_item "global after opening a new zsh terminal: mse deploy"
+        print_list_item "global after opening a new zsh terminal: mse update"
+    fi
+
+    print_section "next steps"
     if [ "$platform" = "Windows" ]; then
         if step_selected "powershell"; then
-            echo "  open PowerShell to use your environment"
+            print_path_item "open PowerShell to use your environment"
         fi
     else
-        echo "  open a new zsh session or run: exec zsh"
+        print_list_item "open a new zsh session or run: exec zsh"
         if [ "$use_zprofile_template" -eq 1 ]; then
-            echo "  review ~/.zprofile and replace personal values before long-term use"
+            print_list_item "review ~/.zprofile and replace personal values before long-term use"
         else
-            echo "  create your own ~/.zprofile for PATH, proxy, tokens, and host-specific aliases"
+            print_list_item "create your own ~/.zprofile for PATH, proxy, tokens, and host-specific aliases"
         fi
     fi
 
     if step_selected "micromamba"; then
-        echo "  micromamba env update -n base -f $CONDA_ENVS/base.yml --prune"
+        print_list_item "conda activate base && conda install -f $CONDA_ENVS/base.yml"
     fi
 
-    echo "Tips:"
-    echo "  raise issue on https://github.com/hermanzhaozzzz/.my_shell_envs/issues"
+    if [ "$platform" != "Windows" ]; then
+        print_list_item "your global command directory is: $BIN_PATH"
+    fi
+
+    print_section "tips"
+    print_list_item "raise issue on https://github.com/hermanzhaozzzz/.my_shell_envs/issues"
 
     if [ "$platform" = "Windows" ]; then
-        echo "this window will close after 300s, you can exit now."
+        log_warn "this window will close after 300s, you can exit now"
         sleep 300
     fi
 }

@@ -13,8 +13,8 @@ This repository helps me bootstrap a personal shell and development environment 
 - [Overview](#overview)
 - [Getting Started](#getting-started)
   - [Prerequisites](#prerequisites)
-  - [Install for Users](#install-for-users)
-  - [Developer Install](#developer-install)
+  - [HTTPS Install for Users](#https-install-for-users)
+  - [SSH Install for Developers](#ssh-install-for-developers)
   - [Update](#update)
   - [Conda Environments](#conda-environments)
   - [Personal Settings](#personal-settings)
@@ -30,30 +30,26 @@ This repository helps me bootstrap a personal shell and development environment 
 
 ## Overview
 
-This repo is designed to:
+This repo installs my shell / Python / editor environment.
 
-- bootstrap my shell environment quickly
-- sync Zsh, pip, Vim, and Neovim settings
-- support both `fast` and `interactive` deployment modes
-- switch secondary Git clone style with `--https` or `--ssh`
+Inside the repo, use these two commands:
 
-The unified entrypoint is now `mse`:
-
-- inside the repo: `./mse deploy`, `./mse update`
-- after bootstrap install: `mse update`
+- `./mse deploy`
+- `./mse update`
 
 ## Getting Started
 
-There are two recommended installation paths:
+Pick one installation method:
 
-- users: `curl | sh`
-- owner / developers: SSH `git clone`, then `./mse deploy --ssh --use-zprofile-template`
+- users: HTTPS `git clone`
+- owner / developers: SSH `git clone`
 
 ### Prerequisites
 
-On non-Windows platforms, `mse deploy` automatically manages this base layer:
+On Linux / macOS / WSL, make sure `zsh` is already installed before you run `./mse deploy`.
 
-- `zsh`
+Then `./mse deploy` will handle:
+
 - `oh-my-zsh`
 - standard Oh My Zsh plugins: `git`, `z`
 - custom plugins: `zsh-syntax-highlighting`, `zsh-autosuggestions`
@@ -63,59 +59,42 @@ What you need before running it:
 ```shell
 # required on macOS / Linux / WSL
 git
-curl
 ```
 
-Notes:
+The script follows these rules:
 
-- macOS requires `brew`, because MSE uses it to install `zsh`
-- Linux / WSL requires `apt-get` and `sudo`, because MSE uses them to install `zsh`
-- on non-Windows platforms, deployment links `~/.zshrc`, installs required plugins, and tries to run `chsh -s "$(which zsh)"`
+- macOS / Linux / WSL all follow the same rule: the script checks whether `zsh` exists first
+- if `zsh` is missing, the script stops with an error and tells you to install `zsh` manually
+- if `zsh` already exists, the script continues with `oh-my-zsh`, standard plugins `git` / `z`, and custom plugins `zsh-syntax-highlighting` / `zsh-autosuggestions`
+- deployment links `~/.zshrc` and tries to run `chsh -s "$(which zsh)"`
+- the default Oh My Zsh theme in this repo is `fino`
 - if you use this repo's `zshrc`, you do not need to manually edit the `plugins=(...)` list after deployment
 
-### Install for Users
+### HTTPS Install for Users
 
-This is the recommended path if you just want a working setup and do not need a full Git clone. It installs the source into `~/.my_shell_envs` and places a global wrapper at `~/.local/bin/mse`.
-
-```shell
-curl -fsSL https://raw.githubusercontent.com/hermanzhaozzzz/.my_shell_envs/main/install.sh | sh
-```
-
-Common variants:
+For normal users, run:
 
 ```shell
-# interactive deploy
-curl -fsSL https://raw.githubusercontent.com/hermanzhaozzzz/.my_shell_envs/main/install.sh | sh -s -- --interactive
+cd "$HOME"
+git clone https://github.com/hermanzhaozzzz/.my_shell_envs.git
+cd ~/.my_shell_envs
 
-# use ssh for secondary git clones during deployment
-curl -fsSL https://raw.githubusercontent.com/hermanzhaozzzz/.my_shell_envs/main/install.sh | sh -s -- --ssh --interactive
-
-# also link the demo zprofile template (review before use)
-curl -fsSL https://raw.githubusercontent.com/hermanzhaozzzz/.my_shell_envs/main/install.sh | sh -s -- --interactive --use-zprofile-template
+./mse deploy
 ```
 
-Notes:
+If you want an interactive deploy, or want to link the demo `zprofile`, run:
 
-- this path is mainly for macOS / Linux / WSL
-- the installer downloads the GitHub `main` archive, then runs `mse deploy`
-- on non-Windows platforms, MSE first runs the mandatory base setup: install `zsh`, install Oh My Zsh, install required plugins, link `~/.zshrc`, and switch the default shell to `zsh`
-- before deployment starts, the installer prints the paths it may modify, such as `~/.zshrc`, `~/.oh-my-zsh`, plugin directories, `~/.condarc`, `~/.vim`, and `~/.config/nvim`
+```shell
+./mse deploy --interactive
+./mse deploy --interactive --use-zprofile-template
+```
+
+When you run `./mse deploy`:
+
+- on Linux / macOS / WSL, MSE checks `zsh` first; if it is missing, it stops and tells you to install `zsh` manually
+- if `zsh` already exists, the script installs Oh My Zsh, installs required plugins, links `~/.zshrc`, and switches the default shell to `zsh`
+- before deployment starts, the script prints the paths it may modify, such as `~/.zshrc`, `~/.oh-my-zsh`, plugin directories, `~/.condarc`, `~/.vim`, and `~/.config/nvim`
 - `~/.zprofile` is only touched when you explicitly pass `--use-zprofile-template`
-- if `~/.local/bin` is not in your `PATH`, the installer will tell you, but it will not modify your shell config automatically
-
-This `curl | sh` path is not the Windows installation flow.
-
-Recommended update command after bootstrap install:
-
-```shell
-mse update
-```
-
-If `mse` is not yet in `PATH`, use:
-
-```shell
-~/.local/bin/mse update
-```
 
 Windows installation and update:
 
@@ -134,15 +113,14 @@ git-bash ./mse deploy --interactive
 git-bash ./mse update
 ```
 
-Notes:
+On Windows, do this:
 
 - the Windows path uses `PowerShell` + `git-bash`
-- the documented Windows flow uses an HTTPS clone; if you already use SSH, you can replace the clone URL yourself
-- the `curl | sh` bootstrap installer is for Unix-like environments and is not the Windows entrypoint
+- the default user path uses an HTTPS clone
 
-### Developer Install
+### SSH Install for Developers
 
-Use this path if you are the repository owner, a long-term maintainer, or a developer who wants the full Git history.
+For repository developers, run:
 
 ```shell
 cd "$HOME"
@@ -152,10 +130,11 @@ cd ~/.my_shell_envs
 ./mse deploy --ssh --use-zprofile-template
 ```
 
-Notes:
+When you run `./mse deploy --ssh --use-zprofile-template`:
 
 - this path uses an SSH clone by default
-- on non-Windows platforms, the mandatory base setup includes `zsh`, Oh My Zsh, required plugins, `~/.zshrc`, and a default-shell switch
+- on Linux / macOS / WSL, MSE checks `zsh` first; if it is missing, it stops and tells you to install `zsh` manually
+- if `zsh` already exists, the script continues with Oh My Zsh, required plugins, `~/.zshrc`, and a default-shell switch
 - deployment runs in `fast` mode by default, which means non-interactive installation
 - `--ssh` makes secondary Git repositories use SSH as well
 - `--use-zprofile-template` links the repository's demo `zprofile` template to `~/.zprofile`
@@ -163,13 +142,9 @@ Notes:
 
 ### Update
 
-The unified update entrypoint is now:
+To update, run:
 
 ```shell
-# global wrapper path (recommended for archive installs)
-mse update
-
-# inside the repo
 ./mse update
 
 # pass deploy flags through update
@@ -178,30 +153,63 @@ mse update
 ./mse update --interactive --use-zprofile-template
 ```
 
-Behavior:
+After install or deploy, the repo puts `mse` here:
+
+```shell
+~/.my_shell_envs/bin/mse
+```
+
+The repo `zsh/zshrc` adds this directory to PATH:
+
+```shell
+~/.my_shell_envs/bin
+```
+
+So after you open a new zsh terminal, you can run these commands from any directory:
+
+```shell
+mse update
+mse deploy
+```
+
+When you run `./mse update`:
 
 - `mse update` updates source code first, then redeploys
 - Git installs use `git fetch` + `git pull --rebase`
-- archive installs re-download the GitHub archive and create a local backup before replacing files
+
+If you want your own commands to be globally available too, put them in that directory:
+
+```shell
+ln -s /absolute/path/to/your_tool ~/.my_shell_envs/bin/your_tool
+```
+
+Or copy the executable there:
+
+```shell
+cp /absolute/path/to/your_tool ~/.my_shell_envs/bin/
+chmod +x ~/.my_shell_envs/bin/your_tool
+```
+
+After opening a new zsh terminal, you can then run `your_tool` from any directory.
 
 ### Conda Environments
 
 In this repo, `conda` is an alias of `micromamba`.
 
-`mse deploy` mainly does two things:
+When you run `./mse deploy`, the script:
 
 - install `micromamba`
 - link the environment files for the current platform from `conda/<platform>/` into `conda_local_env_settings/`
 
-It does not automatically create every Conda environment. After deployment, just use `conda`.
+It does not automatically create every Conda environment. After deployment, run `conda` yourself.
 
-The current platform's `base` environment file is linked to:
+The current platform's `base.yml` is linked to:
 
 ```shell
 ~/.my_shell_envs/conda_local_env_settings/base.yml
 ```
 
-To update or deploy the `base` environment, run:
+To update or install the `base` environment, run:
 
 ```shell
 conda activate base && conda install -f ~/.my_shell_envs/conda_local_env_settings/base.yml
@@ -211,11 +219,11 @@ For other environments, replace `base.yml` with the corresponding `.yml` file.
 
 ### Personal Settings
 
-Public config and personal login settings are now handled through `mse deploy`, with a conservative default:
+By default, `./mse deploy` only handles shared config. It does not overwrite your personal login config:
 
-- on non-Windows platforms, `./mse deploy` always installs the Zsh base layer and links `~/.zshrc`
+- on Linux / macOS / WSL, `./mse deploy` requires `zsh` to already exist; after that, it configures Oh My Zsh, plugins, and links `~/.zshrc`
 - `./mse deploy` does not modify `~/.zprofile` by default
-- if you explicitly want to symlink the repository's demo template to `~/.zprofile`, add `--use-zprofile-template`
+- `--use-zprofile-template` only symlinks the repository demo template to `~/.zprofile`
 
 ```shell
 ./mse deploy --interactive
@@ -224,25 +232,66 @@ Public config and personal login settings are now handled through `mse deploy`, 
 ./mse deploy --interactive --use-zprofile-template
 ```
 
-Notes:
+Here is the practical rule:
 
-- `~/.zprofile` is sourced before `~/.zshrc` in login shells
-- `zsh/zshrc` works without the demo `~/.zprofile`, so `zprofile` remains optional
-- `zsh/zprofile_hermanzhaozzzz_demo` is a personal example with host-specific, proxy-specific, and workflow-specific assumptions; review it carefully before using it
-- the better default for most users is to maintain their own `~/.zprofile` for login-time environment variables, PATH setup, proxies, and machine-specific aliases
-- the repo does not currently track a `zshenv` file; historically there was a `zsh/zshenv_demo`, added in `4236a13` and removed in `84d9230`
+- for most users, do not directly symlink my demo `zprofile`
+- `zsh/zprofile_hermanzhaozzzz_demo` is only a demo file for my own usage patterns
+- if you want to DIY your own setup, create your own `~/.zprofile`
+- this repo manages shared interactive config in `zsh/zshrc`; your machine-specific config should go into your own `~/.zprofile`
 
-Typical use cases for `~/.zprofile`:
+Zsh loads files in this order:
 
-- define `PATH`
-- define proxy helpers
-- export environment variables needed only in login shells
-- load machine-specific toolchains or aliases
+```text
+.zshenv -> .zprofile -> .zshrc -> .zlogin -> .zlogout
+```
 
-A practical `PATH` pattern:
+Use each file like this:
+
+- `~/.zshenv`
+  Purpose: loaded by every zsh process, including non-interactive shells
+  Advice: keep it minimal. Do not put proxies, aliases, plugins, or heavy logic here
+- `~/.zprofile`
+  Purpose: loaded by login shells before `~/.zshrc`
+  Advice: put your own PATH, proxies, machine-specific environment variables, private tokens, and host aliases here
+- `~/.zshrc`
+  Purpose: loaded by interactive shells
+  Advice: this repo already manages shared config here, including Oh My Zsh, theme, plugins, aliases, functions, and `~/.my_shell_envs/bin`
+- `~/.zlogin`
+  Purpose: loaded at the end of login-shell startup
+  Advice: most users do not need it
+
+For DIY config, put things here:
+
+- PATH: `~/.zprofile`
+- proxy helpers: `~/.zprofile`
+- private tokens / company-only config: `~/.zprofile`, or a private file sourced from it
+- shared aliases / functions: keep using the repo-managed `zsh/zshrc`
+- if you only want to change the Oh My Zsh theme or plugin list, do not edit the repo `zsh/zshrc`; override them in your own `~/.zprofile`
+
+The most important PATH rule is: do not overwrite the existing `$PATH`. Extend it.
+
+If you want to override the theme or plugins, put these variables in `~/.zprofile`:
 
 ```shell
-# keep user-level bin directories near the front
+# optional: override Oh My Zsh theme
+export MSE_ZSH_THEME="robbyrussell"
+
+# optional: override plugin list
+export MSE_ZSH_PLUGINS="git z zsh-syntax-highlighting zsh-autosuggestions"
+```
+
+The rule is simple:
+
+- `MSE_ZSH_THEME`: overrides the repo default theme `fino`
+- `MSE_ZSH_PLUGINS`: replaces the repo default plugin list
+- put these variables in `~/.zprofile`; the repo `zsh/zshrc` will read them
+
+If you do not want to change theme or plugins, do not set these variables.
+
+Use this pattern:
+
+```shell
+# keep existing PATH, then prepend your own paths
 export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
 
 # add toolchain paths only when they exist
@@ -250,8 +299,10 @@ export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
 [ -d "/opt/homebrew/bin" ] && export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
 ```
 
-Notes:
+When editing `PATH`:
 
+- always keep `$PATH`; do not replace it with a hard-coded value such as `export PATH="/some/path"`
+- this keeps system commands, `~/.my_shell_envs/bin`, and the repo-managed `zshrc` additions working
 - keep your own bin directories near the front, for example `~/.local/bin`
 - guard platform-specific paths with existence checks
 - avoid `unset PATH` unless you fully understand the implications
@@ -259,6 +310,7 @@ Notes:
 A minimal `~/.zprofile` example:
 
 ```shell
+# keep existing PATH
 export PATH="$HOME/.local/bin:$PATH"
 export EDITOR="nvim"
 export PAGER="less"
@@ -283,7 +335,13 @@ alias proxy.on=proxy_on
 alias proxy.off=proxy_off
 ```
 
-If you need to load sensitive tokens, private hostnames, or company-specific settings, it is better to `source` a local private file from `~/.zprofile` than to place those values in the shared repo config.
+If you need sensitive tokens, private hostnames, or company-only settings, use this pattern:
+
+```shell
+[ -f "$HOME/.zprofile.private" ] && source "$HOME/.zprofile.private"
+```
+
+Put those private values in your own `~/.zprofile.private` instead of the shared repo config.
 
 ## Highlights
 
@@ -315,9 +373,28 @@ If you want to keep your own conda setup and skip micromamba, use:
 
 The repo includes a practical Zsh setup with:
 
+- Oh My Zsh theme: `fino`
+- standard Oh My Zsh plugins: `git`, `z`
 - [zsh-syntax-highlighting](https://github.com/zsh-users/zsh-syntax-highlighting.git)
 - [zsh-autosuggestions](https://github.com/zsh-users/zsh-autosuggestions)
 - [z](https://github.com/rupa/z)
+
+What the default plugins do and how to use them:
+
+- `git`
+  Purpose: provides common git aliases
+  Examples: `gst` shows status, `gco <branch>` switches branches, `gaa` stages all changes
+- `z`
+  Purpose: remembers directories you visit often, then jumps to them quickly
+  Examples: after using `cd` normally for a while, run `z project` or `z Downloads`
+- `zsh-syntax-highlighting`
+  Purpose: highlights command syntax directly in the shell
+  Usage: valid commands are usually highlighted while mistyped commands are not
+- `zsh-autosuggestions`
+  Purpose: suggests completions from your shell history
+  Usage: the shell shows a gray suggestion; usually you can accept it with the Right Arrow key
+
+If you do not change personal config, these plugins work right after deployment.
 
 ![](https://pic2.zhimg.com/v2-1d5b7cade272ec46c293bf80353d36e5_b.jpg)
 

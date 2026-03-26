@@ -141,6 +141,31 @@ cd ~/.my_shell_envs
 - `--use-zprofile-template` 会把仓库里的示例 `zprofile` 模板链接到 `~/.zprofile`
 - 如果你想保留自己的登录配置，可以去掉 `--use-zprofile-template`
 
+常用参数这样理解：
+
+- `--interactive`
+  作用：进入交互模式，按 step 逐个确认要不要执行
+  什么时候加：如果你想自己选择安装哪些模块，就加这个参数
+- `--ssh`
+  作用：附属 Git 仓库也使用 SSH 地址
+  什么时候加：如果你已经配置好 GitHub SSH key，并且希望附属仓库也走 SSH，就保留这个参数
+- `--use-zprofile-template`
+  作用：把仓库里的 demo `zprofile` 链接到 `~/.zprofile`
+  什么时候加：只有你明确要使用这个 demo 文件时才加；如果你要保留自己的登录配置，就不要加
+
+常用组合命令：
+
+```shell
+# 开发者默认方式：SSH + demo zprofile
+./mse deploy --ssh --use-zprofile-template
+
+# 自己选 step，但保留自己的 ~/.zprofile
+./mse deploy --ssh --interactive
+
+# 自己选 step，并且同时使用 demo zprofile
+./mse deploy --ssh --interactive --use-zprofile-template
+```
+
 ### 更新
 
 更新时直接执行：
@@ -430,6 +455,33 @@ alias proxy.off=proxy_off
 欢迎提交 Issue 和 Pull Request。
 
 如果你发现了 bug、兼容性问题、文档缺失，或者希望补充新的环境模块，都可以直接在仓库中发起讨论或提交修改。
+
+一个最基础的贡献流程如下：
+
+1. 先在 GitHub 上 fork 本仓库到你自己的账号下。
+2. 把你自己的 fork 克隆到本地。
+
+```shell
+cd "$HOME"
+git clone git@github.com:<your-github-name>/.my_shell_envs.git
+cd ~/.my_shell_envs
+```
+
+3. 在本地部署你自己的 fork，确认修改能实际跑通。
+
+```shell
+./mse deploy
+```
+
+4. 修改代码或文档，反复调试，直到你本地用起来没问题。
+5. 把修改提交到你自己的 fork。
+6. 在 GitHub 上从你的 fork 发起一个 PR，请求合并到本仓库。
+
+如果你只改文档，也欢迎直接提 PR。
+
+如果你不确定改动方向，也可以先开 Issue 讨论。
+
+非常欢迎大家一起维护这个仓库。
 
 ## 许可证
 

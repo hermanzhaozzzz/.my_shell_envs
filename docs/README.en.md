@@ -140,6 +140,31 @@ When you run `./mse deploy --ssh --use-zprofile-template`:
 - `--use-zprofile-template` links the repository's demo `zprofile` template to `~/.zprofile`
 - if you want to keep your own login config, drop `--use-zprofile-template`
 
+Read the common flags like this:
+
+- `--interactive`
+  Purpose: enter interactive mode and confirm steps one by one
+  Add it when: you want to choose which modules to install
+- `--ssh`
+  Purpose: make secondary Git repositories use SSH too
+  Add it when: you already configured your GitHub SSH key and want secondary repos to use SSH as well
+- `--use-zprofile-template`
+  Purpose: symlink the repository demo `zprofile` to `~/.zprofile`
+  Add it when: you explicitly want to use that demo file; if you want to keep your own login config, do not add it
+
+Common command combinations:
+
+```shell
+# default developer path: SSH + demo zprofile
+./mse deploy --ssh --use-zprofile-template
+
+# choose steps yourself, but keep your own ~/.zprofile
+./mse deploy --ssh --interactive
+
+# choose steps yourself and also use the demo zprofile
+./mse deploy --ssh --interactive --use-zprofile-template
+```
+
 ### Update
 
 To update, run:
@@ -429,6 +454,33 @@ The repo also includes a few convenience helpers:
 Issues and pull requests are welcome.
 
 If you find a bug, hit a compatibility problem, notice missing documentation, or want to improve a module in this repo, feel free to open an issue or submit a PR.
+
+A minimal contribution workflow looks like this:
+
+1. Fork this repository to your own GitHub account.
+2. Clone your own fork locally.
+
+```shell
+cd "$HOME"
+git clone git@github.com:<your-github-name>/.my_shell_envs.git
+cd ~/.my_shell_envs
+```
+
+3. Deploy your fork locally and make sure your changes actually work.
+
+```shell
+./mse deploy
+```
+
+4. Edit code or docs, and test locally until the result works as expected.
+5. Commit and push the changes to your own fork.
+6. Open a PR from your fork and request merging into this repository.
+
+Documentation-only PRs are also very welcome.
+
+If you are not sure about the direction of a change, open an Issue first.
+
+Contributions are very welcome. This repo is much better when people maintain it together.
 
 ## License
 

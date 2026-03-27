@@ -158,6 +158,23 @@ alias tunnal_kill_all=_func_ssh.tunnal.killall
 # ------------------------------------------------------------------->>>>>>>>>>
 # SETTINGS on DIFFERENT platforms
 # ------------------------------------------------------------------->>>>>>>>>>
+_BREW_BIN=""
+if [[ $_OS == "Linux" ]]; then
+    if [ -x /home/linuxbrew/.linuxbrew/bin/brew ]; then
+        _BREW_BIN=/home/linuxbrew/.linuxbrew/bin/brew
+    fi
+elif [[ $_OS == "macOS" ]]; then
+    if [ -x /opt/homebrew/bin/brew ]; then
+        _BREW_BIN=/opt/homebrew/bin/brew
+    elif [ -x /usr/local/bin/brew ]; then
+        _BREW_BIN=/usr/local/bin/brew
+    fi
+fi
+
+if [ -n "$_BREW_BIN" ]; then
+    eval "$("$_BREW_BIN" shellenv)"
+fi
+
 if [[ $_OS == "Linux" ]]; then
     # optional bioinformatic cmds to add
     export PATH=$PATH:${HOME}/0.apps/homer/bin
@@ -165,7 +182,6 @@ if [[ $_OS == "Linux" ]]; then
     export PATH=$PATH:${HOME}/0.apps/hisat-3n_allType
     export PATH=$PATH:${HOME}/0.apps/bedops/bin
     export PATH=$PATH:${HOME}/.npm-global/bin
-    eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv zsh)"
 
     # diy cmds for easily using slurm on polars
     _func_delslrumlogs(){
@@ -232,8 +248,11 @@ if [[ $_OS == "Linux" ]]; then
 
 elif [[ $_OS == "macOS" ]]; then
     export PATH=$PATH:/Library/TeX/texbin
-    export PATH=/opt/homebrew/bin:/opt/homebrew/sbin:$PATH
-    export PATH=$PATH:/opt/homebrew/opt/openjdk/bin
+    if [ -d /opt/homebrew/opt/openjdk/bin ]; then
+        export PATH=$PATH:/opt/homebrew/opt/openjdk/bin
+    elif [ -d /usr/local/opt/openjdk/bin ]; then
+        export PATH=$PATH:/usr/local/opt/openjdk/bin
+    fi
 
     alias zcat="gunzip -d -c"  # fix zcat
     alias opena="open -a Sublime\ Text"
@@ -391,5 +410,3 @@ function run() {
         fi
         sleep 0.5
     }
-
-

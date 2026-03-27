@@ -100,8 +100,9 @@
 | jcat | 在终端中查看 Jupyter notebooks | C++ |
 | wd | 终端词典 | Python |
 | tldr | 简化的 man 页面 | - |
-| btop | 系统监视器 | - |
 | eza | 现代 ls 替代品 | - |
+| bat | 更友好的 `cat` / 文件预览工具 | Rust |
+| ripgrep | 终端搜索工具（`rg`） | Rust |
 
 ---
 

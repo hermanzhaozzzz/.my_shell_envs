@@ -4,13 +4,15 @@ SCRIPT_DIR="$(CDPATH= cd -- "$(dirname "$0")" && pwd)"
 REPO_PATH="$SCRIPT_DIR"
 BIN_PATH="$REPO_PATH/bin"
 REPO_BIN_EZA_PATH="$BIN_PATH/eza"
+REPO_BIN_BAT_PATH="$BIN_PATH/bat"
+REPO_BIN_RG_PATH="$BIN_PATH/rg"
 CONDA_ENVS="$REPO_PATH/conda_local_env_settings"
 REPO_BIN_MSE_PATH="$BIN_PATH/mse"
 ZPROFILE_TEMPLATE_PATH="$REPO_PATH/zsh/zprofile_hermanzhaozzzz_demo"
 DEFAULT_REPO_URL="https://github.com/hermanzhaozzzz/.my_shell_envs.git"
 DEFAULT_REPO_SSH_URL="git@github.com:hermanzhaozzzz/.my_shell_envs.git"
 DEFAULT_BRANCH="main"
-AVAILABLE_STEPS="rust micromamba condarc pip vim nvim jcat wd powershell"
+AVAILABLE_STEPS="micromamba condarc pip vim nvim jcat wd powershell"
 OH_MY_ZSH_PATH="$HOME/.oh-my-zsh"
 OH_MY_ZSH_INSTALL_URL="https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh"
 RUSTUP_INSTALL_URL="https://sh.rustup.rs"
@@ -56,7 +58,7 @@ Defaults:
   deploy mode: fast
 
 Mandatory base setup on non-Windows:
-  requires zsh in PATH, then installs Oh My Zsh + required plugins + ~/.zshrc + default shell switch
+  requires zsh in PATH, then installs Rust + repo-managed CLI tools + Oh My Zsh + ~/.zshrc + default shell switch
 
 Examples:
   ./mse deploy
@@ -283,7 +285,6 @@ print_section() {
 
 describe_step() {
     case "$1" in
-        rust) echo "install or update Rust via rustup" ;;
         micromamba) echo "install micromamba and link conda env yml files" ;;
         condarc) echo "link ~/.condarc to the repo config" ;;
         pip) echo "link pip.conf" ;;
@@ -293,17 +294,6 @@ describe_step() {
         wd) echo "clone or update Wudao-dict" ;;
         powershell) echo "set the PowerShell profile on Windows" ;;
         *) echo "custom step" ;;
-    esac
-}
-
-step_recommended_in_interactive() {
-    case "$1" in
-        rust)
-            return 0
-            ;;
-        *)
-            return 1
-            ;;
     esac
 }
 
@@ -346,7 +336,7 @@ setup_colors
 print_available_steps() {
     local step
     print_section "available steps"
-    print_kv "base" "requires zsh in PATH, then configures Oh My Zsh, required plugins, ~/.zshrc, default shell switch"
+    print_kv "base" "requires zsh in PATH, then installs Rust, repo-managed CLI tools, Oh My Zsh, ~/.zshrc, and default shell switch"
     for step in $AVAILABLE_STEPS; do
         if ! step_supported_on_platform "$step"; then
             continue
@@ -381,12 +371,12 @@ print_deploy_warnings() {
         print_path_item "$OH_MY_ZSH_PATH"
         print_path_item "${ZSH_CUSTOM:-$OH_MY_ZSH_PATH/custom}/plugins/zsh-syntax-highlighting"
         print_path_item "${ZSH_CUSTOM:-$OH_MY_ZSH_PATH/custom}/plugins/zsh-autosuggestions"
-        print_list_item "default shell for the current user (via chsh)"
-    fi
-
-    if step_selected "rust"; then
         print_path_item "$HOME/.cargo"
         print_path_item "$HOME/.rustup"
+        print_path_item "$REPO_BIN_EZA_PATH"
+        print_path_item "$REPO_BIN_BAT_PATH"
+        print_path_item "$REPO_BIN_RG_PATH"
+        print_list_item "default shell for the current user (via chsh)"
     fi
     if step_selected "micromamba"; then
         print_path_item "$ROOT_PATH/bin/micromamba"
@@ -486,43 +476,48 @@ install_global_wrapper() {
 }
 
 ensure_eza_installed() {
-    local current_eza=""
+    ensure_repo_cargo_tool_installed "eza" "eza" "$REPO_BIN_EZA_PATH" "eza"
+}
+
+ensure_bat_installed() {
+    ensure_repo_cargo_tool_installed "bat" "bat" "$REPO_BIN_BAT_PATH" "bat"
+}
+
+ensure_ripgrep_installed() {
+    ensure_repo_cargo_tool_installed "ripgrep" "rg" "$REPO_BIN_RG_PATH" "ripgrep"
+}
+
+ensure_repo_cargo_tool_installed() {
+    local crate_name="$1"
+    local binary_name="$2"
+    local repo_bin_path="$3"
+    local display_name="$4"
     local cargo_bin="$HOME/.cargo/bin/cargo"
-    local cargo_eza_bin="$HOME/.cargo/bin/eza"
+    local cargo_tool_bin="$HOME/.cargo/bin/$binary_name"
+    local current_tool_bin=""
 
     if [ "$platform" = "Windows" ]; then
         return 0
     fi
 
-    print_section "ensure eza is installed"
+    print_section "ensure ${display_name} is installed"
 
-    current_eza="$(command -v eza 2>/dev/null || true)"
-    if [ -n "$current_eza" ] && [ -x "$current_eza" ]; then
-        log_ok "eza found at $(fmt_path "$current_eza")"
+    [ -x "$cargo_bin" ] || fail "cargo is required to install ${display_name} but was not found at $cargo_bin"
+
+    if [ -x "$cargo_tool_bin" ]; then
+        log_ok "cargo-installed ${display_name} found at $(fmt_path "$cargo_tool_bin")"
     else
-        if [ ! -x "$cargo_bin" ]; then
-            log_info "eza is required by the default shell aliases; installing Rust toolchain first"
-            step_rust
+        current_tool_bin="$(command -v "$binary_name" 2>/dev/null || true)"
+        if [ -n "$current_tool_bin" ] && [ -x "$current_tool_bin" ]; then
+            log_warn "${display_name} exists on this machine at $(fmt_path "$current_tool_bin"), but MSE will install its own copy"
         fi
-
-        [ -x "$cargo_bin" ] || fail "cargo is required to install eza but was not found at $cargo_bin"
-
-        if [ -x "$cargo_eza_bin" ]; then
-            log_ok "cargo-installed eza found at $(fmt_path "$cargo_eza_bin")"
-        else
-            log_info "eza not found, installing with cargo"
-            "$cargo_bin" install eza --locked || fail "failed to install eza with cargo"
-        fi
-
-        [ -x "$cargo_eza_bin" ] || fail "eza was not installed at $cargo_eza_bin"
-        current_eza="$cargo_eza_bin"
-        log_ok "eza is ready at $(fmt_path "$current_eza")"
+        log_info "${display_name} not found in the repo-managed toolchain, installing with cargo"
+        "$cargo_bin" install "$crate_name" --locked || fail "failed to install ${display_name} with cargo"
     fi
 
-    if [ "$current_eza" != "$REPO_BIN_EZA_PATH" ]; then
-        force_link "$current_eza" "$REPO_BIN_EZA_PATH"
-    fi
-    log_ok "repo bin entry created: $(fmt_path "$REPO_BIN_EZA_PATH") -> $(fmt_path "$current_eza")"
+    [ -x "$cargo_tool_bin" ] || fail "${display_name} was not installed at $cargo_tool_bin"
+    force_link "$cargo_tool_bin" "$repo_bin_path"
+    log_ok "repo bin entry created: $(fmt_path "$repo_bin_path") -> $(fmt_path "$cargo_tool_bin")"
 }
 
 cleanup_legacy_spyder() {
@@ -597,32 +592,20 @@ choose_steps() {
     fi
 
     print_section "interactive step selection"
-    log_info "press y to enable a step; recommended steps accept Enter as yes, others skip on Enter"
+    log_info "press y to enable a step, press Enter to skip it"
     for step in $AVAILABLE_STEPS; do
         if ! step_supported_on_platform "$step"; then
             continue
         fi
         step_no=$((step_no + 1))
-        if step_recommended_in_interactive "$step"; then
-            printf '  %s %-2s %-12b %s [Y/n]: ' "$(badge "$COLOR_BLUE" "STEP")" "$step_no" "$(fmt_step "$step")" "$(describe_step "$step") (recommended)"
-        else
-            printf '  %s %-2s %-12b %s [y/N]: ' "$(badge "$COLOR_BLUE" "STEP")" "$step_no" "$(fmt_step "$step")" "$(describe_step "$step")"
-        fi
+        printf '  %s %-2s %-12b %s [y/N]: ' "$(badge "$COLOR_BLUE" "STEP")" "$step_no" "$(fmt_step "$step")" "$(describe_step "$step")"
         read answer
         case "$answer" in
-            "")
-                if step_recommended_in_interactive "$step"; then
-                    append_selected_step "$step"
-                    log_ok "enabled recommended step: $step"
-                else
-                    log_warn "skipped step: $step"
-                fi
-                ;;
             y|Y|yes|YES)
                 append_selected_step "$step"
                 log_ok "enabled step: $step"
                 ;;
-            n|N|no|NO)
+            ""|n|N|no|NO)
                 log_warn "skipped step: $step"
                 ;;
             *)
@@ -941,7 +924,10 @@ ensure_non_windows_zsh_core() {
     ensure_zsh_installed
     ensure_oh_my_zsh_installed
     ensure_zsh_plugins_installed
+    step_rust
     ensure_eza_installed
+    ensure_bat_installed
+    ensure_ripgrep_installed
     ensure_zshrc_linked
     ensure_default_shell_is_zsh
 }
@@ -1245,7 +1231,6 @@ command_deploy() {
 
     ensure_non_windows_zsh_core
 
-    run_step "rust" step_rust
     run_step "micromamba" step_micromamba
     run_step "condarc" step_condarc
     run_step "pip" step_pip

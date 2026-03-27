@@ -51,6 +51,7 @@ On Linux / macOS / WSL, make sure `zsh` is already installed before you run `./m
 Then `./mse deploy` will handle:
 
 - the `Rust` toolchain, installed through `rustup` without letting `rustup` modify PATH
+- repo-managed CLI tools: `eza`, `bat`, `rg`
 - `oh-my-zsh`
 - standard Oh My Zsh plugins: `git`, `z`
 - custom plugins: `zsh-syntax-highlighting`, `zsh-autosuggestions`
@@ -66,11 +67,12 @@ The script follows these rules:
 
 - macOS / Linux / WSL all follow the same rule: the script checks whether `zsh` exists first
 - if `zsh` is missing, the script stops with an error and tells you to install `zsh` manually
-- if `zsh` already exists, the script installs the default `Rust` toolchain and then continues with `oh-my-zsh`, standard plugins `git` / `z`, and custom plugins `zsh-syntax-highlighting` / `zsh-autosuggestions`
+- if `zsh` already exists, the script installs the default `Rust` toolchain, the repo-managed CLI tools `eza` / `bat` / `rg`, and then continues with `oh-my-zsh`, standard plugins `git` / `z`, and custom plugins `zsh-syntax-highlighting` / `zsh-autosuggestions`
 - deployment links `~/.zshrc` and tries to run `chsh -s "$(which zsh)"`
 - before running `chsh`, the script tells you that if you do not want to change the default shell now, you can just press Enter at the password prompt; it will then show retry / skip choices
 - if `chsh` is unavailable, or you do not have permission to change the default shell, deployment does not stop; the script continues and asks whether it should add an auto-enter-zsh block to your current shell config
 - Rust is installed with `rustup --no-modify-path`; the repo `zshrc` adds `~/.cargo/bin` only when it exists
+- `eza`, `bat`, and `rg` are deployed as default dependencies and linked into the repo `bin/` directory
 - the default Oh My Zsh theme in this repo is `fino`
 - if you use this repo's `zshrc`, you do not need to manually edit the `plugins=(...)` list after deployment
 
@@ -96,8 +98,7 @@ If you want an interactive deploy, or want to link the demo `zprofile`, run:
 When you run `./mse deploy`:
 
 - on Linux / macOS / WSL, MSE checks `zsh` first; if it is missing, it stops and tells you to install `zsh` manually
-- if `zsh` already exists, fast mode installs `Rust` by default, then installs Oh My Zsh, installs required plugins, links `~/.zshrc`, and tries to switch the default shell to `zsh`
-- if you use `--interactive`, `Rust` appears as an optional step and is marked as recommended
+- if `zsh` already exists, the script installs `Rust`, `eza`, `bat`, and `rg` by default, then installs Oh My Zsh, installs required plugins, links `~/.zshrc`, and tries to switch the default shell to `zsh`
 - before running `chsh`, the script tells you that if you do not want to change the default shell yet, you can press Enter at the password prompt and then choose retry or skip in the next menu
 - if the default shell cannot be changed to `zsh`, the script continues and gives you two choices: retry `chsh`, or skip `chsh` and instead add an auto-enter-zsh block to your current shell config
 - before deployment starts, the script prints the paths it may modify, such as `~/.zshrc`, `~/.oh-my-zsh`, plugin directories, `~/.condarc`, `~/.vim`, and `~/.config/nvim`
@@ -462,7 +463,7 @@ The repo also includes a few convenience helpers:
 
 - a trash-style deletion workflow to reduce `rm -rf` mistakes
 - `l` / `ll` / `lll` / `llll` shortcuts
-- aliases such as `btop` and `open`
+- aliases such as `open`
 - `conda/micromamba-pycharm`: a small compatibility bridge for PyCharm so it can use micromamba as a conda executable
 - an easy way to expose your own commands by linking them into `~/.my_shell_envs/bin`
 

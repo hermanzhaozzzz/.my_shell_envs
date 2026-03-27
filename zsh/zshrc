@@ -274,7 +274,9 @@ alias rm.trash.clear=func_delclear
 # 自定义alias
 # ------------------------------------------------------------------->>>>>>>>>>
 # 函数别名
-alias btop='btop -lc'
+if command -v btop >/dev/null 2>&1; then
+    alias btop='btop -lc'
+fi
 
 
 # 第三方命令别名

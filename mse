@@ -32,6 +32,7 @@ persisted_git_method="https"
 persisted_deploy_mode="fast"
 persisted_use_zprofile_template=0
 persisted_selected_steps=""
+persisted_default_branch="$DEFAULT_BRANCH"
 
 print_root_usage() {
     cat <<'EOF'
@@ -402,15 +403,73 @@ filter_known_steps() {
     printf '%s\n' "$filtered"
 }
 
+step_env_key() {
+    printf 'MSE_STEP_%s\n' "$(printf '%s' "$1" | tr '[:lower:]' '[:upper:]')"
+}
+
+step_from_env_key() {
+    local key="$1"
+    local step
+
+    for step in $AVAILABLE_STEPS; do
+        if [ "$(step_env_key "$step")" = "$key" ]; then
+            printf '%s\n' "$step"
+            return 0
+        fi
+    done
+
+    return 1
+}
+
+normalize_bool_value() {
+    case "$1" in
+        1|true|TRUE|True|yes|YES|Yes|on|ON|On)
+            printf '1\n'
+            ;;
+        0|false|FALSE|False|no|NO|No|off|OFF|Off|"")
+            printf '0\n'
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
+bool_string() {
+    if [ "$1" -eq 1 ]; then
+        printf 'true\n'
+    else
+        printf 'false\n'
+    fi
+}
+
+detect_current_branch() {
+    local current_branch=""
+
+    if [ -d "$REPO_PATH/.git" ]; then
+        current_branch="$(git -C "$REPO_PATH" branch --show-current 2>/dev/null || true)"
+    fi
+
+    if [ -n "$current_branch" ]; then
+        printf '%s\n' "$current_branch"
+    else
+        printf '%s\n' "$DEFAULT_BRANCH"
+    fi
+}
+
 load_persisted_deploy_settings() {
     local line=""
     local key=""
     local value=""
+    local step=""
+    local bool_value=""
+    local legacy_selected_steps=""
 
     persisted_git_method="https"
     persisted_deploy_mode="fast"
     persisted_use_zprofile_template=0
     persisted_selected_steps=""
+    persisted_default_branch="$DEFAULT_BRANCH"
 
     [ -f "$METADATA_FILE" ] || return 0
 
@@ -430,10 +489,29 @@ load_persisted_deploy_settings() {
                 persisted_deploy_mode="$value"
                 ;;
             MSE_USE_ZPROFILE_TEMPLATE)
-                persisted_use_zprofile_template="$value"
+                if bool_value="$(normalize_bool_value "$value" 2>/dev/null)"; then
+                    persisted_use_zprofile_template="$bool_value"
+                else
+                    persisted_use_zprofile_template="$value"
+                fi
                 ;;
             MSE_SELECTED_STEPS)
-                persisted_selected_steps="$value"
+                legacy_selected_steps="$value"
+                ;;
+            MSE_DEFAULT_BRANCH)
+                persisted_default_branch="$value"
+                ;;
+            MSE_STEP_*)
+                step="$(step_from_env_key "$key" 2>/dev/null || true)"
+                if [ -n "$step" ]; then
+                    if bool_value="$(normalize_bool_value "$value" 2>/dev/null)"; then
+                        if [ "$bool_value" -eq 1 ]; then
+                            persisted_selected_steps="${persisted_selected_steps:+$persisted_selected_steps }$step"
+                        fi
+                    else
+                        log_warn "invalid $key in $(fmt_path "$METADATA_FILE"), expected true or false"
+                    fi
+                fi
                 ;;
         esac
     done < "$METADATA_FILE"
@@ -462,10 +540,20 @@ load_persisted_deploy_settings() {
             ;;
     esac
 
+    if [ -z "$persisted_selected_steps" ] && [ -n "$legacy_selected_steps" ]; then
+        persisted_selected_steps="$legacy_selected_steps"
+    fi
+
     persisted_selected_steps="$(filter_known_steps "$persisted_selected_steps")"
 }
 
 persist_deploy_settings() {
+    local current_branch=""
+    local step=""
+    local enabled=0
+
+    current_branch="$(detect_current_branch)"
+
     cat > "$METADATA_FILE" <<EOF
 # MSE install preferences
 # This file is written by a successful 'mse deploy'.
@@ -475,17 +563,26 @@ persist_deploy_settings() {
 # Allowed values:
 #   MSE_GIT_METHOD=https|ssh
 #   MSE_DEPLOY_MODE=fast|interactive
-#   MSE_USE_ZPROFILE_TEMPLATE=0|1
-#   MSE_SELECTED_STEPS='space separated optional steps'
+#   MSE_USE_ZPROFILE_TEMPLATE=true|false
+#   MSE_STEP_<NAME>=true|false
 #
-# If MSE_DEPLOY_MODE='interactive', 'mse update' will not ask again.
-# It will reuse MSE_SELECTED_STEPS instead.
+# Change any MSE_STEP_<NAME> line directly if you want to enable or disable
+# an optional step without entering interactive mode again.
+# You can also rerun: mse deploy --interactive
 
 MSE_GIT_METHOD='$git_method'
 MSE_DEPLOY_MODE='$deploy_mode'
-MSE_USE_ZPROFILE_TEMPLATE='$use_zprofile_template'
-MSE_SELECTED_STEPS='$SELECTED_STEPS'
+MSE_DEFAULT_BRANCH='$current_branch'
+MSE_USE_ZPROFILE_TEMPLATE='$(bool_string "$use_zprofile_template")'
 EOF
+
+    for step in $AVAILABLE_STEPS; do
+        enabled=0
+        if step_selected "$step"; then
+            enabled=1
+        fi
+        printf "%s='%s'\n" "$(step_env_key "$step")" "$(bool_string "$enabled")" >> "$METADATA_FILE"
+    done
 
     log_ok "saved deploy preferences: $(fmt_path "$METADATA_FILE")"
 }
@@ -726,19 +823,21 @@ choose_steps() {
     local answer
     local step_no=0
 
-    if [ "$internal_update_mode" = "1" ] && [ "$deploy_mode" = "interactive" ]; then
-        if [ -n "$selected_steps_override" ]; then
-            for step in $selected_steps_override; do
-                if step_supported_on_platform "$step"; then
-                    append_selected_step "$step"
-                fi
-            done
-            if [ -n "$SELECTED_STEPS" ]; then
-                log_info "update is reusing the saved interactive step selection from $(fmt_path "$METADATA_FILE")"
-                return 0
+    if [ "$internal_update_mode" = "1" ] && [ -n "$selected_steps_override" ]; then
+        for step in $selected_steps_override; do
+            if step_supported_on_platform "$step"; then
+                append_selected_step "$step"
             fi
+        done
+        if [ -n "$SELECTED_STEPS" ]; then
+            log_info "update is reusing the saved step selection from $(fmt_path "$METADATA_FILE")"
+            return 0
         fi
-        log_warn "no saved interactive step selection found; update is falling back to fast mode"
+        log_warn "saved step selection in $(fmt_path "$METADATA_FILE") does not match this platform"
+    fi
+
+    if [ "$internal_update_mode" = "1" ] && [ "$deploy_mode" = "interactive" ]; then
+        log_warn "no saved step selection found; update is falling back to fast mode"
         deploy_mode="fast"
     fi
 
@@ -1465,9 +1564,7 @@ command_deploy() {
         apply_zprofile_template
     fi
 
-    if [ "$internal_update_mode" != "1" ]; then
-        persist_deploy_settings
-    fi
+    persist_deploy_settings
 
     print_section "deployment complete"
     log_ok "all selected steps finished"

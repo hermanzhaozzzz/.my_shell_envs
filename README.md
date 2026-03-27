@@ -213,24 +213,38 @@ mse deploy
 - 不会再次执行 `chsh`，也不会要求你输入默认 shell 的密码
 - 如果你上次 `deploy` 用的是 interactive mode，`update` 会直接复用上次保存的 step 选择，不再重新逐项提问
 - 这些持久化设置保存在仓库根目录的 `~/.my_shell_envs/.mse-install.env`
+- 每次成功执行 `mse deploy` 或 `mse update` 后，这个文件都会按本次实际使用的配置重写
 
 `~/.my_shell_envs/.mse-install.env` 是普通文本文件，可以手动修改。格式示例：
 
 ```shell
 MSE_GIT_METHOD='ssh'
-MSE_DEPLOY_MODE='interactive'
-MSE_USE_ZPROFILE_TEMPLATE='0'
-MSE_SELECTED_STEPS='micromamba condarc pip vim nvim jcat wd'
+MSE_DEPLOY_MODE='fast'
+MSE_DEFAULT_BRANCH='main'
+MSE_USE_ZPROFILE_TEMPLATE='false'
+MSE_STEP_MICROMAMBA='true'
+MSE_STEP_CONDARC='true'
+MSE_STEP_PIP='true'
+MSE_STEP_VIM='true'
+MSE_STEP_NVIM='true'
+MSE_STEP_JCAT='false'
+MSE_STEP_WD='true'
 ```
 
 这些字段的含义：
 
 - `MSE_GIT_METHOD`：update 默认用 HTTPS 还是 SSH
 - `MSE_DEPLOY_MODE`：update 默认按 fast 还是 interactive 的部署方式走
+- `MSE_DEFAULT_BRANCH`：当前这份安装配置对应的默认分支信息
 - `MSE_USE_ZPROFILE_TEMPLATE`：update 时是否继续使用仓库里的 demo `~/.zprofile`
-- `MSE_SELECTED_STEPS`：如果 `MSE_DEPLOY_MODE='interactive'`，update 会直接复用这组 step，不再询问
+- `MSE_STEP_<NAME>`：每个可选 step 是否启用，`update` 会直接按这里的 `true/false` 执行，不再重新询问
 
-如果你手动改了这个文件，下一次执行 `mse update` 就会按你修改后的值执行。命令行参数仍然可以临时覆盖这些设置，但那只对当前这次 update 生效，不会回写这个文件。
+如果你想改默认行为，有两种方式：
+
+- 直接手改 `~/.my_shell_envs/.mse-install.env`
+- 重新执行 `mse deploy --interactive`
+
+如果你手动改了这个文件，下一次执行 `mse update` 就会按你修改后的值执行。你也可以直接在命令行传参数；只要这次执行成功，`.mse-install.env` 就会同步更新成这次实际使用的配置。
 
 如果你希望把自己的命令也做成全局可用，直接放到这个目录里即可：
 

@@ -212,24 +212,38 @@ When you run `./mse update`:
 - it does not run `chsh` again and does not ask for your default-shell password
 - if your last `deploy` used interactive mode, `update` reuses the saved step selection and does not ask step-by-step again
 - these persisted settings are stored in `~/.my_shell_envs/.mse-install.env`
+- after every successful `mse deploy` or `mse update`, this file is rewritten to match the actual settings used in that run
 
 `~/.my_shell_envs/.mse-install.env` is a plain text file and you can edit it by hand. Example:
 
 ```shell
 MSE_GIT_METHOD='ssh'
-MSE_DEPLOY_MODE='interactive'
-MSE_USE_ZPROFILE_TEMPLATE='0'
-MSE_SELECTED_STEPS='micromamba condarc pip vim nvim jcat wd'
+MSE_DEPLOY_MODE='fast'
+MSE_DEFAULT_BRANCH='main'
+MSE_USE_ZPROFILE_TEMPLATE='false'
+MSE_STEP_MICROMAMBA='true'
+MSE_STEP_CONDARC='true'
+MSE_STEP_PIP='true'
+MSE_STEP_VIM='true'
+MSE_STEP_NVIM='true'
+MSE_STEP_JCAT='false'
+MSE_STEP_WD='true'
 ```
 
 What these fields mean:
 
 - `MSE_GIT_METHOD`: whether update should default to HTTPS or SSH
 - `MSE_DEPLOY_MODE`: whether update should default to fast or interactive deploy mode
+- `MSE_DEFAULT_BRANCH`: informational default branch for this install
 - `MSE_USE_ZPROFILE_TEMPLATE`: whether update should keep using the repo demo `~/.zprofile`
-- `MSE_SELECTED_STEPS`: if `MSE_DEPLOY_MODE='interactive'`, update reuses this step list directly instead of prompting again
+- `MSE_STEP_<NAME>`: whether each optional step is enabled; `update` runs directly from these `true/false` values without prompting again
 
-If you edit this file manually, the next `mse update` will use your edited values. Command-line flags can still override them for one run, but those temporary overrides are not written back into this file.
+If you want to change the default behavior, you have two options:
+
+- edit `~/.my_shell_envs/.mse-install.env` directly
+- rerun `mse deploy --interactive`
+
+If you edit this file manually, the next `mse update` will use your edited values. You can also pass flags on the command line; if that run succeeds, `.mse-install.env` is updated to match the settings actually used in that run.
 
 If you want your own commands to be globally available too, put them in that directory:
 

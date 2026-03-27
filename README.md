@@ -51,6 +51,7 @@ Fast deployment for shell environments.
 
 `./mse deploy` 会继续处理这些内容：
 
+- `Rust` 工具链（通过 `rustup` 安装，但不让 `rustup` 修改 PATH）
 - `oh-my-zsh`
 - Oh My Zsh 标准插件：`git`、`z`
 - 自定义插件：`zsh-syntax-highlighting`、`zsh-autosuggestions`
@@ -66,9 +67,11 @@ git
 
 - macOS / Linux / WSL 都一样：脚本会先检查 `zsh`
 - 如果系统里没有 `zsh`，脚本会直接报错退出，并提示你先手动安装 `zsh`
-- 如果系统里已经有 `zsh`，脚本会继续配置 `oh-my-zsh`、标准插件 `git` / `z`、自定义插件 `zsh-syntax-highlighting` / `zsh-autosuggestions`
+- 如果系统里已经有 `zsh`，脚本会继续安装默认的 `Rust` 工具链，并配置 `oh-my-zsh`、标准插件 `git` / `z`、自定义插件 `zsh-syntax-highlighting` / `zsh-autosuggestions`
 - 部署会自动链接 `~/.zshrc`，并尝试执行 `chsh -s "$(which zsh)"`
+- 在执行 `chsh` 之前，脚本会先提示你：如果现在不想改默认 shell，可以直接在密码提示处敲回车；随后脚本会进入“重试 / 跳过”选择
 - 如果 `chsh` 不可用，或者你没有权限修改默认 shell，部署不会退出；脚本会继续，并询问你是否把“自动进入 zsh”的配置写入当前 shell 的配置文件
+- `Rust` 的安装通过 `rustup --no-modify-path` 完成；`~/.cargo/bin` 由仓库的 `zshrc` 在需要时加入 PATH
 - 仓库默认的 Oh My Zsh 主题是 `fino`
 - 如果你使用本仓库里的 `zshrc`，部署后不需要再手工维护 `plugins=(...)`
 
@@ -94,7 +97,9 @@ cd ~/.my_shell_envs
 执行 `./mse deploy` 时：
 
 - 在 Linux / macOS / WSL 上，部署会先检查 `zsh`；如果没有，就报错退出，并提示你先手动安装 `zsh`
-- 如果 `zsh` 已经存在，脚本会安装 Oh My Zsh、安装必需插件、链接 `~/.zshrc`，并尝试把默认 shell 切到 `zsh`
+- 如果 `zsh` 已经存在，fast mode 会默认安装 `Rust`，然后安装 Oh My Zsh、安装必需插件、链接 `~/.zshrc`，并尝试把默认 shell 切到 `zsh`
+- 如果你使用 `--interactive`，`Rust` 会作为一个可选 step 出现，并且默认推荐安装
+- 在执行 `chsh` 之前，脚本会先告诉你：如果不想现在改默认 shell，可以直接在密码提示处敲回车，然后在后续菜单里选择 retry 或 skip
 - 如果默认 shell 无法改成 `zsh`，脚本会继续部署，并给你两个选择：重试 `chsh`，或者跳过 `chsh`，改为把自动进入 `zsh` 的逻辑写到当前 shell 的配置文件里
 - 部署开始前，脚本会先打印即将修改的路径，例如 `~/.zshrc`、`~/.oh-my-zsh`、插件目录、`~/.condarc`、`~/.vim`、`~/.config/nvim`
 - 只有在显式传入 `--use-zprofile-template` 时，才会改动 `~/.zprofile`
@@ -320,11 +325,13 @@ export MSE_ZSH_PLUGINS="git z zsh-syntax-highlighting zsh-autosuggestions"
 
 ```shell
 # keep existing PATH, then prepend your own paths
-export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
+export PATH="$HOME/.local/bin:$PATH"
 
 # add extra toolchain paths only when they exist
 [ -d "/opt/homebrew/bin" ] && export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
 ```
+
+如果你使用仓库默认的 `Rust` 安装方式，不需要手工把 `~/.cargo/bin` 写进 `~/.zprofile`。仓库的 `zsh/zshrc` 会在检测到 `cargo` 存在时自动把它加入 PATH。
 
 写 `PATH` 时注意：
 
@@ -439,6 +446,14 @@ alias proxy.off=proxy_off
 终端词典工具，参考项目：
 
 - [Wudao-dict](https://github.com/ChestnutHeng/Wudao-dict)
+
+如果你在交互模式里选择配置 `wd`，MSE 会：
+
+- clone 或 update `~/.Wudao-dict`
+- 直接生成可执行文件 `~/.my_shell_envs/bin/wd`
+- 这个 `wd` 命令会进入 `~/.Wudao-dict/wudao-dict` 并执行词典程序
+
+如果你在交互模式里没有选择 `wd`，MSE 会删除 `~/.my_shell_envs/bin/wd`，避免 PATH 里残留一个你并不想保留的命令。
 
 ![](https://pic1.zhimg.com/v2-4941f3b7b7c83780d50bcfb36b6dbad8_b.jpg)
 

@@ -183,6 +183,14 @@ export TMUX_TMPDIR=$HOME/.tmux_tmp_dir/$HOST
 # ------------------------------------------------------------------->>>>>>>>>>
 # 我的可执行文件
 export PATH=${HOME}/.my_shell_envs/bin:$PATH
+
+# repo-managed Rust toolchain
+if [ -x "${HOME}/.cargo/bin/cargo" ]; then
+    case ":$PATH:" in
+        *":${HOME}/.cargo/bin:"*) ;;
+        *) export PATH="${HOME}/.cargo/bin:$PATH" ;;
+    esac
+fi
 # ------------------------------------------------------------------->>>>>>>>>>
 # 自定义函数命令
 # ------------------------------------------------------------------->>>>>>>>>>

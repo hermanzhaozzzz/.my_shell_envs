@@ -258,7 +258,6 @@ fi
 # GLOBAL PATH SETTING
 # ------------------------------------------------------------------->>>>>>>>>>
 export PATH=$PATH:${HOME}/.local/bin
-export PATH=$PATH:${HOME}/.cargo/bin
 
 
 function run() {
@@ -392,6 +391,5 @@ function run() {
         fi
         sleep 0.5
     }
-
 
 

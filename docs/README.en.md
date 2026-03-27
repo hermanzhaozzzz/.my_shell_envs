@@ -50,6 +50,7 @@ On Linux / macOS / WSL, make sure `zsh` is already installed before you run `./m
 
 Then `./mse deploy` will handle:
 
+- the `Rust` toolchain, installed through `rustup` without letting `rustup` modify PATH
 - `oh-my-zsh`
 - standard Oh My Zsh plugins: `git`, `z`
 - custom plugins: `zsh-syntax-highlighting`, `zsh-autosuggestions`
@@ -65,9 +66,11 @@ The script follows these rules:
 
 - macOS / Linux / WSL all follow the same rule: the script checks whether `zsh` exists first
 - if `zsh` is missing, the script stops with an error and tells you to install `zsh` manually
-- if `zsh` already exists, the script continues with `oh-my-zsh`, standard plugins `git` / `z`, and custom plugins `zsh-syntax-highlighting` / `zsh-autosuggestions`
+- if `zsh` already exists, the script installs the default `Rust` toolchain and then continues with `oh-my-zsh`, standard plugins `git` / `z`, and custom plugins `zsh-syntax-highlighting` / `zsh-autosuggestions`
 - deployment links `~/.zshrc` and tries to run `chsh -s "$(which zsh)"`
+- before running `chsh`, the script tells you that if you do not want to change the default shell now, you can just press Enter at the password prompt; it will then show retry / skip choices
 - if `chsh` is unavailable, or you do not have permission to change the default shell, deployment does not stop; the script continues and asks whether it should add an auto-enter-zsh block to your current shell config
+- Rust is installed with `rustup --no-modify-path`; the repo `zshrc` adds `~/.cargo/bin` only when it exists
 - the default Oh My Zsh theme in this repo is `fino`
 - if you use this repo's `zshrc`, you do not need to manually edit the `plugins=(...)` list after deployment
 
@@ -93,7 +96,9 @@ If you want an interactive deploy, or want to link the demo `zprofile`, run:
 When you run `./mse deploy`:
 
 - on Linux / macOS / WSL, MSE checks `zsh` first; if it is missing, it stops and tells you to install `zsh` manually
-- if `zsh` already exists, the script installs Oh My Zsh, installs required plugins, links `~/.zshrc`, and tries to switch the default shell to `zsh`
+- if `zsh` already exists, fast mode installs `Rust` by default, then installs Oh My Zsh, installs required plugins, links `~/.zshrc`, and tries to switch the default shell to `zsh`
+- if you use `--interactive`, `Rust` appears as an optional step and is marked as recommended
+- before running `chsh`, the script tells you that if you do not want to change the default shell yet, you can press Enter at the password prompt and then choose retry or skip in the next menu
 - if the default shell cannot be changed to `zsh`, the script continues and gives you two choices: retry `chsh`, or skip `chsh` and instead add an auto-enter-zsh block to your current shell config
 - before deployment starts, the script prints the paths it may modify, such as `~/.zshrc`, `~/.oh-my-zsh`, plugin directories, `~/.condarc`, `~/.vim`, and `~/.config/nvim`
 - `~/.zprofile` is only touched when you explicitly pass `--use-zprofile-template`
@@ -319,11 +324,13 @@ Use this pattern:
 
 ```shell
 # keep existing PATH, then prepend your own paths
-export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
+export PATH="$HOME/.local/bin:$PATH"
 
 # add extra toolchain paths only when they exist
 [ -d "/opt/homebrew/bin" ] && export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
 ```
+
+If you use the repo-managed `Rust` installation, you do not need to add `~/.cargo/bin` to `~/.zprofile` yourself. The repo `zsh/zshrc` adds it automatically when `cargo` exists.
 
 When editing `PATH`:
 
@@ -438,6 +445,14 @@ Quickly inspect `ipynb` files in the terminal. Reference:
 A terminal dictionary tool. Reference:
 
 - [Wudao-dict](https://github.com/ChestnutHeng/Wudao-dict)
+
+If you choose the `wd` step in interactive mode, MSE will:
+
+- clone or update `~/.Wudao-dict`
+- create the executable `~/.my_shell_envs/bin/wd` directly
+- make that `wd` command enter `~/.Wudao-dict/wudao-dict` and run the dictionary program
+
+If you do not choose `wd` in interactive mode, MSE removes `~/.my_shell_envs/bin/wd` so your PATH does not keep a command you decided not to manage.
 
 ![](https://pic1.zhimg.com/v2-4941f3b7b7c83780d50bcfb36b6dbad8_b.jpg)
 

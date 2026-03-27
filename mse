@@ -12,9 +12,10 @@ DEFAULT_REPO_URL="https://github.com/hermanzhaozzzz/.my_shell_envs.git"
 DEFAULT_REPO_SSH_URL="git@github.com:hermanzhaozzzz/.my_shell_envs.git"
 DEFAULT_BRANCH="main"
 DEFAULT_ARCHIVE_URL="https://codeload.github.com/hermanzhaozzzz/.my_shell_envs/tar.gz/refs/heads/${DEFAULT_BRANCH}"
-AVAILABLE_STEPS="micromamba condarc pip vim nvim jcat wd powershell"
+AVAILABLE_STEPS="rust micromamba condarc pip vim nvim jcat wd powershell"
 OH_MY_ZSH_PATH="$HOME/.oh-my-zsh"
 OH_MY_ZSH_INSTALL_URL="https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh"
+RUSTUP_INSTALL_URL="https://sh.rustup.rs"
 ZSH_HIGHLIGHTING_REPO_PATH="zsh-users/zsh-syntax-highlighting.git"
 ZSH_AUTOSUGGESTIONS_REPO_PATH="zsh-users/zsh-autosuggestions"
 
@@ -284,6 +285,7 @@ print_section() {
 
 describe_step() {
     case "$1" in
+        rust) echo "install or update Rust via rustup" ;;
         micromamba) echo "install micromamba and link conda env yml files" ;;
         condarc) echo "link ~/.condarc to the repo config" ;;
         pip) echo "link pip.conf" ;;
@@ -293,6 +295,17 @@ describe_step() {
         wd) echo "clone or update Wudao-dict" ;;
         powershell) echo "set the PowerShell profile on Windows" ;;
         *) echo "custom step" ;;
+    esac
+}
+
+step_recommended_in_interactive() {
+    case "$1" in
+        rust)
+            return 0
+            ;;
+        *)
+            return 1
+            ;;
     esac
 }
 
@@ -321,7 +334,7 @@ step_supported_on_platform() {
         powershell)
             [ "$platform" = "Windows" ]
             ;;
-        jcat)
+        jcat|rust)
             [ "$platform" != "Windows" ]
             ;;
         *)
@@ -373,6 +386,10 @@ print_deploy_warnings() {
         print_list_item "default shell for the current user (via chsh)"
     fi
 
+    if step_selected "rust"; then
+        print_path_item "$HOME/.cargo"
+        print_path_item "$HOME/.rustup"
+    fi
     if step_selected "micromamba"; then
         print_path_item "$ROOT_PATH/bin/micromamba"
         print_path_item "$CONDA_ENVS/*.yml"
@@ -613,18 +630,33 @@ choose_steps() {
     fi
 
     print_section "interactive step selection"
-    log_info "press y to enable a step, press Enter to skip it"
+    log_info "press y to enable a step; recommended steps accept Enter as yes, others skip on Enter"
     for step in $AVAILABLE_STEPS; do
         if ! step_supported_on_platform "$step"; then
             continue
         fi
         step_no=$((step_no + 1))
-        printf '  %s %-2s %-12b %s [y/N]: ' "$(badge "$COLOR_BLUE" "STEP")" "$step_no" "$(fmt_step "$step")" "$(describe_step "$step")"
+        if step_recommended_in_interactive "$step"; then
+            printf '  %s %-2s %-12b %s [Y/n]: ' "$(badge "$COLOR_BLUE" "STEP")" "$step_no" "$(fmt_step "$step")" "$(describe_step "$step") (recommended)"
+        else
+            printf '  %s %-2s %-12b %s [y/N]: ' "$(badge "$COLOR_BLUE" "STEP")" "$step_no" "$(fmt_step "$step")" "$(describe_step "$step")"
+        fi
         read answer
         case "$answer" in
+            "")
+                if step_recommended_in_interactive "$step"; then
+                    append_selected_step "$step"
+                    log_ok "enabled recommended step: $step"
+                else
+                    log_warn "skipped step: $step"
+                fi
+                ;;
             y|Y|yes|YES)
                 append_selected_step "$step"
                 log_ok "enabled step: $step"
+                ;;
+            n|N|no|NO)
+                log_warn "skipped step: $step"
                 ;;
             *)
                 log_warn "skipped step: $step"
@@ -647,6 +679,21 @@ run_step() {
         log_ok "step completed: $step"
     else
         log_warn "skip step: $step"
+    fi
+}
+
+remove_managed_bin_entry() {
+    local target="$1"
+
+    if [ -L "$target" ] || [ -f "$target" ]; then
+        /bin/rm -f "$target" || fail "failed to remove managed bin entry: $target"
+        log_warn "removed managed bin entry: $(fmt_path "$target")"
+    fi
+}
+
+sync_optional_bin_entries() {
+    if ! step_selected "wd"; then
+        remove_managed_bin_entry "$BIN_PATH/wd"
     fi
 }
 
@@ -932,6 +979,14 @@ ensure_default_shell_is_zsh() {
         return 0
     fi
 
+    if can_prompt_user; then
+        print_section "default shell change"
+        print_list_item "MSE is about to run: chsh -s $zsh_path"
+        print_list_item "your system may prompt for your login password"
+        print_list_item "if you do not want to change the default shell now, press Enter at the password prompt"
+        print_list_item "MSE will then show retry / skip choices and continue deployment"
+    fi
+
     while :; do
         if chsh -s "$zsh_path"; then
             export SHELL="$zsh_path"
@@ -977,6 +1032,33 @@ ensure_non_windows_zsh_core() {
     ensure_zsh_plugins_installed
     ensure_zshrc_linked
     ensure_default_shell_is_zsh
+}
+
+step_rust() {
+    local rustup_bin="$HOME/.cargo/bin/rustup"
+
+    if [ "$platform" = "Windows" ]; then
+        log_warn "skip Rust on Windows"
+        return 0
+    fi
+
+    log_info "prepare Rust toolchain"
+
+    if [ ! -x "$rustup_bin" ]; then
+        require_cmd curl
+        log_info "rustup not found, starting install without PATH modification"
+        curl --proto '=https' --tlsv1.2 -sSf "$RUSTUP_INSTALL_URL" | sh -s -- -y --no-modify-path || fail "Rust installation failed"
+    else
+        log_ok "rustup already exists at $(fmt_path "$rustup_bin")"
+    fi
+
+    [ -x "$rustup_bin" ] || fail "rustup was not installed at $rustup_bin"
+
+    "$rustup_bin" toolchain install stable || fail "failed to install Rust stable toolchain"
+    "$rustup_bin" default stable || fail "failed to set Rust stable as default"
+    "$rustup_bin" component add rustfmt clippy || fail "failed to install rustfmt and clippy"
+
+    log_ok "Rust is ready under $(fmt_path "$HOME/.cargo/bin")"
 }
 
 step_micromamba() {
@@ -1108,7 +1190,7 @@ step_jcat() {
 step_wd() {
     local dict_root="$HOME/.Wudao-dict"
     local wd_root="$dict_root/wudao-dict"
-    local wd_script="$wd_root/wd"
+    local wd_script="$BIN_PATH/wd"
 
     log_info "prepare wd"
 
@@ -1125,6 +1207,13 @@ step_wd() {
 
     mkdir -p "$wd_root/usr"
     chmod -R 777 "$wd_root/usr"
+    mkdir -p "$BIN_PATH"
+
+    if [ -L "$wd_script" ]; then
+        /bin/rm -f "$wd_script" || fail "failed to replace symlink at $wd_script"
+    elif [ -e "$wd_script" ] && [ ! -f "$wd_script" ]; then
+        fail "cannot write wd wrapper to $wd_script because it is not a regular file"
+    fi
 
     cat >"$wd_script" <<EOF
 #!/bin/bash
@@ -1134,8 +1223,7 @@ cd "$wd_root" || exit 1
 cd "\$save_path" || exit 1
 EOF
     chmod +x "$wd_script"
-    force_link "$wd_script" "$BIN_PATH/wd"
-    log_ok "wd ready at $(fmt_path "$BIN_PATH/wd")"
+    log_ok "wd ready at $(fmt_path "$wd_script")"
 }
 
 step_powershell() {
@@ -1201,9 +1289,11 @@ command_deploy() {
 
     print_selected_steps
     print_deploy_warnings
+    sync_optional_bin_entries
 
     ensure_non_windows_zsh_core
 
+    run_step "rust" step_rust
     run_step "micromamba" step_micromamba
     run_step "condarc" step_condarc
     run_step "pip" step_pip

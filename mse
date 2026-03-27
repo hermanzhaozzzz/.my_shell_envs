@@ -1,6 +1,24 @@
 #!/usr/bin/env bash
 
-SCRIPT_DIR="$(CDPATH= cd -- "$(dirname "$0")" && pwd)"
+resolve_script_path() {
+    local source_path="$1"
+    local source_dir=""
+
+    while [ -L "$source_path" ]; do
+        source_dir="$(CDPATH= cd -- "$(dirname "$source_path")" && pwd)"
+        source_path="$(readlink "$source_path")"
+        case "$source_path" in
+            /*) ;;
+            *) source_path="$source_dir/$source_path" ;;
+        esac
+    done
+
+    source_dir="$(CDPATH= cd -- "$(dirname "$source_path")" && pwd)"
+    printf '%s/%s\n' "$source_dir" "$(basename "$source_path")"
+}
+
+SCRIPT_PATH="$(resolve_script_path "$0")"
+SCRIPT_DIR="$(CDPATH= cd -- "$(dirname "$SCRIPT_PATH")" && pwd)"
 REPO_PATH="$SCRIPT_DIR"
 BIN_PATH="$REPO_PATH/bin"
 REPO_BIN_EZA_PATH="$BIN_PATH/eza"

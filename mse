@@ -1036,13 +1036,17 @@ ensure_non_windows_zsh_core() {
 
 step_rust() {
     local rustup_bin="$HOME/.cargo/bin/rustup"
+    local cargo_bin="$HOME/.cargo/bin/cargo"
+    local rustc_bin="$HOME/.cargo/bin/rustc"
+    local active_toolchain=""
+    local installed_components=""
 
     if [ "$platform" = "Windows" ]; then
         log_warn "skip Rust on Windows"
         return 0
     fi
 
-    log_info "prepare Rust toolchain"
+    print_section "ensure Rust toolchain is ready"
 
     if [ ! -x "$rustup_bin" ]; then
         require_cmd curl
@@ -1054,9 +1058,43 @@ step_rust() {
 
     [ -x "$rustup_bin" ] || fail "rustup was not installed at $rustup_bin"
 
+    if [ -x "$cargo_bin" ]; then
+        log_ok "cargo found at $(fmt_path "$cargo_bin")"
+    else
+        log_info "cargo not found yet; it will be provided by the Rust stable toolchain"
+    fi
+
+    if [ -x "$rustc_bin" ]; then
+        log_ok "rustc found at $(fmt_path "$rustc_bin")"
+    else
+        log_info "rustc not found yet; it will be provided by the Rust stable toolchain"
+    fi
+
+    active_toolchain="$("$rustup_bin" show active-toolchain 2>/dev/null | awk '{print $1}')"
+    if [ "${active_toolchain%%-*}" = "stable" ]; then
+        log_ok "active Rust toolchain is already stable: $active_toolchain"
+    else
+        log_info "active Rust toolchain is not stable yet; MSE will switch it to stable"
+    fi
+
     "$rustup_bin" toolchain install stable || fail "failed to install Rust stable toolchain"
     "$rustup_bin" default stable || fail "failed to set Rust stable as default"
+    log_ok "Rust stable toolchain is available"
+
+    installed_components="$("$rustup_bin" component list --toolchain stable --installed 2>/dev/null || true)"
+    if printf '%s\n' "$installed_components" | grep -qx 'rustfmt'; then
+        log_ok "Rust component already installed: rustfmt"
+    else
+        log_info "Rust component missing: rustfmt; installing"
+    fi
+    if printf '%s\n' "$installed_components" | grep -qx 'clippy'; then
+        log_ok "Rust component already installed: clippy"
+    else
+        log_info "Rust component missing: clippy; installing"
+    fi
+
     "$rustup_bin" component add rustfmt clippy || fail "failed to install rustfmt and clippy"
+    log_ok "Rust components are ready: rustfmt, clippy"
 
     log_ok "Rust is ready under $(fmt_path "$HOME/.cargo/bin")"
 }

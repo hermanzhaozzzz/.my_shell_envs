@@ -7,6 +7,7 @@ REPO_BIN_EZA_PATH="$BIN_PATH/eza"
 REPO_BIN_BAT_PATH="$BIN_PATH/bat"
 REPO_BIN_RG_PATH="$BIN_PATH/rg"
 CONDA_ENVS="$REPO_PATH/conda_local_env_settings"
+METADATA_FILE="$REPO_PATH/.mse-install.env"
 REPO_BIN_MSE_PATH="$BIN_PATH/mse"
 ZPROFILE_TEMPLATE_PATH="$REPO_PATH/zsh/zprofile_hermanzhaozzzz_demo"
 DEFAULT_REPO_URL="https://github.com/hermanzhaozzzz/.my_shell_envs.git"
@@ -24,6 +25,13 @@ deploy_mode="fast"
 list_steps=0
 SELECTED_STEPS=""
 use_zprofile_template=0
+internal_update_mode="${MSE_INTERNAL_UPDATE:-0}"
+skip_default_shell_change="${MSE_INTERNAL_SKIP_DEFAULT_SHELL_CHANGE:-0}"
+selected_steps_override="${MSE_INTERNAL_SELECTED_STEPS:-}"
+persisted_git_method="https"
+persisted_deploy_mode="fast"
+persisted_use_zprofile_template=0
+persisted_selected_steps=""
 
 print_root_usage() {
     cat <<'EOF'
@@ -77,7 +85,9 @@ Usage:
   ./mse update -h|--help
 
 Behavior:
-  update source code first, then run deploy with the same flags
+  update source code first, then redeploy
+  defaults come from .mse-install.env written by the last successful deploy
+  update skips chsh and reuses the saved step selection when deploy mode is interactive
 
 Examples:
   ./mse update
@@ -345,6 +355,141 @@ print_available_steps() {
     done
 }
 
+known_step() {
+    local known
+    for known in $AVAILABLE_STEPS; do
+        if [ "$known" = "$1" ]; then
+            return 0
+        fi
+    done
+    return 1
+}
+
+strip_env_quotes() {
+    local value="$1"
+
+    case "$value" in
+        \"*\")
+            value="${value#\"}"
+            value="${value%\"}"
+            ;;
+        \'*\')
+            value="${value#\'}"
+            value="${value%\'}"
+            ;;
+    esac
+
+    printf '%s\n' "$value"
+}
+
+filter_known_steps() {
+    local input_steps="$1"
+    local filtered=""
+    local step
+
+    for step in $input_steps; do
+        if known_step "$step"; then
+            if [ -z "$filtered" ]; then
+                filtered="$step"
+            else
+                filtered="$filtered $step"
+            fi
+        else
+            log_warn "ignoring unknown saved step in $(fmt_path "$METADATA_FILE"): $step"
+        fi
+    done
+
+    printf '%s\n' "$filtered"
+}
+
+load_persisted_deploy_settings() {
+    local line=""
+    local key=""
+    local value=""
+
+    persisted_git_method="https"
+    persisted_deploy_mode="fast"
+    persisted_use_zprofile_template=0
+    persisted_selected_steps=""
+
+    [ -f "$METADATA_FILE" ] || return 0
+
+    while IFS= read -r line || [ -n "$line" ]; do
+        line="$(printf '%s' "$line" | sed 's/[[:space:]]*#.*$//; s/^[[:space:]]*//; s/[[:space:]]*$//')"
+        [ -n "$line" ] || continue
+
+        key="${line%%=*}"
+        value="${line#*=}"
+        value="$(strip_env_quotes "$value")"
+
+        case "$key" in
+            MSE_GIT_METHOD)
+                persisted_git_method="$value"
+                ;;
+            MSE_DEPLOY_MODE)
+                persisted_deploy_mode="$value"
+                ;;
+            MSE_USE_ZPROFILE_TEMPLATE)
+                persisted_use_zprofile_template="$value"
+                ;;
+            MSE_SELECTED_STEPS)
+                persisted_selected_steps="$value"
+                ;;
+        esac
+    done < "$METADATA_FILE"
+
+    case "$persisted_git_method" in
+        https|ssh) ;;
+        *)
+            log_warn "invalid MSE_GIT_METHOD in $(fmt_path "$METADATA_FILE"), falling back to https"
+            persisted_git_method="https"
+            ;;
+    esac
+
+    case "$persisted_deploy_mode" in
+        fast|interactive) ;;
+        *)
+            log_warn "invalid MSE_DEPLOY_MODE in $(fmt_path "$METADATA_FILE"), falling back to fast"
+            persisted_deploy_mode="fast"
+            ;;
+    esac
+
+    case "$persisted_use_zprofile_template" in
+        0|1) ;;
+        *)
+            log_warn "invalid MSE_USE_ZPROFILE_TEMPLATE in $(fmt_path "$METADATA_FILE"), falling back to 0"
+            persisted_use_zprofile_template=0
+            ;;
+    esac
+
+    persisted_selected_steps="$(filter_known_steps "$persisted_selected_steps")"
+}
+
+persist_deploy_settings() {
+    cat > "$METADATA_FILE" <<EOF
+# MSE install preferences
+# This file is written by a successful 'mse deploy'.
+# 'mse update' reads it and reuses the same deploy behavior by default.
+# You can edit it by hand.
+#
+# Allowed values:
+#   MSE_GIT_METHOD=https|ssh
+#   MSE_DEPLOY_MODE=fast|interactive
+#   MSE_USE_ZPROFILE_TEMPLATE=0|1
+#   MSE_SELECTED_STEPS='space separated optional steps'
+#
+# If MSE_DEPLOY_MODE='interactive', 'mse update' will not ask again.
+# It will reuse MSE_SELECTED_STEPS instead.
+
+MSE_GIT_METHOD='$git_method'
+MSE_DEPLOY_MODE='$deploy_mode'
+MSE_USE_ZPROFILE_TEMPLATE='$use_zprofile_template'
+MSE_SELECTED_STEPS='$SELECTED_STEPS'
+EOF
+
+    log_ok "saved deploy preferences: $(fmt_path "$METADATA_FILE")"
+}
+
 print_selected_steps() {
     local step
     print_section "selected steps"
@@ -581,6 +726,22 @@ choose_steps() {
     local answer
     local step_no=0
 
+    if [ "$internal_update_mode" = "1" ] && [ "$deploy_mode" = "interactive" ]; then
+        if [ -n "$selected_steps_override" ]; then
+            for step in $selected_steps_override; do
+                if step_supported_on_platform "$step"; then
+                    append_selected_step "$step"
+                fi
+            done
+            if [ -n "$SELECTED_STEPS" ]; then
+                log_info "update is reusing the saved interactive step selection from $(fmt_path "$METADATA_FILE")"
+                return 0
+            fi
+        fi
+        log_warn "no saved interactive step selection found; update is falling back to fast mode"
+        deploy_mode="fast"
+    fi
+
     if [ "$deploy_mode" = "fast" ]; then
         for step in $AVAILABLE_STEPS; do
             if step_supported_on_platform "$step"; then
@@ -711,34 +872,85 @@ parse_deploy_args() {
 
 parse_update_args() {
     local opt_name
+    local update_git_method=""
+    local update_deploy_mode=""
+    local update_use_zprofile_template=0
+    local update_list_steps=0
+
+    load_persisted_deploy_settings
+
+    update_git_method="$persisted_git_method"
+    update_deploy_mode="$persisted_deploy_mode"
+    update_use_zprofile_template="$persisted_use_zprofile_template"
 
     UPDATE_DEPLOY_ARGS=()
 
     while [ $# -gt 0 ]; do
         case "$1" in
-            --https|--ssh|--fast|--interactive|--list-steps)
-                UPDATE_DEPLOY_ARGS+=("$1")
+            --https)
+                update_git_method="https"
+                ;;
+            --ssh)
+                update_git_method="ssh"
+                ;;
+            --fast)
+                update_deploy_mode="fast"
+                ;;
+            --interactive)
+                update_deploy_mode="interactive"
                 ;;
             --use-zprofile-template)
-                UPDATE_DEPLOY_ARGS+=("$1")
+                update_use_zprofile_template=1
                 ;;
             --git-method|--mode)
                 opt_name="$1"
-                UPDATE_DEPLOY_ARGS+=("$1")
                 shift
                 [ $# -gt 0 ] || fail "$opt_name requires a value"
-                UPDATE_DEPLOY_ARGS+=("$1")
+                case "$opt_name" in
+                    --git-method)
+                        case "$1" in
+                            https|ssh)
+                                update_git_method="$1"
+                                ;;
+                            *)
+                                fail "unsupported git method: $1"
+                                ;;
+                        esac
+                        ;;
+                    --mode)
+                        case "$1" in
+                            fast|interactive)
+                                update_deploy_mode="$1"
+                                ;;
+                            *)
+                                fail "unsupported deploy mode: $1"
+                                ;;
+                        esac
+                        ;;
+                esac
+                ;;
+            --list-steps)
+                update_list_steps=1
                 ;;
             -h|--help|help)
                 print_update_usage
                 exit 0
-                ;;
+            ;;
             *)
                 fail "unknown argument for 'mse update': $1. Run './mse update -h' for help."
                 ;;
         esac
         shift
     done
+
+    UPDATE_DEPLOY_ARGS+=(--git-method "$update_git_method")
+    UPDATE_DEPLOY_ARGS+=(--mode "$update_deploy_mode")
+    if [ "$update_use_zprofile_template" -eq 1 ]; then
+        UPDATE_DEPLOY_ARGS+=(--use-zprofile-template)
+    fi
+    if [ "$update_list_steps" -eq 1 ]; then
+        UPDATE_DEPLOY_ARGS+=(--list-steps)
+    fi
 }
 
 update_from_git() {
@@ -751,6 +963,9 @@ update_from_git() {
 
     install_global_wrapper
 
+    MSE_INTERNAL_UPDATE=1 \
+    MSE_INTERNAL_SKIP_DEFAULT_SHELL_CHANGE=1 \
+    MSE_INTERNAL_SELECTED_STEPS="$persisted_selected_steps" \
     exec "$REPO_PATH/mse" deploy "${UPDATE_DEPLOY_ARGS[@]}"
 }
 
@@ -858,6 +1073,12 @@ ensure_default_shell_is_zsh() {
     fi
 
     print_section "ensure default shell is zsh"
+
+    if [ "$skip_default_shell_change" = "1" ]; then
+        log_info "update mode skips default-shell changes and does not run chsh"
+        return 0
+    fi
+
     zsh_path="$(command -v zsh)" || fail "zsh is required before switching the default shell"
 
     if [ "${current_shell##*/}" = "zsh" ]; then
@@ -1242,6 +1463,10 @@ command_deploy() {
 
     if [ "$use_zprofile_template" -eq 1 ]; then
         apply_zprofile_template
+    fi
+
+    if [ "$internal_update_mode" != "1" ]; then
+        persist_deploy_settings
     fi
 
     print_section "deployment complete"

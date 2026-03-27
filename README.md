@@ -181,7 +181,7 @@ cd ~/.my_shell_envs
 ```shell
 ./mse update
 
-# pass deploy flags through update
+# 临时覆盖上次 deploy 保存的设置
 ./mse update --interactive
 ./mse update --ssh --interactive
 ./mse update --interactive --use-zprofile-template
@@ -210,6 +210,27 @@ mse deploy
 
 - `mse update` 会先更新源码，再重新执行部署
 - Git 安装会走 `git fetch` + `git pull --rebase`
+- 不会再次执行 `chsh`，也不会要求你输入默认 shell 的密码
+- 如果你上次 `deploy` 用的是 interactive mode，`update` 会直接复用上次保存的 step 选择，不再重新逐项提问
+- 这些持久化设置保存在仓库根目录的 `~/.my_shell_envs/.mse-install.env`
+
+`~/.my_shell_envs/.mse-install.env` 是普通文本文件，可以手动修改。格式示例：
+
+```shell
+MSE_GIT_METHOD='ssh'
+MSE_DEPLOY_MODE='interactive'
+MSE_USE_ZPROFILE_TEMPLATE='0'
+MSE_SELECTED_STEPS='micromamba condarc pip vim nvim jcat wd'
+```
+
+这些字段的含义：
+
+- `MSE_GIT_METHOD`：update 默认用 HTTPS 还是 SSH
+- `MSE_DEPLOY_MODE`：update 默认按 fast 还是 interactive 的部署方式走
+- `MSE_USE_ZPROFILE_TEMPLATE`：update 时是否继续使用仓库里的 demo `~/.zprofile`
+- `MSE_SELECTED_STEPS`：如果 `MSE_DEPLOY_MODE='interactive'`，update 会直接复用这组 step，不再询问
+
+如果你手动改了这个文件，下一次执行 `mse update` 就会按你修改后的值执行。命令行参数仍然可以临时覆盖这些设置，但那只对当前这次 update 生效，不会回写这个文件。
 
 如果你希望把自己的命令也做成全局可用，直接放到这个目录里即可：
 

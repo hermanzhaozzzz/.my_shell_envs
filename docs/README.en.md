@@ -180,7 +180,7 @@ To update, run:
 ```shell
 ./mse update
 
-# pass deploy flags through update
+# temporary overrides for the saved deploy settings
 ./mse update --interactive
 ./mse update --ssh --interactive
 ./mse update --interactive --use-zprofile-template
@@ -209,6 +209,27 @@ When you run `./mse update`:
 
 - `mse update` updates source code first, then redeploys
 - Git installs use `git fetch` + `git pull --rebase`
+- it does not run `chsh` again and does not ask for your default-shell password
+- if your last `deploy` used interactive mode, `update` reuses the saved step selection and does not ask step-by-step again
+- these persisted settings are stored in `~/.my_shell_envs/.mse-install.env`
+
+`~/.my_shell_envs/.mse-install.env` is a plain text file and you can edit it by hand. Example:
+
+```shell
+MSE_GIT_METHOD='ssh'
+MSE_DEPLOY_MODE='interactive'
+MSE_USE_ZPROFILE_TEMPLATE='0'
+MSE_SELECTED_STEPS='micromamba condarc pip vim nvim jcat wd'
+```
+
+What these fields mean:
+
+- `MSE_GIT_METHOD`: whether update should default to HTTPS or SSH
+- `MSE_DEPLOY_MODE`: whether update should default to fast or interactive deploy mode
+- `MSE_USE_ZPROFILE_TEMPLATE`: whether update should keep using the repo demo `~/.zprofile`
+- `MSE_SELECTED_STEPS`: if `MSE_DEPLOY_MODE='interactive'`, update reuses this step list directly instead of prompting again
+
+If you edit this file manually, the next `mse update` will use your edited values. Command-line flags can still override them for one run, but those temporary overrides are not written back into this file.
 
 If you want your own commands to be globally available too, put them in that directory:
 

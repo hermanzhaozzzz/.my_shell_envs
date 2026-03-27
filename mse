@@ -160,6 +160,124 @@ print_kv() {
     printf '  %s %s\n' "$(fmt_key "$1")" "$2"
 }
 
+can_prompt_user() {
+    [ -t 0 ] && [ -t 1 ]
+}
+
+detect_current_shell_name() {
+    local shell_name=""
+
+    if [ -n "${SHELL:-}" ]; then
+        shell_name="${SHELL##*/}"
+    fi
+
+    if [ -z "$shell_name" ] || [ "$shell_name" = "sh" ]; then
+        shell_name="$(ps -p "$PPID" -o comm= 2>/dev/null | awk '{print $1}' | sed 's#.*/##')"
+    fi
+
+    printf '%s\n' "$shell_name"
+}
+
+detect_shell_rc_path() {
+    case "$1" in
+        bash) printf '%s\n' "$HOME/.bashrc" ;;
+        zsh) printf '%s\n' "$HOME/.zshrc" ;;
+        *) return 1 ;;
+    esac
+}
+
+write_zsh_handoff_block() {
+    local rc_path="$1"
+    local zsh_path="$2"
+    local tmp_file
+    local backup_path=""
+
+    mkdir -p "$(dirname "$rc_path")"
+
+    if [ -f "$rc_path" ]; then
+        backup_path="${rc_path}.mse.bak.$(date +%Y%m%d_%H%M%S)"
+        cp -f "$rc_path" "$backup_path" 2>/dev/null || true
+        log_info "backed up existing shell config to $(fmt_path "$backup_path")"
+    fi
+
+    tmp_file="$(mktemp "${TMPDIR:-/tmp}/mse-shell.XXXXXX")" || fail "failed to create temporary file for shell handoff config"
+
+    if [ -f "$rc_path" ]; then
+        awk '
+            BEGIN { skip=0 }
+            /^# >>> MSE auto-enter zsh >>>$/ { skip=1; next }
+            /^# <<< MSE auto-enter zsh <<<$/{ skip=0; next }
+            skip == 0 { print }
+        ' "$rc_path" > "$tmp_file"
+    else
+        : > "$tmp_file"
+    fi
+
+    cat >>"$tmp_file" <<EOF
+# >>> MSE auto-enter zsh >>>
+if [ -x "$zsh_path" ] && [ -z "\${MSE_AUTO_ENTER_ZSH:-}" ]; then
+    export SHELL="$zsh_path"
+    export MSE_AUTO_ENTER_ZSH=1
+    exec "$zsh_path" -l
+fi
+# <<< MSE auto-enter zsh <<<
+EOF
+
+    mv "$tmp_file" "$rc_path" || fail "failed to update shell config at $rc_path"
+    export SHELL="$zsh_path"
+    log_ok "current shell handoff added to $(fmt_path "$rc_path")"
+}
+
+offer_zsh_handoff_setup() {
+    local zsh_path="$1"
+    local current_shell_name="$2"
+    local rc_path=""
+    local answer=""
+
+    if [ "$current_shell_name" = "zsh" ]; then
+        log_info "current shell already looks like zsh; skipping shell config injection"
+        return 0
+    fi
+
+    if ! can_prompt_user; then
+        log_warn "cannot prompt in this session; skipping shell config injection"
+        log_warn "recommended: add an auto-enter zsh block to your ${current_shell_name:-current shell} config manually"
+        return 0
+    fi
+
+    rc_path="$(detect_shell_rc_path "$current_shell_name" 2>/dev/null || true)"
+
+    print_section "zsh handoff setup"
+    log_warn "this environment is designed to run inside zsh"
+
+    if [ -n "$rc_path" ]; then
+        print_list_item "your current login shell appears to be: $current_shell_name"
+        print_list_item "MSE can append an auto-enter zsh block to: $rc_path"
+        print_list_item "this makes future interactive $current_shell_name sessions jump into zsh automatically"
+
+        while :; do
+            printf '%s add zsh handoff to %s? [y/N]: ' "$(badge "$COLOR_BLUE" "ASK")" "$(fmt_path "$rc_path")"
+            read answer || break
+            case "$answer" in
+                y|Y|yes|YES)
+                    write_zsh_handoff_block "$rc_path" "$zsh_path"
+                    return 0
+                    ;;
+                n|N|no|NO|"")
+                    log_warn "skipping shell config injection"
+                    print_list_item "recommended: rerun deploy later and retry chsh, or add an auto-enter zsh block to $rc_path yourself"
+                    return 0
+                    ;;
+            esac
+        done
+    else
+        log_warn "could not map current shell '$current_shell_name' to a known rc file"
+        print_list_item "recommended: configure your login shell to start zsh automatically, then rerun deploy if needed"
+    fi
+
+    return 0
+}
+
 print_section() {
     printf '\n%s==>%s %b\n' "${COLOR_BLUE}${COLOR_BOLD}" "${COLOR_RESET}" "$1"
 }
@@ -791,6 +909,8 @@ ensure_zshrc_linked() {
 ensure_default_shell_is_zsh() {
     local zsh_path
     local current_shell="${SHELL:-}"
+    local current_shell_name=""
+    local answer=""
 
     if [ "$platform" = "Windows" ]; then
         return 0
@@ -804,10 +924,47 @@ ensure_default_shell_is_zsh() {
         return 0
     fi
 
-    require_cmd chsh
-    chsh -s "$zsh_path" || fail "failed to switch the default shell to zsh using chsh"
-    export SHELL="$zsh_path"
-    log_ok "default shell switched to zsh: $(fmt_path "$zsh_path")"
+    current_shell_name="$(detect_current_shell_name)"
+
+    if ! command -v chsh >/dev/null 2>&1; then
+        log_warn "chsh is not available on this system; skipping default-shell change"
+        offer_zsh_handoff_setup "$zsh_path" "$current_shell_name"
+        return 0
+    fi
+
+    while :; do
+        if chsh -s "$zsh_path"; then
+            export SHELL="$zsh_path"
+            log_ok "default shell switched to zsh: $(fmt_path "$zsh_path")"
+            return 0
+        fi
+
+        log_warn "failed to switch the default shell to zsh"
+
+        if ! can_prompt_user; then
+            offer_zsh_handoff_setup "$zsh_path" "$current_shell_name"
+            return 0
+        fi
+
+        print_section "default shell change failed"
+        print_list_item "option 1: retry and enter your password again"
+        print_list_item "option 2: skip chsh and continue deployment"
+
+        while :; do
+            printf '%s choose [r]etry or [s]kip: ' "$(badge "$COLOR_BLUE" "ASK")"
+            read answer || break
+            case "$answer" in
+                r|R|retry|RETRY)
+                    break
+                    ;;
+                s|S|skip|SKIP)
+                    log_warn "continuing without changing the default shell"
+                    offer_zsh_handoff_setup "$zsh_path" "$current_shell_name"
+                    return 0
+                    ;;
+            esac
+        done
+    done
 }
 
 ensure_non_windows_zsh_core() {

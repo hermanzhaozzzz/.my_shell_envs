@@ -67,6 +67,7 @@ The script follows these rules:
 - if `zsh` is missing, the script stops with an error and tells you to install `zsh` manually
 - if `zsh` already exists, the script continues with `oh-my-zsh`, standard plugins `git` / `z`, and custom plugins `zsh-syntax-highlighting` / `zsh-autosuggestions`
 - deployment links `~/.zshrc` and tries to run `chsh -s "$(which zsh)"`
+- if `chsh` is unavailable, or you do not have permission to change the default shell, deployment does not stop; the script continues and asks whether it should add an auto-enter-zsh block to your current shell config
 - the default Oh My Zsh theme in this repo is `fino`
 - if you use this repo's `zshrc`, you do not need to manually edit the `plugins=(...)` list after deployment
 
@@ -92,7 +93,8 @@ If you want an interactive deploy, or want to link the demo `zprofile`, run:
 When you run `./mse deploy`:
 
 - on Linux / macOS / WSL, MSE checks `zsh` first; if it is missing, it stops and tells you to install `zsh` manually
-- if `zsh` already exists, the script installs Oh My Zsh, installs required plugins, links `~/.zshrc`, and switches the default shell to `zsh`
+- if `zsh` already exists, the script installs Oh My Zsh, installs required plugins, links `~/.zshrc`, and tries to switch the default shell to `zsh`
+- if the default shell cannot be changed to `zsh`, the script continues and gives you two choices: retry `chsh`, or skip `chsh` and instead add an auto-enter-zsh block to your current shell config
 - before deployment starts, the script prints the paths it may modify, such as `~/.zshrc`, `~/.oh-my-zsh`, plugin directories, `~/.condarc`, `~/.vim`, and `~/.config/nvim`
 - `~/.zprofile` is only touched when you explicitly pass `--use-zprofile-template`
 

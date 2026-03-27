@@ -68,6 +68,7 @@ git
 - 如果系统里没有 `zsh`，脚本会直接报错退出，并提示你先手动安装 `zsh`
 - 如果系统里已经有 `zsh`，脚本会继续配置 `oh-my-zsh`、标准插件 `git` / `z`、自定义插件 `zsh-syntax-highlighting` / `zsh-autosuggestions`
 - 部署会自动链接 `~/.zshrc`，并尝试执行 `chsh -s "$(which zsh)"`
+- 如果 `chsh` 不可用，或者你没有权限修改默认 shell，部署不会退出；脚本会继续，并询问你是否把“自动进入 zsh”的配置写入当前 shell 的配置文件
 - 仓库默认的 Oh My Zsh 主题是 `fino`
 - 如果你使用本仓库里的 `zshrc`，部署后不需要再手工维护 `plugins=(...)`
 
@@ -93,7 +94,8 @@ cd ~/.my_shell_envs
 执行 `./mse deploy` 时：
 
 - 在 Linux / macOS / WSL 上，部署会先检查 `zsh`；如果没有，就报错退出，并提示你先手动安装 `zsh`
-- 如果 `zsh` 已经存在，脚本会安装 Oh My Zsh、安装必需插件、链接 `~/.zshrc`，并把默认 shell 切到 `zsh`
+- 如果 `zsh` 已经存在，脚本会安装 Oh My Zsh、安装必需插件、链接 `~/.zshrc`，并尝试把默认 shell 切到 `zsh`
+- 如果默认 shell 无法改成 `zsh`，脚本会继续部署，并给你两个选择：重试 `chsh`，或者跳过 `chsh`，改为把自动进入 `zsh` 的逻辑写到当前 shell 的配置文件里
 - 部署开始前，脚本会先打印即将修改的路径，例如 `~/.zshrc`、`~/.oh-my-zsh`、插件目录、`~/.condarc`、`~/.vim`、`~/.config/nvim`
 - 只有在显式传入 `--use-zprofile-template` 时，才会改动 `~/.zprofile`
 

@@ -34,8 +34,7 @@
 
 ```
 .my_shell_envs/
-├── deploying_locally.sh          # 主部署脚本
-├── apply_personal_envs.sh        # 个人设置部署（可选）
+├── mse                           # 主部署/更新脚本
 ├── README.md                     # 用户文档
 ├── AGENTS.md                     # 本文件
 │
@@ -60,7 +59,7 @@
 │   └── pip.conf                  # Pip 配置（空，使用默认）
 │
 ├── bin/                          # 自定义二进制文件和符号链接
-│   ├── mse_update                # 本仓库的更新脚本
+│   ├── mse                       # 指向仓库主脚本的入口
 │   └── [各种工具的符号链接]
 │
 ├── tools/                        # 工具配置和源代码
@@ -115,34 +114,33 @@
 cd $HOME
 git clone https://github.com/hermanzhaozzzz/.my_shell_envs.git
 cd ~/.my_shell_envs
-bash deploying_locally.sh        # Linux/macOS
+./mse deploy                     # Linux/macOS
 # 或
-git-bash deploying_locally.sh    # Windows（在 PowerShell 中）
+git-bash ./mse deploy            # Windows（在 PowerShell 中）
 ```
 
-### 部署脚本行为 (`deploying_locally.sh`)
+### 部署脚本行为 (`mse deploy`)
 
 1. **平台检测**：检测 Linux、macOS（x86_64/ARM64）或 Windows
-2. **Micromamba 安装**：如果未安装则下载并安装 micromamba
+2. **基础环境检查**：检查 `zsh`，配置 Oh My Zsh、主题、插件、`~/.zshrc`
 3. **配置符号链接**：为以下文件创建符号链接：
    - `~/.zshrc` → `zsh/zshrc`
    - `~/.condarc` → `conda/condarc`
-   - `~/.spyder-py3` → `spyder/general/spyder-py3`
    - `~/.pip/pip.conf` → `pip/pip.conf`
    - Vim/Neovim 配置（从外部仓库克隆）
 4. **工具构建**：从源代码编译 jcat
-5. **外部工具**：克隆 wd（Wudao-dict）词典
+5. **默认工具依赖**：准备 Rust 工具链和 repo-managed CLI 工具
 
 ### 更新命令
 
 ```bash
-mse_update    # 定义在 bin/mse_update 中
+./mse update
 ```
 
 该命令：
 1. 切换到仓库目录
 2. 运行 `git fetch && git pull --rebase`
-3. 重新运行 `deploying_locally.sh`
+3. 重新运行 `./mse deploy`
 
 ---
 
@@ -185,7 +183,7 @@ rm.trash.clear   # 永久删除所有回收站内容
 ### 文件修改规则
 
 1. **切勿直接修改 `zprofile_hermanzhaozzzz_demo`** - 它是个人模板
-   - 用户应创建自己的 `~/.zprofile` 或使用 `apply_personal_envs.sh`
+   - 用户应创建自己的 `~/.zprofile`
 
 2. **向 `bin/` 添加新工具**：
    - 为外部工具创建符号链接：`ln -s /absolute/path/to/tool ~/.my_shell_envs/bin/toolname`
@@ -213,7 +211,7 @@ rm.trash.clear   # 永久删除所有回收站内容
 
 本项目**没有**自动化测试。测试是手动的：
 
-1. **部署测试**：在新系统上运行 `deploying_locally.sh`
+1. **部署测试**：在新系统上运行 `./mse deploy`
 2. **Shell 测试**：打开新终端，验证：
    - ZSH 无错误加载
    - Oh-my-zsh 插件工作正常
@@ -229,7 +227,6 @@ rm.trash.clear   # 永久删除所有回收站内容
 
 以下文件可能包含敏感数据：
 - `zsh/zprofile_hermanzhaozzzz_demo`：包含 API 密钥（TWENTYFIRST_API_KEY、MORPH_API_KEY）
-- `apply_personal_envs.sh`：符号链接个人配置文件
 - `bin/devtunnel`：二进制工具
 
 ### 安全最佳实践
@@ -272,7 +269,7 @@ rm.trash.clear   # 永久删除所有回收站内容
 
 2. 如果需要编译（如 jcat）：
    - 将源代码添加到 `tools/toolname/`
-   - 在 `deploying_locally.sh` 中添加构建逻辑
+   - 在 `mse` 中添加构建逻辑
    - 在 `bin/` 中创建符号链接
 
 3. 如果是 conda 包：
@@ -303,8 +300,8 @@ dependencies:
 
 1. **ZSH 无法加载**：确保首先安装 oh-my-zsh
 2. **找不到 Micromamba**：检查 zshrc 中的平台特定路径
-3. **权限错误**：确保 `deploying_locally.sh` 可执行
-4. **更新时的 Git 冲突**：手动解决，然后重新运行 `mse_update`
+3. **权限错误**：确保 `mse` 可执行
+4. **更新时的 Git 冲突**：手动解决，然后重新运行 `./mse update`
 
 ### 恢复
 

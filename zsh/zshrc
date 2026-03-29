@@ -12,7 +12,7 @@ if [[ -z "${_OS}" ]]; then
             export _OS="macOS"
             ;;
         Linux)
-            if grep -q Microsoft /proc/version 2>/dev/null; then
+            if grep -qi microsoft /proc/version 2>/dev/null; then
                 export _OS="WSL"
             else
                 export _OS="Linux"
@@ -22,6 +22,11 @@ if [[ -z "${_OS}" ]]; then
             export _OS="Unknown"
             ;;
     esac
+fi
+
+# Normalize stale OS values inherited from older private zprofile templates.
+if [[ "${_OS}" == "Linux" ]] && grep -qi microsoft /proc/version 2>/dev/null; then
+    export _OS="WSL"
 fi
 
 if [[ -z "${_ARCH}" ]]; then
@@ -293,9 +298,23 @@ alias l="eza -lha --time-style long-iso"
 
 if [[ $_OS == "WSL" ]]; then
     echo 'seems you are in wsl'
-    echo -e '\tsee doc: https://wslutiliti.es/wslu/zh-CN/install.html to install wslview cmd'
-    echo -e '\talias \033[1;35mopen\033[0m=wslview'
-    alias open='wslview'
+    if command -v wslview >/dev/null 2>&1; then
+        echo -e '\talias \033[1;35mopen\033[0m=wslview'
+        alias open='wslview'
+    elif command -v explorer.exe >/dev/null 2>&1; then
+        echo -e '\talias \033[1;35mopen\033[0m=explorer.exe'
+        alias open='explorer.exe'
+    else
+        echo -e '\tsee doc: https://wslutiliti.es/wslu/zh-CN/install.html to install wslview cmd'
+    fi
+
+    if command -v subl >/dev/null 2>&1; then
+        echo -e '\talias \033[1;35mopena\033[0m=subl'
+        alias opena='subl'
+    elif [ -x "/mnt/c/Program Files/Sublime Text/subl.exe" ]; then
+        echo -e '\talias \033[1;35mopena\033[0m=/mnt/c/Program\\ Files/Sublime\\ Text/subl.exe'
+        alias opena='"/mnt/c/Program Files/Sublime Text/subl.exe"'
+    fi
 fi
 
 # ------------------------------------------------------------------->>>>>>>>>>

@@ -251,7 +251,7 @@ rm.trash.clear   # 永久删除所有回收站内容
 - 支持 Intel（x86_64）和 Apple Silicon（ARM64）
 
 ### Windows
-- 使用 PowerShell 配置文件：`C:\Program Files\PowerShell\7\profile.ps1`
+- 使用 PowerShell 用户配置文件：`C:\Users\<用户名>\Documents\PowerShell\Microsoft.PowerShell_profile.ps1`
 - 需要 Scoop 包管理器
 - 使用 Starship 提示符
 - PSReadLine 使用 Emacs 键绑定

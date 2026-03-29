@@ -314,7 +314,13 @@ print_section() {
 
 describe_step() {
     case "$1" in
-        micromamba) echo "install micromamba and link conda env yml files" ;;
+        micromamba)
+            if [ "$platform" = "Windows" ]; then
+                echo "link conda env yml files and prepare PowerShell micromamba integration"
+            else
+                echo "install micromamba and link conda env yml files"
+            fi
+            ;;
         condarc) echo "link ~/.condarc to the repo config" ;;
         pip) echo "link pip.conf" ;;
         vim) echo "clone or update vim-for-coding" ;;
@@ -639,9 +645,11 @@ print_deploy_warnings() {
         print_list_item "default shell for the current user (via chsh)"
     fi
     if step_selected "micromamba"; then
-        print_path_item "$ROOT_PATH/bin/micromamba"
         print_path_item "$CONDA_ENVS/*.yml"
         print_path_item "$REPO_PATH/conda/micromamba-pycharm"
+        if [ "$platform" != "Windows" ]; then
+            print_path_item "$ROOT_PATH/bin/micromamba"
+        fi
     fi
     if step_selected "condarc"; then
         print_path_item "$HOME/.condarc"
@@ -667,7 +675,7 @@ print_deploy_warnings() {
         print_path_item "$BIN_PATH/wd"
     fi
     if step_selected "powershell"; then
-        print_path_item "/c/Program Files/PowerShell/7/profile.ps1"
+        print_path_item "$HOME/Documents/PowerShell/Microsoft.PowerShell_profile.ps1"
     fi
     if [ "$use_zprofile_template" -eq 1 ] && [ "$platform" != "Windows" ]; then
         print_path_item "$HOME/.zprofile"
@@ -697,6 +705,42 @@ backup_and_link() {
     ln -s "$source_path" "$target_path"
 }
 
+backup_and_link_windows_native() {
+    local source_path="$1"
+    local target_path="$2"
+    local source_windows=""
+    local target_windows=""
+
+    require_cmd pwsh
+    require_cmd cygpath
+
+    backup_existing_path "$target_path"
+
+    source_windows="$(cygpath -aw "$source_path")" || fail "failed to convert source path for Windows symlink: $source_path"
+    target_windows="$(cygpath -aw "$target_path")" || fail "failed to convert target path for Windows symlink: $target_path"
+
+    pwsh -NoProfile -Command "\$source = '$source_windows'; \$target = '$target_windows'; New-Item -ItemType SymbolicLink -Path \$target -Target \$source -Force | Out-Null" \
+        || fail "failed to create Windows symbolic link: $target_path -> $source_path"
+}
+
+force_link_windows_native() {
+    local source_path="$1"
+    local target_path="$2"
+    local source_windows=""
+    local target_windows=""
+
+    require_cmd pwsh
+    require_cmd cygpath
+
+    /bin/rm -rf "$target_path" 2>/dev/null
+
+    source_windows="$(cygpath -aw "$source_path")" || fail "failed to convert source path for Windows symlink: $source_path"
+    target_windows="$(cygpath -aw "$target_path")" || fail "failed to convert target path for Windows symlink: $target_path"
+
+    pwsh -NoProfile -Command "\$source = '$source_windows'; \$target = '$target_windows'; New-Item -ItemType SymbolicLink -Path \$target -Target \$source -Force | Out-Null" \
+        || fail "failed to create Windows symbolic link: $target_path -> $source_path"
+}
+
 force_link() {
     local source_path="$1"
     local target_path="$2"
@@ -705,8 +749,59 @@ force_link() {
     ln -s "$source_path" "$target_path"
 }
 
+resolve_windows_powershell_profile_dir() {
+    local documents_windows=""
+    local documents_unix=""
+
+    require_cmd pwsh
+    require_cmd cygpath
+
+    documents_windows="$(pwsh -NoProfile -Command "[Environment]::GetFolderPath('MyDocuments')" | tr -d '\r')" || return 1
+    [ -n "$documents_windows" ] || return 1
+
+    documents_unix="$(cygpath -u "$documents_windows")" || return 1
+    printf '%s/PowerShell\n' "$documents_unix"
+}
+
 require_cmd() {
     command -v "$1" >/dev/null 2>&1 || fail "Seems the command '$1' is not installed on your system, please install it first."
+}
+
+install_python_packages_if_available() {
+    local installer_name=""
+
+    if command -v pip >/dev/null 2>&1; then
+        installer_name="pip"
+        pip install "$@" || log_warn "failed to install Python packages with $installer_name: $*"
+        return 0
+    fi
+
+    if command -v pip3 >/dev/null 2>&1; then
+        installer_name="pip3"
+        pip3 install "$@" || log_warn "failed to install Python packages with $installer_name: $*"
+        return 0
+    fi
+
+    if command -v python >/dev/null 2>&1; then
+        installer_name="python -m pip"
+        python -m pip install "$@" || log_warn "failed to install Python packages with $installer_name: $*"
+        return 0
+    fi
+
+    if command -v python3 >/dev/null 2>&1; then
+        installer_name="python3 -m pip"
+        python3 -m pip install "$@" || log_warn "failed to install Python packages with $installer_name: $*"
+        return 0
+    fi
+
+    if command -v py >/dev/null 2>&1; then
+        installer_name="py -m pip"
+        py -m pip install "$@" || log_warn "failed to install Python packages with $installer_name: $*"
+        return 0
+    fi
+
+    log_warn "skip Python package install because pip/python was not found in PATH: $*"
+    return 0
 }
 
 get_zsh_custom_path() {
@@ -1339,26 +1434,25 @@ step_micromamba() {
     local yml
     local found_any=0
 
-    if [ "$platform" = "Windows" ]; then
-        log_warn "skip micromamba on Windows"
-        return 0
-    fi
-
     log_info "prepare micromamba and conda env config files"
 
-    if [ ! -x "$ROOT_PATH/bin/micromamba" ]; then
-        log_info "micromamba not found at $(fmt_path "$ROOT_PATH/bin/micromamba"), starting install"
-        require_cmd bzip2
-        require_cmd curl
-        require_cmd tar
-
-        mkdir -p "$ROOT_PATH"
-        (
-            cd "$ROOT_PATH" || exit 1
-            curl -Ls "$MICROMAMBA_URL" | tar -xvj bin/micromamba
-        ) || fail "micromamba installation failed"
+    if [ "$platform" = "Windows" ]; then
+        log_info "Windows installs micromamba via the PowerShell bootstrap step"
     else
-        log_ok "micromamba already exists at $(fmt_path "$ROOT_PATH/bin/micromamba")"
+        if [ ! -x "$ROOT_PATH/bin/micromamba" ]; then
+            log_info "micromamba not found at $(fmt_path "$ROOT_PATH/bin/micromamba"), starting install"
+            require_cmd bzip2
+            require_cmd curl
+            require_cmd tar
+
+            mkdir -p "$ROOT_PATH"
+            (
+                cd "$ROOT_PATH" || exit 1
+                curl -Ls "$MICROMAMBA_URL" | tar -xvj bin/micromamba
+            ) || fail "micromamba installation failed"
+        else
+            log_ok "micromamba already exists at $(fmt_path "$ROOT_PATH/bin/micromamba")"
+        fi
     fi
 
     if [ ! -d "$REPO_PATH/conda/micromamba-pycharm/.git" ]; then
@@ -1373,7 +1467,11 @@ step_micromamba() {
     for yml in "$REPO_PATH"/conda/"$platform"/*.yml; do
         [ -e "$yml" ] || continue
         found_any=1
-        force_link "$yml" "$CONDA_ENVS/$(basename "$yml")"
+        if [ "$platform" = "Windows" ]; then
+            force_link_windows_native "$yml" "$CONDA_ENVS/$(basename "$yml")"
+        else
+            force_link "$yml" "$CONDA_ENVS/$(basename "$yml")"
+        fi
     done
 
     if [ "$found_any" -eq 0 ]; then
@@ -1381,7 +1479,11 @@ step_micromamba() {
     fi
 
     log_ok "conda env config directory ready: $(fmt_path "$CONDA_ENVS")"
-    log_ok "micromamba is ready to act as conda / mamba"
+    if [ "$platform" = "Windows" ]; then
+        log_ok "Windows micromamba integration files are ready"
+    else
+        log_ok "micromamba is ready to act as conda / mamba"
+    fi
 }
 
 step_condarc() {
@@ -1476,7 +1578,7 @@ step_wd() {
         log_info "Wudao-dict not found, cloning"
         backup_existing_path "$dict_root"
         git clone "${url_root}hermanzhaozzzz/Wudao-dict.git" "$dict_root"
-        pip install bs4 lxml
+        install_python_packages_if_available bs4 lxml
     fi
 
     mkdir -p "$wd_root/usr"
@@ -1501,24 +1603,29 @@ EOF
 }
 
 step_powershell() {
-    local win_profile
+    local win_current_host_profile
+    local win_profile_root
     local repo_profile
+    local bootstrap_status=0
 
     if [ "$platform" != "Windows" ]; then
         log_warn "skip PowerShell profile on platform: $platform"
         return 0
     fi
 
-    require_cmd powershell
+    require_cmd pwsh
 
-    win_profile="/c/Program Files/PowerShell/7/profile.ps1"
+    win_profile_root="$(resolve_windows_powershell_profile_dir)" || fail "failed to resolve the Windows PowerShell user profile directory"
+    win_current_host_profile="$win_profile_root/Microsoft.PowerShell_profile.ps1"
     repo_profile="$REPO_PATH/powershell/Microsoft.PowerShell_profile.ps1"
 
-    mkdir -p "/c/Program Files/PowerShell/7"
-    log_info "link PowerShell profile to $(fmt_path "$win_profile")"
-    /bin/rm -rf "$HOME/.condarc" 2>/dev/null
-    powershell -File "$repo_profile"
-    backup_and_link "$repo_profile" "$win_profile"
+    mkdir -p "$win_profile_root"
+    log_info "link PowerShell profile to $(fmt_path "$win_profile_root")"
+    if ! MSE_POWERSHELL_BOOTSTRAP=1 pwsh -NoProfile -ExecutionPolicy Bypass -File "$repo_profile"; then
+        bootstrap_status=$?
+        log_warn "PowerShell bootstrap returned exit code $bootstrap_status; profile will still be linked"
+    fi
+    backup_and_link_windows_native "$repo_profile" "$win_current_host_profile"
     log_ok "PowerShell profile linked from $(fmt_path "$repo_profile")"
 }
 
@@ -1613,7 +1720,7 @@ command_deploy() {
     fi
 
     if step_selected "micromamba"; then
-        print_list_item "conda activate base && conda install -f $CONDA_ENVS/base.yml"
+        print_list_item "PowerShell: conda env update -n base -f $CONDA_ENVS/base.yml --prune"
     fi
 
     if [ "$platform" != "Windows" ]; then
@@ -1624,8 +1731,11 @@ command_deploy() {
     print_list_item "raise issue on https://github.com/hermanzhaozzzz/.my_shell_envs/issues"
 
     if [ "$platform" = "Windows" ]; then
-        log_warn "this window will close after 300s, you can exit now"
-        sleep 300
+        if [ -t 0 ]; then
+            log_warn "press any key to exit"
+            IFS= read -r -n 1 -s _
+            printf '\n'
+        fi
     fi
 }
 

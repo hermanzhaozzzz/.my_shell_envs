@@ -129,6 +129,7 @@ Windows 上直接这样做：
 
 - Windows 主流程是 `PowerShell` + `git-bash`
 - 普通用户默认使用 HTTPS clone
+- `mse deploy` 会把 PowerShell 用户 profile `~/Documents/PowerShell/Microsoft.PowerShell_profile.ps1` 链接到仓库中的 `powershell/Microsoft.PowerShell_profile.ps1`，因此后续直接修改任一侧都能实时联动，不需要重新部署
 
 ### SSH 安装（开发者）
 
@@ -272,6 +273,7 @@ chmod +x ~/.my_shell_envs/bin/your_tool
 
 - 安装 `micromamba`
 - 把当前平台对应的环境文件从 `conda/<platform>/` 软链接到 `conda_local_env_settings/`
+- 在 Windows 上，如果仓库里存在 `tools/micromamba/Windows/micromamba-win-64.exe`，会优先直接复用这份本地备份，避免 TLS / 代理问题导致的在线安装失败
 
 它不会自动创建所有环境。部署完成后，需要你自己执行 `conda` 命令。
 
@@ -281,10 +283,10 @@ chmod +x ~/.my_shell_envs/bin/your_tool
 ~/.my_shell_envs/conda_local_env_settings/base.yml
 ```
 
-要更新或安装 `base` 环境，直接执行：
+要在 PowerShell 中重建或更新 `base` 环境，直接执行：
 
 ```shell
-conda activate base && conda install -f ~/.my_shell_envs/conda_local_env_settings/base.yml
+conda env update -n base -f ~/.my_shell_envs/conda_local_env_settings/base.yml --prune
 ```
 
 如果你要装别的环境，就把 `base.yml` 换成对应的 `.yml` 文件。

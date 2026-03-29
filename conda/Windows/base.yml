@@ -99,4 +99,4 @@ dependencies:
   - xorg-libxdmcp=1.1.5=h0e40799_0
   - zstd=1.5.7=hbeecb71_2
 
-prefix: "C:\\Users\\zhaohuanan\\micromamba"
+prefix: "C:\\Users\\Administrator\\micromamba"

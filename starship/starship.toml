@@ -1,0 +1,42 @@
+add_newline = false
+command_timeout = 1500
+
+format = "$username$hostname$directory$git_branch$git_status$conda$python$cmd_duration$line_break$character"
+
+[username]
+show_always = true
+format = "[$user](bold red) "
+
+[hostname]
+ssh_only = false
+format = "in [$hostname](bold yellow) "
+
+[directory]
+truncate_to_repo = false
+truncation_length = 5
+format = "[$path](bold cyan) "
+
+[git_branch]
+symbol = "git "
+format = "on [$symbol$branch](bold purple) "
+
+[git_status]
+format = "([$all_status$ahead_behind](bold red) )"
+
+[conda]
+symbol = "conda "
+ignore_base = false
+format = "via [$symbol$environment](bold green) "
+
+[python]
+symbol = "py "
+format = "via [$symbol$version](bold green) "
+
+[cmd_duration]
+min_time = 500
+format = "took [$duration](dimmed white) "
+
+[character]
+success_symbol = "[>](bold green) "
+error_symbol = "[>](bold red) "
+vimcmd_symbol = "[<](bold green) "

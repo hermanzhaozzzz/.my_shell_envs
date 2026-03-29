@@ -62,6 +62,9 @@ Fast deployment for shell environments.
 ```shell
 # required on macOS / Linux / WSL
 git
+# 编译依赖时，需要调用系统 C 编译器/链接器
+sudo apt update
+sudo apt install -y build-essential pkg-config
 ```
 
 脚本会按下面的规则处理：

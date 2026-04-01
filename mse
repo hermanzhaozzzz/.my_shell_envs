@@ -31,7 +31,7 @@ ZPROFILE_TEMPLATE_PATH="$REPO_PATH/zsh/zprofile_hermanzhaozzzz_demo"
 DEFAULT_REPO_URL="https://github.com/hermanzhaozzzz/.my_shell_envs.git"
 DEFAULT_REPO_SSH_URL="git@github.com:hermanzhaozzzz/.my_shell_envs.git"
 DEFAULT_BRANCH="main"
-AVAILABLE_STEPS="micromamba condarc pip vim nvim jcat wd powershell"
+AVAILABLE_STEPS="micromamba condarc pip vim nvim jcat wd powershell code_notify"
 OH_MY_ZSH_PATH="$HOME/.oh-my-zsh"
 OH_MY_ZSH_INSTALL_URL="https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh"
 RUSTUP_INSTALL_URL="https://sh.rustup.rs"
@@ -328,6 +328,7 @@ describe_step() {
         jcat) echo "build and link jcat" ;;
         wd) echo "clone or update Wudao-dict" ;;
         powershell) echo "set the PowerShell profile on Windows" ;;
+        code_notify) echo "install code-notify and configure macOS terminal alerts" ;;
         *) echo "custom step" ;;
     esac
 }
@@ -359,6 +360,9 @@ step_supported_on_platform() {
             ;;
         jcat|rust)
             [ "$platform" != "Windows" ]
+            ;;
+        code_notify)
+            [ "$platform_family" = "MacOS" ]
             ;;
         *)
             return 0
@@ -1602,6 +1606,39 @@ EOF
     log_ok "wd ready at $(fmt_path "$wd_script")"
 }
 
+step_code_notify() {
+    if [ "$platform_family" != "MacOS" ]; then
+        log_warn "skip code-notify on platform: $platform"
+        return 0
+    fi
+
+    print_section "ensure code-notify is installed"
+
+    if command -v cn >/dev/null 2>&1; then
+        log_ok "code-notify already installed at $(fmt_path "$(command -v cn)")"
+    else
+        log_info "code-notify not found, installing via brew"
+        if command -v brew >/dev/null 2>&1; then
+            brew tap mylee04/tools || log_warn "failed to tap mylee04/tools"
+            brew install code-notify || fail "failed to install code-notify via brew"
+        else
+            fail "Homebrew is required to install code-notify but was not found in PATH"
+        fi
+    fi
+
+    log_info "configuring code-notify sound"
+    cn sound set /System/Library/Sounds/Blow.aiff || log_warn "failed to set code-notify sound"
+
+    log_info "adding code-notify alerts"
+    cn alerts add permission_prompt || log_warn "failed to add permission_prompt alert"
+    cn alerts add auth_success || log_warn "failed to add auth_success alert"
+
+    log_info "enabling code-notify"
+    cn on || log_warn "failed to enable code-notify"
+
+    log_ok "code-notify is ready"
+}
+
 step_powershell() {
     local win_current_host_profile
     local win_profile_root
@@ -1684,6 +1721,7 @@ command_deploy() {
     run_step "jcat" step_jcat
     run_step "wd" step_wd
     run_step "powershell" step_powershell
+    run_step "code_notify" step_code_notify
 
     if [ "$use_zprofile_template" -eq 1 ]; then
         apply_zprofile_template

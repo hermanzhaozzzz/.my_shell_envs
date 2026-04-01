@@ -26,6 +26,7 @@ Fast deployment for shell environments.
   - [4. jcat](#4-jcat)
   - [5. wd](#5-wd)
   - [6. 其他小工具](#6-其他小工具)
+  - [7. code-notify](#7-code-notify)
 - [贡献](#贡献)
 - [许可证](#许可证)
 
@@ -233,6 +234,7 @@ MSE_STEP_VIM='true'
 MSE_STEP_NVIM='true'
 MSE_STEP_JCAT='false'
 MSE_STEP_WD='true'
+MSE_STEP_CODE_NOTIFY='true'
 ```
 
 这些字段的含义：
@@ -507,6 +509,21 @@ alias proxy.off=proxy_off
 - `open` 等常用别名
 - `conda/micromamba-pycharm`：给 PyCharm 用的 micromamba 兼容桥接，让 PyCharm 可以把 micromamba 当成 conda 可执行文件
 - 可以通过在 `~/.my_shell_envs/bin` 下建立软链接，把你自己的命令加入 PATH
+
+### 7. code-notify
+
+macOS 终端通知工具，参考项目：
+
+- [code-notify](https://github.com/mylee04/code-notify)
+
+如果你在 macOS 上部署时选择了 `code_notify`，MSE 会：
+
+- 通过 Homebrew 安装 `code-notify`
+- 设置提示音为 `Blow.aiff`
+- 添加 `permission_prompt` 和 `auth_success` 两种 alert
+- 启用通知
+
+交互式部署中你可以跳过这一步。Windows / Linux 上该步骤自动忽略。
 
 ## 贡献
 

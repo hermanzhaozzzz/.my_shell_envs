@@ -25,6 +25,7 @@ This repository helps me bootstrap a personal shell and development environment 
   - [4. jcat](#4-jcat)
   - [5. wd](#5-wd)
   - [6. Other Utilities](#6-other-utilities)
+  - [7. code-notify](#7-code-notify)
 - [Contributing](#contributing)
 - [License](#license)
 
@@ -228,6 +229,7 @@ MSE_STEP_VIM='true'
 MSE_STEP_NVIM='true'
 MSE_STEP_JCAT='false'
 MSE_STEP_WD='true'
+MSE_STEP_CODE_NOTIFY='true'
 ```
 
 What these fields mean:
@@ -501,6 +503,21 @@ The repo also includes a few convenience helpers:
 - aliases such as `open`
 - `conda/micromamba-pycharm`: a small compatibility bridge for PyCharm so it can use micromamba as a conda executable
 - an easy way to expose your own commands by linking them into `~/.my_shell_envs/bin`
+
+### 7. code-notify
+
+A macOS terminal notification tool. Reference:
+
+- [code-notify](https://github.com/mylee04/code-notify)
+
+If you select `code_notify` during macOS deployment, MSE will:
+
+- install `code-notify` via Homebrew
+- set the alert sound to `Blow.aiff`
+- add `permission_prompt` and `auth_success` alerts
+- turn notifications on
+
+You can skip this step in interactive mode. It is automatically ignored on Windows / Linux.
 
 ## Contributing
 

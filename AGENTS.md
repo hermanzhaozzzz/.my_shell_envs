@@ -52,9 +52,6 @@
 │   ├── Windows/                  # Windows 环境 YAML 文件
 │   └── micromamba-pycharm/       # PyCharm micromamba 集成
 │
-├── spyder/                       # Spyder IDE 配置
-│   └── general/spyder-py3/       # Spyder 设置目录
-│
 ├── pip/                          # Pip 配置
 │   └── pip.conf                  # Pip 配置（空，使用默认）
 │
@@ -92,7 +89,6 @@
 |--------|---------------------|
 | Vim | [vim-for-coding](https://github.com/hermanzhaozzzz/vim-for-coding) |
 | Neovim | [MyLazyVim](https://github.com/hermanzhaozzzz/MyLazyVim) |
-| Spyder | 本地配置在 `spyder/general/` |
 
 ### 外部工具
 | 工具 | 用途 | 语言 |
@@ -227,14 +223,12 @@ rm.trash.clear   # 永久删除所有回收站内容
 ### 敏感信息
 
 以下文件可能包含敏感数据：
-- `zsh/zprofile_hermanzhaozzzz_demo`：包含 API 密钥（TWENTYFIRST_API_KEY、MORPH_API_KEY）
 - `bin/devtunnel`：二进制工具
 
 ### 安全最佳实践
 
-1. **API 密钥**：目前硬编码在 zprofile 中 - 考虑使用环境特定文件
-2. **代理设置**：配置为特定端口（8234、7890）- 部署前验证
-3. **SSH 配置**：zprofile 中的服务器 IP 和主机名
+1. **代理设置**：配置为特定端口（8234、7890）- 部署前验证
+2. **SSH 配置**：zprofile 中的服务器 IP 和主机名
 
 ---
 

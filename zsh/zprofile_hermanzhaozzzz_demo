@@ -290,3 +290,7 @@ fi
 # GLOBAL PATH SETTING
 # ------------------------------------------------------------------->>>>>>>>>>
 export PATH=$PATH:${HOME}/.local/bin
+
+
+
+[ -f "$HOME/.zprofile.private" ] && source "$HOME/.zprofile.private"

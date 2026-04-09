@@ -299,6 +299,7 @@ alias l="eza -lha --time-style long-iso"
 if [[ $_OS == "WSL" ]]; then
     echo 'seems you are in wsl'
     # macOS-like open command using Windows default apps
+    unalias open 2>/dev/null
     open() {
         local target="${1:-.}"
         if command -v wslpath >/dev/null 2>&1; then

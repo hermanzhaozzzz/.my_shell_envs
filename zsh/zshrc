@@ -298,15 +298,15 @@ alias l="eza -lha --time-style long-iso"
 
 if [[ $_OS == "WSL" ]]; then
     echo 'seems you are in wsl'
-    if command -v wslview >/dev/null 2>&1; then
-        echo -e '\talias \033[1;35mopen\033[0m=wslview'
-        alias open='wslview'
-    elif command -v explorer.exe >/dev/null 2>&1; then
-        echo -e '\talias \033[1;35mopen\033[0m=explorer.exe'
-        alias open='explorer.exe'
-    else
-        echo -e '\tsee doc: https://wslutiliti.es/wslu/zh-CN/install.html to install wslview cmd'
-    fi
+    # macOS-like open command using Windows default apps
+    open() {
+        local target="${1:-.}"
+        if command -v wslpath >/dev/null 2>&1; then
+            explorer.exe "$(wslpath -w "$target")"
+        else
+            explorer.exe "$target"
+        fi
+    }
 
     if command -v subl >/dev/null 2>&1; then
         echo -e '\talias \033[1;35mopena\033[0m=subl'
@@ -314,6 +314,8 @@ if [[ $_OS == "WSL" ]]; then
     elif [ -x "/mnt/c/Program Files/Sublime Text/subl.exe" ]; then
         echo -e '\talias \033[1;35mopena\033[0m=/mnt/c/Program\\ Files/Sublime\\ Text/subl.exe'
         alias opena='"/mnt/c/Program Files/Sublime Text/subl.exe"'
+    else
+        echo -e '\t\033[1;33mopena\033[0m: subl not found, install via scoop: \033[1;36mscoop install sublime-text\033[0m'
     fi
 fi
 

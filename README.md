@@ -303,33 +303,33 @@ export MSE_PROXY_PORT=7890
 # login 节点：先看状态
 proxy.status
 
-# login 节点：把当前 shell 接到本地 Clash
+# login 节点：按需手动开启代理（login 节点不会自动开代理，避免流量浪费）
 proxy.on
 
 # login 节点：测国内外站点
 proxy.test
-curl -I https://www.baidu.com
-curl -I https://www.google.com
-curl -I https://api.openai.com
-curl -I https://api.anthropic.com
 
 # login 节点：关掉当前 shell 的代理变量
 proxy.off
 ```
 
 ```shell
-# compute 节点：先看仓库判断你现在是什么角色
-proxy.status
-
-# compute 节点：把本地端口转回 login 节点上的 Clash
-proxy.on
+# compute 节点：自动开代理（默认行为）
+# 加载 zshrc 时会自动执行 proxy.on
 
 # compute 节点：测网络
 proxy.test
-curl -I https://www.baidu.com
-curl -I https://www.google.com
-curl -I https://api.openai.com
-curl -I https://api.anthropic.com
+```
+
+`proxy.test` 会依次测试 `baidu.com`、`google.com.hk`、`api.openai.com`、`api.anthropic.com`、`z.ai`，每个 URL 显示 OK 或 FAIL：
+
+```text
+== curl via env proxy ==
+  OK              baidu.com (HTTP 200)
+  OK              google.com.hk (HTTP 200)
+  OK              openai (HTTP 421)
+  OK              claude (HTTP 403)
+  OK              z.ai (HTTP 307)
 ```
 
 流量路径是：
@@ -371,8 +371,6 @@ proxy.on
 # compute 节点：测常见外网服务
 proxy.test
 proxy.exec curl -I https://www.google.com
-proxy.exec curl -I https://api.openai.com
-proxy.exec curl -I https://api.anthropic.com
 ```
 
 在这个模式下，`proxy.exec` 会更稳一些，因为它直接用 `proxychains-ng` 套住命令。
@@ -446,17 +444,25 @@ MSE_PROXY_UPSTREAM_HOST=login03 proxy.on
 
 ### 自动启用
 
-默认情况下，compute 节点加载 `zshrc` 时会尝试自动执行 `proxy.on`。如果你不想要这个行为，就在 `~/.zprofile` 里写：
+- **compute 节点**：加载 `zshrc` 时自动执行 `proxy.on`（开 autossh 隧道 + 设环境变量 + 设 `GIT_SSH_COMMAND`）
+- **login/direct 节点**：不会自动开代理，只提示 `proxy.on` 可用；需要时手动执行
+
+如果你不想要 compute 节点的自动启用行为，在 `~/.zprofile` 里写：
 
 ```shell
 export MSE_SLURM_NODE_PROXY_AUTO_ENABLE=false
 ```
+
+### compute 节点上的 git
+
+compute 节点 DNS 无法解析外网域名（如 `ssh.github.com`），SSH 不走 `http_proxy`。`proxy.on` 会在 compute 节点自动设置 `GIT_SSH_COMMAND`，通过 SOCKS5 代理路由 git SSH 流量，`git push` / `git pull` 可以直接使用。
 
 ### 限制
 
 - `proxychains-ng` 只适用于 TCP，不覆盖 UDP / ICMP
 - `scancel` 掉 compute 节点后，节点上的 `autossh`、`sshd`、shell 和代理状态会一起结束
 - 换新节点后，要重新进入节点，再重新执行 `proxy.on`
+- Go 程序（如 `frp-panel`）绕过 libc 做 DNS，`proxychains` 无法拦截；compute 节点上需要用 IP 替代域名
 
 ## 贡献
 

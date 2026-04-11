@@ -390,8 +390,8 @@ _mse_proxy_start_tunnel() {
     fi
 
     if _mse_proxy_port_open "127.0.0.1" "${MSE_PROXY_PORT}"; then
-        echo "proxy.on: local ${MSE_PROXY_PORT} is already listening, refusing to overwrite it"
-        return 1
+        echo "proxy.on: local ${MSE_PROXY_PORT} is already listening, reusing existing tunnel"
+        return 0
     fi
 
     if [[ "${proxy_mode}" == "direct-egress" ]]; then

@@ -27,6 +27,7 @@ REPO_BIN_RG_PATH="$BIN_PATH/rg"
 REPO_BIN_AUTOSSH_PATH="$BIN_PATH/autossh"
 REPO_BIN_PROXYCHAINS4_PATH="$BIN_PATH/proxychains4"
 REPO_BIN_PROXYCHAINS_PATH="$BIN_PATH/proxychains"
+REPO_BIN_CLASH_PATH="$BIN_PATH/clash"
 CONDA_ENVS="$REPO_PATH/conda_local_env_settings"
 METADATA_FILE="$REPO_PATH/.mse-install.env"
 REPO_BIN_MSE_PATH="$BIN_PATH/mse"
@@ -50,6 +51,7 @@ PROXYCHAINS_SOURCE_DIR="$REPO_PATH/tools/proxychains-ng"
 PROXYCHAINS_PREFIX_DIR="$REPO_PATH/tools/proxychains-ng/prefix"
 PROXYCHAINS_BIN_PATH="$PROXYCHAINS_PREFIX_DIR/bin/proxychains4"
 PROXYCHAINS_LIB_PATH="$PROXYCHAINS_PREFIX_DIR/lib/libproxychains4.so"
+CLASH_REPO_PATH="$REPO_PATH/tools/clash/clash"
 
 git_method="https"
 deploy_mode="fast"
@@ -64,6 +66,12 @@ persisted_deploy_mode="fast"
 persisted_use_zprofile_template=0
 persisted_selected_steps=""
 persisted_default_branch="$DEFAULT_BRANCH"
+region="china"
+proxy_mode="clash"
+proxy_port="8234"
+persisted_region="china"
+persisted_proxy_mode="clash"
+persisted_proxy_port="8234"
 
 print_root_usage() {
     cat <<'EOF'
@@ -342,7 +350,7 @@ describe_step() {
         wd) echo "clone or update Wudao-dict" ;;
         powershell) echo "set the PowerShell profile on Windows" ;;
         code_notify) echo "install code-notify and configure macOS terminal alerts" ;;
-        cluster_proxy_tools) echo "build autossh and link proxychains4 for cluster proxy workflows" ;;
+        cluster_proxy_tools) echo "build autossh/proxychains and prepare cluster proxy tooling" ;;
         *) echo "custom step" ;;
     esac
 }
@@ -512,6 +520,9 @@ load_persisted_deploy_settings() {
     persisted_use_zprofile_template=0
     persisted_selected_steps=""
     persisted_default_branch="$DEFAULT_BRANCH"
+    persisted_region="china"
+    persisted_proxy_mode="clash"
+    persisted_proxy_port="8234"
 
     [ -f "$METADATA_FILE" ] || return 0
 
@@ -543,6 +554,15 @@ load_persisted_deploy_settings() {
             MSE_DEFAULT_BRANCH)
                 persisted_default_branch="$value"
                 ;;
+            MSE_REGION)
+                persisted_region="$value"
+                ;;
+            MSE_PROXY_MODE)
+                persisted_proxy_mode="$value"
+                ;;
+            MSE_PROXY_PORT)
+                persisted_proxy_port="$value"
+                ;;
             MSE_STEP_*)
                 step="$(step_from_env_key "$key" 2>/dev/null || true)"
                 if [ -n "$step" ]; then
@@ -571,6 +591,29 @@ load_persisted_deploy_settings() {
         *)
             log_warn "invalid MSE_DEPLOY_MODE in $(fmt_path "$METADATA_FILE"), falling back to fast"
             persisted_deploy_mode="fast"
+            ;;
+    esac
+
+    case "$persisted_region" in
+        china|global) ;;
+        *)
+            log_warn "invalid MSE_REGION in $(fmt_path "$METADATA_FILE"), falling back to china"
+            persisted_region="china"
+            ;;
+    esac
+
+    case "$persisted_proxy_mode" in
+        clash|direct-egress) ;;
+        *)
+            log_warn "invalid MSE_PROXY_MODE in $(fmt_path "$METADATA_FILE"), falling back to clash"
+            persisted_proxy_mode="clash"
+            ;;
+    esac
+
+    case "$persisted_proxy_port" in
+        ''|*[!0-9]*)
+            log_warn "invalid MSE_PROXY_PORT in $(fmt_path "$METADATA_FILE"), falling back to 8234"
+            persisted_proxy_port="8234"
             ;;
     esac
 
@@ -605,6 +648,9 @@ persist_deploy_settings() {
 # Allowed values:
 #   MSE_GIT_METHOD=https|ssh
 #   MSE_DEPLOY_MODE=fast|interactive
+#   MSE_REGION=china|global
+#   MSE_PROXY_MODE=clash|direct-egress
+#   MSE_PROXY_PORT=<number>
 #   MSE_USE_ZPROFILE_TEMPLATE=true|false
 #   MSE_STEP_<NAME>=true|false
 #
@@ -615,6 +661,9 @@ persist_deploy_settings() {
 MSE_GIT_METHOD='$git_method'
 MSE_DEPLOY_MODE='$deploy_mode'
 MSE_DEFAULT_BRANCH='$current_branch'
+MSE_REGION='$region'
+MSE_PROXY_MODE='$proxy_mode'
+MSE_PROXY_PORT='$proxy_port'
 MSE_USE_ZPROFILE_TEMPLATE='$(bool_string "$use_zprofile_template")'
 EOF
 
@@ -668,6 +717,10 @@ print_deploy_warnings() {
             print_path_item "$REPO_BIN_PROXYCHAINS4_PATH"
             print_path_item "$REPO_BIN_PROXYCHAINS_PATH"
             print_path_item "$PROXYCHAINS_CONFIG_PATH"
+            print_path_item "$CLASH_REPO_PATH"
+            if [ "$platform" = "Linux" ]; then
+                print_path_item "$REPO_BIN_CLASH_PATH"
+            fi
         fi
         print_list_item "default shell for the current user (via chsh)"
     fi
@@ -1015,6 +1068,68 @@ choose_steps() {
     done
 }
 
+choose_proxy_region() {
+    local answer=""
+
+    region="china"
+    proxy_mode="clash"
+    proxy_port="8234"
+
+    if ! step_selected "cluster_proxy_tools" || [ "$platform" = "Windows" ]; then
+        return 0
+    fi
+
+    if [ "$internal_update_mode" = "1" ]; then
+        region="$persisted_region"
+        proxy_mode="$persisted_proxy_mode"
+        proxy_port="$persisted_proxy_port"
+        log_info "update is reusing saved proxy profile: region=$region mode=$proxy_mode port=$proxy_port"
+        return 0
+    fi
+
+    if [ "$deploy_mode" = "fast" ]; then
+        region="china"
+        proxy_mode="clash"
+        proxy_port="8234"
+        log_info "fast mode uses the default proxy profile: region=$region mode=$proxy_mode port=$proxy_port"
+        return 0
+    fi
+
+    print_section "cluster proxy profile"
+    printf '%s are you in China and planning to use Clash on the login node? [Y/n]: ' "$(badge "$COLOR_BLUE" "ASK")"
+    read answer || answer=""
+    case "$answer" in
+        n|N|no|NO)
+            region="global"
+            proxy_mode="direct-egress"
+            proxy_port="${persisted_proxy_port:-8234}"
+            log_info "selected proxy profile: region=$region mode=$proxy_mode"
+            print_list_item "no Clash is required"
+            print_list_item "compute nodes will use autossh -D to borrow the login node network"
+            ;;
+        *)
+            region="china"
+            proxy_mode="clash"
+            proxy_port="${persisted_proxy_port:-8234}"
+            printf '%s Clash port on the login node [default: %s]: ' "$(badge "$COLOR_BLUE" "ASK")" "$proxy_port"
+            read answer || answer=""
+            if [ -n "$answer" ]; then
+                case "$answer" in
+                    *[!0-9]*)
+                        log_warn "invalid port '$answer', falling back to $proxy_port"
+                        ;;
+                    *)
+                        proxy_port="$answer"
+                        ;;
+                esac
+            fi
+            log_info "selected proxy profile: region=$region mode=$proxy_mode port=$proxy_port"
+            print_list_item "remember to start Clash on the login node"
+            print_list_item "make sure Clash listens on 127.0.0.1:$proxy_port"
+            ;;
+    esac
+}
+
 run_step() {
     local step="$1"
     local function_name="$2"
@@ -1049,6 +1164,10 @@ sync_optional_bin_entries() {
         remove_managed_bin_entry "$REPO_BIN_AUTOSSH_PATH"
         remove_managed_bin_entry "$REPO_BIN_PROXYCHAINS4_PATH"
         remove_managed_bin_entry "$REPO_BIN_PROXYCHAINS_PATH"
+        remove_managed_bin_entry "$REPO_BIN_CLASH_PATH"
+    fi
+    if [ "$platform" = "Windows" ] || [ "$platform_family" = "MacOS" ]; then
+        remove_managed_bin_entry "$REPO_BIN_CLASH_PATH"
     fi
 }
 
@@ -1665,6 +1784,14 @@ step_cluster_proxy_tools() {
     force_link "$AUTOSSH_BIN_PATH" "$REPO_BIN_AUTOSSH_PATH"
     force_link "$PROXYCHAINS_BIN_PATH" "$REPO_BIN_PROXYCHAINS4_PATH"
     force_link "$REPO_BIN_PROXYCHAINS4_PATH" "$REPO_BIN_PROXYCHAINS_PATH"
+    if [ "$platform" = "Linux" ] && [ -x "$CLASH_REPO_PATH" ]; then
+        force_link "$CLASH_REPO_PATH" "$REPO_BIN_CLASH_PATH"
+        log_ok "clash linked at $(fmt_path "$REPO_BIN_CLASH_PATH")"
+    elif [ "$platform_family" = "MacOS" ]; then
+        log_info "skip repo-managed clash link on macOS"
+    elif [ ! -x "$CLASH_REPO_PATH" ]; then
+        log_warn "skip clash link because $(fmt_path "$CLASH_REPO_PATH") was not found"
+    fi
 
     log_ok "autossh ready at $(fmt_path "$REPO_BIN_AUTOSSH_PATH")"
     log_ok "proxychains4 linked at $(fmt_path "$REPO_BIN_PROXYCHAINS4_PATH")"
@@ -1805,6 +1932,13 @@ command_deploy() {
     cleanup_legacy_spyder
 
     choose_steps
+    choose_proxy_region
+
+    if step_selected "cluster_proxy_tools"; then
+        print_kv "region" "$region"
+        print_kv "proxy mode" "$proxy_mode"
+        print_kv "proxy port" "$proxy_port"
+    fi
 
     if [ "$platform" = "Windows" ] && [ -z "$SELECTED_STEPS" ] && [ "$use_zprofile_template" -eq 0 ]; then
         log_warn "no steps selected, nothing to do"

@@ -142,8 +142,8 @@ MSE_STEP_CLUSTER_PROXY_TOOLS='true'
 
 这两个文件分工如下：
 
-- `~/.zprofile`：放你自己的机器相关变量、PATH、代理参数、私有 token
-- `~/.zshrc`：由本仓库统一管理公共交互逻辑
+- `~/.zprofile`：放你自己的机器相关变量、PATH、代理参数
+- `~/.zshrc`：由本仓库统一管理公共交互逻辑；`mse deploy` 时会把仓库里的 `zshrc` 软链接到 `~/.zshrc`
 
 不要在自己的 `~/.zprofile` 里重新定义仓库已经提供的命令，尤其是 `proxy.on` / `proxy.off`。这些命令现在统一由仓库里的 `zsh/zshrc` 提供。
 
@@ -157,12 +157,16 @@ zsh 常见加载顺序：
 
 - `~/.zshenv`：所有 zsh 进程都会读，尽量少放东西
 - `~/.zprofile`：登录 shell 会先读，适合放 PATH、代理端口、主机相关变量
-- `~/.zshrc`：交互式 shell 会读，你平时开终端最常接触的是它
+- `~/.zshrc`：交互式 shell 会读，你平时开终端最常接触的是它；这个文件在 deploy 时会链接到仓库里的 `zsh/zshrc`
 - `~/.zlogin`：登录 shell 的收尾阶段才读，大多数时候用不上
 - `~/.zlogout`：退出登录 shell 时才读
 
 - 机器相关、个人相关的设置放 `~/.zprofile`
 - 公共 alias、函数、插件和交互逻辑放仓库里的 `zsh/zshrc`
+
+不推荐直接改 `~/.zshrc` 或仓库里的 `zsh/zshrc` 来做个人定制。这套工作流好用的前提，就是把个人配置和公共配置分开。
+
+如果你觉得某个改动通用性很强，值得长期保留，比较合适的做法是提一个 PR，把它加进本仓库。
 
 ### 可选变量示例
 
@@ -175,6 +179,7 @@ export MSE_ZSH_THEME="fino"
 export MSE_ZSH_PLUGINS="git z zsh-syntax-highlighting zsh-autosuggestions"
 export MSE_MAMBA_AUTO_ACTIVATE_BASE=false
 export MSE_SLURM_NODE_PROXY_AUTO_ENABLE=false
+export MSE_PROXY_MODE=clash
 export MSE_PROXY_PORT=8234
 ```
 
@@ -184,23 +189,35 @@ export MSE_PROXY_PORT=8234
 - `MSE_ZSH_PLUGINS`：整体覆盖默认插件列表
 - `MSE_MAMBA_AUTO_ACTIVATE_BASE=true|false`：是否在新 shell 中自动 `micromamba activate base`
 - `MSE_SLURM_NODE_PROXY_AUTO_ENABLE=true|false`：是否在 Slurm 计算节点加载 `zshrc` 时自动尝试启用代理
+- `MSE_PROXY_MODE=clash|direct-egress`：代理工作模式；国内默认 `clash`，国外可切到 `direct-egress`
 - `MSE_PROXY_PORT=<port>`：代理端口，默认是 `8234`
 - `MSE_PROXY_HOST=<host>`：默认 `127.0.0.1`
 - `MSE_PROXY_DIRECT_HOSTS="<host1> <host2>"`：额外按 login/direct 处理的主机名
-- `MSE_PROXY_FORCE_MODE=compute|direct`：手动覆盖代理模式判断
 - `MSE_PROXY_UPSTREAM_HOST=<host>`：在计算节点无法自动推断上游 login 节点时手动指定
 
 ### 一个最小可用的 `~/.zprofile`
 
 ```shell
+# 自己补充的 PATH
 export PATH="$HOME/.local/bin:$PATH"
-export EDITOR="nvim"
-export MSE_MAMBA_AUTO_ACTIVATE_BASE=false
-export MSE_SLURM_NODE_PROXY_AUTO_ENABLE=false
-export MSE_PROXY_PORT=8234
-export MSE_PROXY_DIRECT_HOSTS="c55b01n08"
 
-[ -f "$HOME/.zprofile.private" ] && source "$HOME/.zprofile.private"
+# 默认编辑器
+export EDITOR="nvim"
+
+# 新 shell 不自动 activate base
+export MSE_MAMBA_AUTO_ACTIVATE_BASE=false
+
+# 计算节点登录后不自动开代理
+export MSE_SLURM_NODE_PROXY_AUTO_ENABLE=false
+
+# 代理模式：国内一般用 clash，国外可以改成 direct-egress
+export MSE_PROXY_MODE=clash
+
+# login 节点上的代理端口
+export MSE_PROXY_PORT=8234
+
+# 这些主机按 login/direct 处理
+export MSE_PROXY_DIRECT_HOSTS="c55b01n08"
 ```
 
 如果你在 WSL 里仍然通过 Clash for Windows 暴露 `7890` 端口，不需要再找旧的 WSL 特例逻辑，直接在 `~/.zprofile` 中写：
@@ -248,23 +265,7 @@ export MSE_PROXY_PORT=7890
 
 ## Cluster Proxy
 
-这一节主要解决一件事：计算节点本身不联网，但你又想在节点里继续用 `curl`、`git`、`codex`、`claude` 之类需要联网的工具。
-
-前提假设：
-
-- 你的 login 节点本身能联网
-- login 节点上已经开着 Clash
-- Clash 正在监听某个本地端口
-- 本仓库默认使用 `127.0.0.1:8234`
-
-如果你的 Clash 不在 `8234`，就在自己的 `~/.zprofile` 里改：
-
-```shell
-export MSE_PROXY_PORT=7890
-```
-
-这个仓库只负责把网络请求接到 login 节点上的 Clash。
-国内外分流、PAC、规则匹配这些事情都由 Clash 完成；仓库本身不负责流量派发。
+这一节是给 Slurm 集群用户准备的一个小 trick：compute 节点本身不联网，但你还想继续用 `curl`、`git`、`codex`、`claude` 这些需要网络的工具。
 
 `cluster_proxy_tools` step 会接入：
 
@@ -276,165 +277,186 @@ export MSE_PROXY_PORT=7890
 - `proxy.test`
 - `proxy.exec`
 
-`mse deploy --fast` 默认会启用这个 step，`mse update` 会沿用 `.mse-install.env` 里的 step 选择。
+`mse deploy --fast` 默认会启用这个 step，也默认按中国用户处理。`mse deploy --interactive` 会问你是否在中国；如果回答是，会提醒你先打开 Clash，并确认它监听的端口。`mse update` 会复用 `.mse-install.env` 里保存的结果。
 
-### login 节点
+### 中国用户
 
-login 节点是“本来就有网”的那台机器。这里不需要 SSH 隧道，直接让当前 shell 使用本地 Clash 即可。
+前提：
 
-最短用法：
+- login 节点本身能联网
+- login 节点上已经打开 Clash
+- 你知道 Clash 正在监听哪个端口
+
+仓库只负责把请求接到 login 节点上的 Clash。`baidu`、`google`、`gpt`、`claude` 这些请求最后怎么走，全部由 Clash 的规则决定；这个仓库不负责流量分流。
+
+Linux / WSL 上，`cluster_proxy_tools` 会把仓库里的 `tools/clash/clash` 接到 `bin/clash`。macOS 不会链接这个二进制，默认假设你已经自己装好了 Clash。
+
+如果你的 Clash 端口不是 `8234`，就在 `~/.zprofile` 里写：
 
 ```shell
-# 看当前状态
+export MSE_PROXY_PORT=7890
+```
+
+最短例子：
+
+```shell
+# login 节点：先看状态
 proxy.status
 
-# 打开代理环境
+# login 节点：把当前 shell 接到本地 Clash
 proxy.on
 
-# 测试网络
+# login 节点：测国内外站点
 proxy.test
 curl -I https://www.baidu.com
 curl -I https://www.google.com
 curl -I https://api.openai.com
 curl -I https://api.anthropic.com
 
-# 关闭代理环境
+# login 节点：关掉当前 shell 的代理变量
 proxy.off
 ```
 
-这里的实际效果是：
+```shell
+# compute 节点：先看仓库判断你现在是什么角色
+proxy.status
 
-- `baidu`、`google`、`gpt`、`claude` 这些请求都会先交给 login 节点上的 Clash
-- 是否直连、是否走代理、走哪条规则，都由 Clash 决定
+# compute 节点：把本地端口转回 login 节点上的 Clash
+proxy.on
 
-### compute 节点
+# compute 节点：测网络
+proxy.test
+curl -I https://www.baidu.com
+curl -I https://www.google.com
+curl -I https://api.openai.com
+curl -I https://api.anthropic.com
+```
 
-compute 节点是“本身没网”的计算节点。
-
-这里的做法是：
-
-- 在 compute 节点本地开一个和 login 节点相同端口的代理入口
-- 用 `autossh` 把它转发回 login 节点上的 Clash
-- 然后把当前 shell 的 `http_proxy` / `https_proxy` / `all_proxy` 指到这个本地入口
-
-流量路径如下：
+流量路径是：
 
 ```text
-command on compute
--> 127.0.0.1:${MSE_PROXY_PORT} on compute
--> autossh tunnel
--> 127.0.0.1:${MSE_PROXY_PORT} on login
--> Clash on login
--> Clash rules / PAC / 分流
+compute 上的命令
+-> compute 本地 127.0.0.1:${MSE_PROXY_PORT}
+-> autossh 隧道
+-> login 本地 127.0.0.1:${MSE_PROXY_PORT}
+-> Clash
+-> Clash 规则决定直连还是代理
 ```
 
-最短用法：
+### 国外用户
+
+前提：
+
+- login 节点本身能联网
+- 你不需要 Clash
+
+这时把模式切到 `direct-egress`。compute 节点会用 `autossh -D` 在本地开一个 SOCKS5 端口，然后直接借 login 节点出网。
+
+长期设置可以写进 `~/.zprofile`：
 
 ```shell
-# 先看仓库判断你现在是 login 还是 compute
+export MSE_PROXY_MODE=direct-egress
+export MSE_PROXY_PORT=8234
+```
+
+最短例子：
+
+```shell
+# compute 节点：看当前模式和节点角色
 proxy.status
 
-# 在 compute 节点打开代理
+# compute 节点：开动态 SOCKS 隧道
 proxy.on
 
-# 测试是否已经能联网
+# compute 节点：测常见外网服务
 proxy.test
-curl -I https://www.baidu.com
-curl -I https://www.google.com
-curl -I https://api.openai.com
-curl -I https://api.anthropic.com
-
-# 用完后关闭
-proxy.off
+proxy.exec curl -I https://www.google.com
+proxy.exec curl -I https://api.openai.com
+proxy.exec curl -I https://api.anthropic.com
 ```
 
-如果上游 login 节点没有自动识别成功，就手动指定：
+在这个模式下，`proxy.exec` 会更稳一些，因为它直接用 `proxychains-ng` 套住命令。
 
-```shell
-# 指定 compute 节点要回连到哪个 login 节点
-export MSE_PROXY_UPSTREAM_HOST=login03
-proxy.on
-```
+### `proxy.exec` 怎么用
 
-当前仓库里的自动识别规则：
-
-- `login*` 视为 login/direct
-- 其他 `c*b*n*` 视为 compute
-- `MSE_PROXY_DIRECT_HOSTS` 里的主机名也会按 login/direct 处理
-- `MSE_PROXY_FORCE_MODE=compute|direct` 可以手动覆盖
-
-如果你不希望在计算节点登录后自动执行 `proxy.on`，就在自己的 `~/.zprofile` 里加：
-
-```shell
-# 关闭计算节点自动代理
-export MSE_SLURM_NODE_PROXY_AUTO_ENABLE=false
-```
-
-### `proxychains-ng`
-
-大多数命令只要 `proxy.on` 之后就够了，因为它们本身会读取：
+很多程序在 `proxy.on` 之后就能直接用，因为它们会读：
 
 - `http_proxy`
 - `https_proxy`
 - `all_proxy`
 
-但有些程序不认这些环境变量，这时就用 `proxy.exec`。它会用 `proxychains-ng` 来执行这条命令。
-
-最短例子：
+有些程序不认这些环境变量，或者你只是想强制它走代理，这时就用 `proxy.exec`。
 
 ```shell
-# 给 curl 强制套代理
+# curl
 proxy.exec curl -I https://www.google.com
 
-# 给 git 强制套代理
+# git
 proxy.exec git ls-remote https://github.com/rofl0r/proxychains-ng.git
 
-# 给 codex 强制套代理
+# codex
 proxy.exec codex
 
-# 给 claude 强制套代理
+# claude
 proxy.exec claude
-```
-
-适合 `proxy.exec` 的场景：
-
-```shell
-# 程序本身不认 http_proxy / https_proxy / all_proxy
-proxy.exec <cmd>
-
-# 你怀疑命令没走代理，想强制让它走代理
-proxy.exec <cmd>
 ```
 
 ### 常用变量
 
 ```shell
+# 代理模式：clash 或 direct-egress
+export MSE_PROXY_MODE=clash
+
 # login / compute 共用的代理端口
 export MSE_PROXY_PORT=8234
 
 # 本地代理 host
 export MSE_PROXY_HOST=127.0.0.1
 
-# 额外按 login/direct 处理的主机名
+# 这些主机按 login/direct 处理
 export MSE_PROXY_DIRECT_HOSTS="c55b01n08"
 
-# 手动指定 compute 节点要连回哪个 login 节点
+# 手动指定 compute 节点回连到哪个 login 节点
 export MSE_PROXY_UPSTREAM_HOST=login03
 ```
+
+当前自动判断规则：
+
+- `login*` 按 login/direct 处理
+- 其他 `c*b*n*` 按 compute 处理
+- `MSE_PROXY_DIRECT_HOSTS` 里的主机名也按 login/direct 处理
 
 补充说明：
 
 - `zsh` 侧默认端口是 `8234`
-- 如果你的 WSL 代理入口是 `7890`，就在 `~/.zprofile` 里设 `MSE_PROXY_PORT=7890`
-- Windows PowerShell profile 默认仍然是 `7890`，这是为了兼容 Clash for Windows 的常见默认设置
+- WSL 如果走 Clash for Windows 的常见默认设置，就在 `~/.zprofile` 里写 `MSE_PROXY_PORT=7890`
+- Windows PowerShell profile 默认端口仍然是 `7890`
 - `MSE_PROXY_DIRECT_HOSTS` 用空格分隔多个主机名
+
+临时覆盖时，直接在命令前带变量：
+
+```shell
+# 只对这一次把 c55b01n08 当成 direct
+MSE_PROXY_DIRECT_HOSTS="c55b01n08" proxy.status
+MSE_PROXY_DIRECT_HOSTS="c55b01n08" proxy.on
+
+# 只对这一次手动指定上游 login 节点
+MSE_PROXY_UPSTREAM_HOST=login03 proxy.on
+```
+
+### 自动启用
+
+默认情况下，compute 节点加载 `zshrc` 时会尝试自动执行 `proxy.on`。如果你不想要这个行为，就在 `~/.zprofile` 里写：
+
+```shell
+export MSE_SLURM_NODE_PROXY_AUTO_ENABLE=false
+```
 
 ### 限制
 
 - `proxychains-ng` 只适用于 TCP，不覆盖 UDP / ICMP
-- 这不是系统级透明代理，前提仍然是 login 节点上的 Clash 正常工作
-- 如果你 `scancel` 了 compute 节点，对应的 `autossh`、`sshd`、shell 和代理状态都会一起结束
-- 换新节点后，需要重新进入节点并重新执行 `proxy.on`
+- `scancel` 掉 compute 节点后，节点上的 `autossh`、`sshd`、shell 和代理状态会一起结束
+- 换新节点后，要重新进入节点，再重新执行 `proxy.on`
 
 ## 贡献
 

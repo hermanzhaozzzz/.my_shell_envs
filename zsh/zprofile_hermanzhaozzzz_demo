@@ -22,7 +22,7 @@ _ARCH=$(uname -m)
 echo -e '\n\n'
 echo '>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>'
 echo -e "\033[1;34m(~/.zprofile)\033[0m is sourced @ \033[1;32m${_OS}\033[0m (\033[1;36m${_ARCH}\033[0m) platform"
-echo -e '\tapply \033[1;31mprivate\033[0m settings for zsh @ ~/.zprofile'
+echo -e '\tapply personal settings for zsh @ ~/.zprofile'
 echo '>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>'
 
 # ------------------------------------------------------------------->>>>>>>>>>
@@ -244,7 +244,3 @@ fi
 # GLOBAL PATH SETTING
 # ------------------------------------------------------------------->>>>>>>>>>
 export PATH=$PATH:${HOME}/.local/bin
-
-
-
-[ -f "$HOME/.zprofile.private" ] && source "$HOME/.zprofile.private"

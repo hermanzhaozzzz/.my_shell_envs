@@ -200,18 +200,57 @@ fi
 # ------------------------------------------------------------------->>>>>>>>>>
 # Proxy helpers
 # ------------------------------------------------------------------->>>>>>>>>>
+export MSE_INSTALL_METADATA_FILE="${MSE_INSTALL_METADATA_FILE:-${HOME}/.my_shell_envs/.mse-install.env}"
+
+_mse_install_pref_value() {
+    local key="$1"
+    [[ -f "${MSE_INSTALL_METADATA_FILE}" ]] || return 1
+    awk -F= -v key="${key}" '
+        $1 == key {
+            value=$2
+            gsub(/^[[:space:]]+|[[:space:]]+$/, "", value)
+            gsub(/^["'\'']|["'\'']$/, "", value)
+            print value
+            exit
+        }
+    ' "${MSE_INSTALL_METADATA_FILE}"
+}
+
+if [[ -z "${MSE_PROXY_MODE:-}" ]]; then
+    export MSE_PROXY_MODE="$(_mse_install_pref_value MSE_PROXY_MODE 2>/dev/null || true)"
+fi
+if [[ -z "${MSE_PROXY_PORT:-}" ]]; then
+    export MSE_PROXY_PORT="$(_mse_install_pref_value MSE_PROXY_PORT 2>/dev/null || true)"
+fi
+
+export MSE_PROXY_MODE="${MSE_PROXY_MODE:-clash}"
 export MSE_PROXY_PORT="${MSE_PROXY_PORT:-8234}"
 export MSE_PROXY_HOST="${MSE_PROXY_HOST:-127.0.0.1}"
 export MSE_PROXYCHAINS_CONF="${MSE_PROXYCHAINS_CONF:-${HOME}/.my_shell_envs/tools/proxychains/proxychains.conf}"
 export MSE_SLURM_NODE_PROXY_AUTO_ENABLE="${MSE_SLURM_NODE_PROXY_AUTO_ENABLE:-true}"
 export MSE_MAMBA_AUTO_ACTIVATE_BASE="${MSE_MAMBA_AUTO_ACTIVATE_BASE:-false}"
 
+_mse_proxy_mode_setting() {
+    case "${MSE_PROXY_MODE}" in
+        clash|direct-egress)
+            printf '%s\n' "${MSE_PROXY_MODE}"
+            ;;
+        *)
+            printf '%s\n' "clash"
+            ;;
+    esac
+}
+
 _mse_proxy_default_no_proxy() {
     printf '%s\n' "192.168.59.102,192.168.59.103"
 }
 
 _mse_proxy_http_url() {
-    printf 'http://%s:%s\n' "${MSE_PROXY_HOST}" "${MSE_PROXY_PORT}"
+    if [[ "$(_mse_proxy_mode_setting)" == "direct-egress" ]]; then
+        printf 'socks5://%s:%s\n' "${MSE_PROXY_HOST}" "${MSE_PROXY_PORT}"
+    else
+        printf 'http://%s:%s\n' "${MSE_PROXY_HOST}" "${MSE_PROXY_PORT}"
+    fi
 }
 
 _mse_proxy_socks_url() {
@@ -235,8 +274,6 @@ _mse_proxy_is_compute_node() {
     local host_name=""
     local direct_host=""
 
-    [[ "${MSE_PROXY_FORCE_MODE:-}" == "compute" ]] && return 0
-    [[ "${MSE_PROXY_FORCE_MODE:-}" == "direct" ]] && return 1
     host_name="$(hostname)"
     [[ "${host_name}" == login* ]] && return 1
     for direct_host in ${(s: :)MSE_PROXY_DIRECT_HOSTS}; do
@@ -276,7 +313,11 @@ _mse_proxy_upstream_host() {
 
 _mse_proxy_tunnel_pattern() {
     local upstream_host="$1"
-    printf 'autossh .*127.0.0.1:%s:127.0.0.1:%s %s' "${MSE_PROXY_PORT}" "${MSE_PROXY_PORT}" "${upstream_host}"
+    if [[ "$(_mse_proxy_mode_setting)" == "direct-egress" ]]; then
+        printf 'autossh .* -D 127.0.0.1:%s %s' "${MSE_PROXY_PORT}" "${upstream_host}"
+    else
+        printf 'autossh .*127.0.0.1:%s:127.0.0.1:%s %s' "${MSE_PROXY_PORT}" "${MSE_PROXY_PORT}" "${upstream_host}"
+    fi
 }
 
 _mse_proxy_tunnel_pid() {
@@ -305,16 +346,34 @@ _mse_proxy_disable_env() {
     unset all_proxy
 }
 
+_mse_proxy_runtime_proxychains_conf() {
+    local runtime_conf="${TMPDIR:-/tmp}/mse-proxychains-${UID:-$(id -u)}-${MSE_PROXY_PORT}.conf"
+    cat > "${runtime_conf}" <<EOF
+strict_chain
+proxy_dns
+remote_dns_subnet 224
+tcp_read_time_out 15000
+tcp_connect_time_out 8000
+
+[ProxyList]
+socks5 ${MSE_PROXY_HOST} ${MSE_PROXY_PORT}
+EOF
+    printf '%s\n' "${runtime_conf}"
+}
+
 _mse_proxy_start_tunnel() {
     local upstream_host="$1"
     local autossh_bin=""
     local existing_pid=""
+    local proxy_mode=""
+    local forward_args=()
 
     autossh_bin="$(_mse_proxy_autossh_bin)"
     [[ -n "${autossh_bin}" ]] || {
         echo "proxy.on: autossh not found in PATH"
         return 1
     }
+    proxy_mode="$(_mse_proxy_mode_setting)"
 
     existing_pid="$(_mse_proxy_tunnel_pid "${upstream_host}")"
     if [[ -n "${existing_pid}" ]]; then
@@ -327,13 +386,19 @@ _mse_proxy_start_tunnel() {
         return 1
     fi
 
+    if [[ "${proxy_mode}" == "direct-egress" ]]; then
+        forward_args=(-D "127.0.0.1:${MSE_PROXY_PORT}")
+    else
+        forward_args=(-L "127.0.0.1:${MSE_PROXY_PORT}:127.0.0.1:${MSE_PROXY_PORT}")
+    fi
+
     AUTOSSH_GATETIME=0 AUTOSSH_POLL=30 AUTOSSH_FIRST_POLL=30 \
         "${autossh_bin}" -M 0 -f -N \
         -o ExitOnForwardFailure=yes \
         -o ServerAliveInterval=30 \
         -o ServerAliveCountMax=3 \
         -o StrictHostKeyChecking=no \
-        -L "127.0.0.1:${MSE_PROXY_PORT}:127.0.0.1:${MSE_PROXY_PORT}" \
+        "${forward_args[@]}" \
         "${upstream_host}" || {
             echo "proxy.on: failed to start autossh tunnel via ${upstream_host}"
             return 1
@@ -370,8 +435,10 @@ _mse_proxy_mode() {
 _func_proxy_on() {
     local mode=""
     local upstream_host=""
+    local proxy_mode=""
 
     mode="$(_mse_proxy_mode)"
+    proxy_mode="$(_mse_proxy_mode_setting)"
 
     if [[ "${mode}" == "compute" ]]; then
         upstream_host="$(_mse_proxy_upstream_host)" || {
@@ -379,10 +446,20 @@ _func_proxy_on() {
             return 1
         }
         _mse_proxy_start_tunnel "${upstream_host}" || return 1
-        echo "proxy mode: compute-via-login-tunnel"
+        echo "proxy mode: ${proxy_mode}"
+        if [[ "${proxy_mode}" == "direct-egress" ]]; then
+            echo "proxy tunnel type: dynamic-socks"
+        else
+            echo "proxy tunnel type: local-forward"
+        fi
         echo "proxy upstream: ${upstream_host}:${MSE_PROXY_PORT}"
     else
-        echo "proxy mode: login-direct"
+        echo "proxy mode: ${proxy_mode}"
+        echo "proxy node role: direct"
+        if [[ "${proxy_mode}" == "direct-egress" ]]; then
+            echo "proxy.on: direct-egress mode is mainly for compute nodes borrowing the login node network"
+            return 1
+        fi
         if ! _mse_proxy_port_open "127.0.0.1" "${MSE_PROXY_PORT}"; then
             echo "proxy.on: warning: local proxy ${MSE_PROXY_PORT} is not listening yet"
         fi
@@ -410,18 +487,26 @@ _func_proxy_status() {
     local mode=""
     local upstream_host=""
     local tunnel_pid=""
+    local proxy_mode=""
 
     mode="$(_mse_proxy_mode)"
-    echo "proxy mode: ${mode}"
+    proxy_mode="$(_mse_proxy_mode_setting)"
+    echo "proxy node role: ${mode}"
+    echo "proxy mode: ${proxy_mode}"
     echo "proxy env http: ${http_proxy:-<unset>}"
     echo "proxy env socks: ${all_proxy:-<unset>}"
     echo "autossh: $(_mse_proxy_autossh_bin || echo '<missing>')"
     echo "proxychains: $(_mse_proxy_proxychains_bin || echo '<missing>')"
-    echo "proxychains conf: ${MSE_PROXYCHAINS_CONF}"
+    echo "proxychains conf: $(_mse_proxy_runtime_proxychains_conf)"
 
     if _mse_proxy_is_compute_node; then
         upstream_host="$(_mse_proxy_upstream_host 2>/dev/null || true)"
         echo "proxy upstream: ${upstream_host:-<unknown>}"
+        if [[ "${proxy_mode}" == "direct-egress" ]]; then
+            echo "proxy tunnel type: dynamic-socks"
+        else
+            echo "proxy tunnel type: local-forward"
+        fi
         if [[ -n "${upstream_host}" ]]; then
             tunnel_pid="$(_mse_proxy_tunnel_pid "${upstream_host}")"
             echo "proxy tunnel pid: ${tunnel_pid:-<not running>}"
@@ -436,32 +521,43 @@ _func_proxy_status() {
 }
 
 _func_proxy_test() {
+    local runtime_conf=""
+    local proxy_mode=""
+
     command -v curl >/dev/null 2>&1 || {
         echo "proxy.test: curl not found"
         return 1
     }
+    runtime_conf="$(_mse_proxy_runtime_proxychains_conf)"
+    proxy_mode="$(_mse_proxy_mode_setting)"
 
     echo "== curl via env proxy =="
-    curl -I --max-time 8 https://www.baidu.com | sed -n '1,5p'
+    if [[ "${proxy_mode}" == "direct-egress" ]]; then
+        curl -I --max-time 8 https://www.google.com | sed -n '1,5p'
+    else
+        curl -I --max-time 8 https://www.baidu.com | sed -n '1,5p'
+    fi
 
-    if [[ -x "${MSE_PROXYCHAINS_CONF}" ]] || [[ -f "${MSE_PROXYCHAINS_CONF}" ]]; then
-        if [[ -n "$(_mse_proxy_proxychains_bin)" ]]; then
-            echo "== curl via proxychains =="
-            "$(_mse_proxy_proxychains_bin)" -f "${MSE_PROXYCHAINS_CONF}" curl -I --max-time 8 https://www.baidu.com | sed -n '1,5p'
+    if [[ -n "$(_mse_proxy_proxychains_bin)" ]]; then
+        echo "== curl via proxychains =="
+        if [[ "${proxy_mode}" == "direct-egress" ]]; then
+            "$(_mse_proxy_proxychains_bin)" -f "${runtime_conf}" curl -I --max-time 8 https://www.google.com | sed -n '1,5p'
+            "$(_mse_proxy_proxychains_bin)" -f "${runtime_conf}" curl -I --max-time 8 https://api.openai.com | sed -n '1,5p'
+            "$(_mse_proxy_proxychains_bin)" -f "${runtime_conf}" curl -I --max-time 8 https://api.anthropic.com | sed -n '1,5p'
+        else
+            "$(_mse_proxy_proxychains_bin)" -f "${runtime_conf}" curl -I --max-time 8 https://www.baidu.com | sed -n '1,5p'
         fi
     fi
 }
 
 _func_proxy_exec() {
     local proxychains_bin=""
+    local runtime_conf=""
 
     proxychains_bin="$(_mse_proxy_proxychains_bin)"
+    runtime_conf="$(_mse_proxy_runtime_proxychains_conf)"
     [[ -n "${proxychains_bin}" ]] || {
         echo "proxy.exec: proxychains4 not found in PATH"
-        return 1
-    }
-    [[ -f "${MSE_PROXYCHAINS_CONF}" ]] || {
-        echo "proxy.exec: proxychains config not found at ${MSE_PROXYCHAINS_CONF}"
         return 1
     }
     [[ $# -gt 0 ]] || {
@@ -469,7 +565,7 @@ _func_proxy_exec() {
         return 1
     }
 
-    "${proxychains_bin}" -f "${MSE_PROXYCHAINS_CONF}" "$@"
+    "${proxychains_bin}" -f "${runtime_conf}" "$@"
 }
 
 _mse_proxy_auto_init() {

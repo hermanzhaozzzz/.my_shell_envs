@@ -404,13 +404,7 @@ If you are on WSL and still expose Clash through port `7890`, set:
 export MSE_PROXY_PORT=7890
 ```
 
-If you need sensitive tokens, private hostnames, or company-only settings, use this pattern:
-
-```shell
-[ -f "$HOME/.zprofile.private" ] && source "$HOME/.zprofile.private"
-```
-
-Put those private values in your own `~/.zprofile.private` instead of the shared repo config.
+Keep machine-specific or organization-specific values in your own `~/.zprofile`. Do not add them to the shared repo-managed `zshrc`.
 
 ## Highlights
 

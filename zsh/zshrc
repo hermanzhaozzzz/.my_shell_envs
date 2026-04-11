@@ -233,12 +233,15 @@ _mse_proxy_port_open() {
 
 _mse_proxy_is_compute_node() {
     local host_name=""
+    local direct_host=""
 
     [[ "${MSE_PROXY_FORCE_MODE:-}" == "compute" ]] && return 0
     [[ "${MSE_PROXY_FORCE_MODE:-}" == "direct" ]] && return 1
     host_name="$(hostname)"
     [[ "${host_name}" == login* ]] && return 1
-    [[ "${host_name}" == "c55b01n08" ]] && return 1
+    for direct_host in ${(s: :)MSE_PROXY_DIRECT_HOSTS}; do
+        [[ -n "${direct_host}" && "${host_name}" == "${direct_host}" ]] && return 1
+    done
     [[ "${host_name}" =~ '^c[0-9]+b[0-9]+n[0-9]+$' ]] && return 0
     [[ -n "${SLURM_JOB_ID:-}" ]] && return 0
     return 1

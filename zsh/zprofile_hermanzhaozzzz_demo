@@ -39,9 +39,11 @@ export TRASH=${HOME}/.mytrash
 export MSE_PROXY_HOST="${MSE_PROXY_HOST:-127.0.0.1}"
 export MSE_PROXY_PORT="${MSE_PROXY_PORT:-8234}"
 export MSE_SLURM_NODE_PROXY_AUTO_ENABLE="${MSE_SLURM_NODE_PROXY_AUTO_ENABLE:-true}"
+export MSE_PROXY_DIRECT_HOSTS="${MSE_PROXY_DIRECT_HOSTS:-c55b01n08}"
 echo -e '\tproxy commands are managed by \033[1;35m~/.my_shell_envs/zsh/zshrc\033[0m'
 echo -e '\tset \033[1;35mMSE_PROXY_PORT\033[0m='${MSE_PROXY_PORT}
 echo -e '\tset \033[1;35mMSE_SLURM_NODE_PROXY_AUTO_ENABLE\033[0m='${MSE_SLURM_NODE_PROXY_AUTO_ENABLE}
+echo -e '\tset \033[1;35mMSE_PROXY_DIRECT_HOSTS\033[0m='${MSE_PROXY_DIRECT_HOSTS}
 
 # ------------------------------------------------------------------->>>>>>>>>>
 # GLOBAL VAR SETTING

@@ -334,6 +334,13 @@ _mse_proxy_enable_env() {
     export all_proxy="${socks_url}"
     export no_proxy="${MSE_PROXY_NO_PROXY:-$(_mse_proxy_default_no_proxy)}"
 
+    # On compute nodes, SSH can't resolve external hostnames (e.g. ssh.github.com).
+    # Route git SSH through the SOCKS5 proxy via ncat.
+    if _mse_proxy_is_compute_node && command -v ncat >/dev/null 2>&1; then
+        export GIT_SSH_COMMAND="ssh -o ProxyCommand='ncat --proxy 127.0.0.1:${MSE_PROXY_PORT} --proxy-type socks5 %h %p'"
+        echo -e '\texport \033[1;35mGIT_SSH_COMMAND\033[0m=ssh via SOCKS5 proxy'
+    fi
+
     echo -e '\texport \033[1;35mhttps_proxy\033[0m='${https_proxy}
     echo -e '\texport \033[1;35mhttp_proxy\033[0m='${http_proxy}
     echo -e '\texport \033[1;35mall_proxy\033[0m='${all_proxy}
@@ -344,6 +351,7 @@ _mse_proxy_disable_env() {
     unset https_proxy
     unset http_proxy
     unset all_proxy
+    unset GIT_SSH_COMMAND
 }
 
 _mse_proxy_runtime_proxychains_conf() {

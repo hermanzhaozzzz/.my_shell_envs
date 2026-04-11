@@ -14,8 +14,10 @@ $global:MsePowerShellProfileLoaded = $true
 # 设置代理信息
 # ----------------------------------------------->
 $script:MseBootstrapMode = $env:MSE_POWERSHELL_BOOTSTRAP -eq '1'
-$script:MseHttpProxy = 'http://127.0.0.1:7890'
-$script:MseGitProxy = 'socks5://127.0.0.1:7890'
+$script:MseProxyHost = if ([string]::IsNullOrWhiteSpace($env:MSE_PROXY_HOST)) { '127.0.0.1' } else { $env:MSE_PROXY_HOST }
+$script:MseProxyPort = if ([string]::IsNullOrWhiteSpace($env:MSE_PROXY_PORT)) { '7890' } else { $env:MSE_PROXY_PORT }
+$script:MseHttpProxy = ('http://{0}:{1}' -f $script:MseProxyHost, $script:MseProxyPort)
+$script:MseGitProxy = ('socks5://{0}:{1}' -f $script:MseProxyHost, $script:MseProxyPort)
 $script:MseProxyEnabled = $false
 # ----------------------------------------------->
 # 设置 PATH
@@ -492,7 +494,6 @@ function ssh-copy-id([string]$userAtMachine, $args){
 
 # https://zhuanlan.zhihu.com/p/537991323
 # https://zhuanlan.zhihu.com/p/137251716
-
 
 
 

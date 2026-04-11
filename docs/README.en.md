@@ -387,23 +387,21 @@ A minimal `~/.zprofile` example:
 export PATH="$HOME/.local/bin:$PATH"
 export EDITOR="nvim"
 export PAGER="less"
+export MSE_MAMBA_AUTO_ACTIVATE_BASE=false
+export MSE_SLURM_NODE_PROXY_AUTO_ENABLE=false
+export MSE_PROXY_PORT=8234
 ```
 
-Proxy example:
+Proxy commands are provided by the repo `zsh/zshrc`. Keep machine-specific proxy settings as variables in `~/.zprofile`, for example:
 
 ```shell
-proxy_on() {
-  export http_proxy="http://127.0.0.1:7890"
-  export https_proxy="http://127.0.0.1:7890"
-  export all_proxy="socks5://127.0.0.1:7890"
-}
+export MSE_PROXY_PORT=8234
+```
 
-proxy_off() {
-  unset http_proxy https_proxy all_proxy
-}
+If you are on WSL and still expose Clash through port `7890`, set:
 
-alias proxy.on=proxy_on
-alias proxy.off=proxy_off
+```shell
+export MSE_PROXY_PORT=7890
 ```
 
 If you need sensitive tokens, private hostnames, or company-only settings, use this pattern:

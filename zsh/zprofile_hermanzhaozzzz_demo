@@ -34,54 +34,14 @@ export TRASH=${HOME}/.mytrash
 # ------------------------------------------------------------------->>>>>>>>>>
 # PROXY SETTING
 # ------------------------------------------------------------------->>>>>>>>>>
-# global alias for clash proxy 
-_func_proxy_on(){
-    if [[ $_OS == "Linux" ]]; then
-        export https_proxy=http://127.0.0.1:8234
-        export http_proxy=http://127.0.0.1:8234
-        export all_proxy=socks5://127.0.0.1:8234
-        export no_proxy="192.168.59.102,192.168.59.103"
-    elif [[ $_OS == "macOS" ]]; then
-        export https_proxy=http://127.0.0.1:8234
-        export http_proxy=http://127.0.0.1:8234
-        export all_proxy=socks5://127.0.0.1:8235
-        export no_proxy="192.168.59.102,192.168.59.103"
-    elif [[ $_OS == "WSL" ]]; then
-        echo "set proxy (http/https/socks5) port to 127.0.0.1:7890, hope it managed by Clash for Windows!"
-        export https_proxy=http://127.0.0.1:7890;
-        export http_proxy=http://127.0.0.1:7890;
-        export all_proxy=socks5://127.0.0.1:7890
-        export no_proxy="192.168.59.102,192.168.59.103"
-    elif [[ $_OS == "Unknown" ]]; then
-        export https_proxy=http://127.0.0.1:8234
-        export http_proxy=http://127.0.0.1:8234
-        export all_proxy=socks5://127.0.0.1:8234
-        export no_proxy="192.168.59.102,192.168.59.103"
-    fi
-    echo -e '\texport \033[1;35mhttps_proxy\033[0m='$https_proxy
-    echo -e '\texport \033[1;35mhttp_proxy\033[0m='$http_proxy
-    echo -e '\texport \033[1;35mall_proxy\033[0m='$all_proxy
-    echo -e '\texport \033[1;35mno_proxy\033[0m='$no_proxy
-}
-_func_proxy_off(){
-    unset https_proxy
-    unset http_proxy
-    unset all_proxy
-    git config --global --unset https.proxy
-    git config --global --unset http.proxy
-}
-
-alias proxy.on=_func_proxy_on
-alias proxy.off=_func_proxy_off
-
-if [[ $_OS == "Linux" || $_OS == "Unknown" ]]; then
-    proxy.off
-    echo -e '\tproxy is off by default, run `proxy.on` to use proxy'
-
-elif [[ $_OS == "macOS" ]]; then
-    proxy.on
-    echo -e '\tproxy is on by default, run `proxy.off` to remove proxy'
-fi
+# proxy commands are provided by zsh/zshrc
+# keep machine-specific proxy defaults here as variables only
+export MSE_PROXY_HOST="${MSE_PROXY_HOST:-127.0.0.1}"
+export MSE_PROXY_PORT="${MSE_PROXY_PORT:-8234}"
+export MSE_SLURM_NODE_PROXY_AUTO_ENABLE="${MSE_SLURM_NODE_PROXY_AUTO_ENABLE:-true}"
+echo -e '\tproxy commands are managed by \033[1;35m~/.my_shell_envs/zsh/zshrc\033[0m'
+echo -e '\tset \033[1;35mMSE_PROXY_PORT\033[0m='${MSE_PROXY_PORT}
+echo -e '\tset \033[1;35mMSE_SLURM_NODE_PROXY_AUTO_ENABLE\033[0m='${MSE_SLURM_NODE_PROXY_AUTO_ENABLE}
 
 # ------------------------------------------------------------------->>>>>>>>>>
 # GLOBAL VAR SETTING

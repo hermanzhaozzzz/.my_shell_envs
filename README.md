@@ -1,659 +1,352 @@
 # My Shell Env (MSE)
 
-Fast deployment for shell environments.
-
-> [!TIP]
-> 🚀 别把时间浪费在配置环境上。花十分钟装上 MSE，然后开始干活。
-
 [简体中文](README.md) | [English](docs/README.en.md)
 
-一个用于快速部署个人 Shell / Python / 编辑器环境的仓库，目标是减少手工配置时间，让常用终端工具、编辑器配置和部分开发环境可以快速落地。
+一个用来快速落地个人终端环境的仓库。它主要做三件事：
 
-## 目录
+- 部署一套可直接用的 `zsh` / `vim` / `neovim` / `micromamba` 环境
+- 管理常用 CLI 工具和若干辅助脚本
+- 在 Slurm 集群上提供一套可复用的代理工作流
 
-- [简介](#简介)
-- [开始使用](#开始使用)
-  - [前置依赖](#前置依赖)
-  - [HTTPS 安装（普通用户）](#https-安装普通用户)
-  - [SSH 安装（开发者）](#ssh-安装开发者)
-  - [更新](#更新)
-  - [Conda 环境](#conda-环境)
-  - [个人配置](#个人配置)
-- [主要特性](#主要特性)
-  - [1. micromamba](#1-micromamba)
-  - [2. Vim / Neovim](#2-vim--neovim)
-  - [3. Zsh](#3-zsh)
-  - [4. jcat](#4-jcat)
-  - [5. wd](#5-wd)
-  - [6. 其他小工具](#6-其他小工具)
-  - [7. code-notify](#7-code-notify)
-  - [8. Cluster Proxy](#8-cluster-proxy)
-- [贡献](#贡献)
-- [许可证](#许可证)
+常用入口只有两个：
 
-## 简介
+```shell
+./mse deploy
+./mse update
+```
 
-这个仓库用来部署我自己的 Shell / Python / 编辑器环境。
-
-在仓库目录里，直接用这两个命令：
-
-- `./mse deploy`
-- `./mse update`
-
-## 开始使用
-
-按你的情况选一种安装方式：
-
-- 普通用户：使用 HTTPS `git clone`
-- Owner / 开发者：使用 SSH `git clone`
+## 快速开始
 
 ### 前置依赖
 
-在 Linux / macOS / WSL 上，执行 `./mse deploy` 之前，请先确认系统里已经有 `zsh`。
+在 Linux / macOS / WSL 上，运行 `./mse deploy` 之前请先确认系统里已经有：
 
-`./mse deploy` 会继续处理这些内容：
+- `git`
+- `zsh`
+- 基本的 C 编译环境
 
-- `Rust` 工具链（通过 `rustup` 安装，但不让 `rustup` 修改 PATH）
-- repo-managed CLI 工具：`eza`、`bat`、`rg`
-- `oh-my-zsh`
-- Oh My Zsh 标准插件：`git`、`z`
-- 自定义插件：`zsh-syntax-highlighting`、`zsh-autosuggestions`
-- cluster proxy 工具：`autossh`、`proxychains-ng`
-
-你需要提前准备的是：
+例如在常见 Debian / Ubuntu 环境中：
 
 ```shell
-# required on macOS / Linux / WSL
-git
-# 编译依赖时，需要调用系统 C 编译器/链接器
 sudo apt update
-sudo apt install -y build-essential pkg-config
+sudo apt install -y git zsh build-essential pkg-config
 ```
 
-脚本会按下面的规则处理：
+`mse deploy` 之后会继续处理：
 
-- macOS / Linux / WSL 都一样：脚本会先检查 `zsh`
-- 如果系统里没有 `zsh`，脚本会直接报错退出，并提示你先手动安装 `zsh`
-- 如果系统里已经有 `zsh`，脚本会继续安装默认的 `Rust` 工具链、repo-managed CLI 工具 `eza` / `bat` / `rg`，并配置 `oh-my-zsh`、标准插件 `git` / `z`、自定义插件 `zsh-syntax-highlighting` / `zsh-autosuggestions`
-- 部署会自动链接 `~/.zshrc`，并尝试执行 `chsh -s "$(which zsh)"`
-- 在执行 `chsh` 之前，脚本会先提示你：如果现在不想改默认 shell，可以直接在密码提示处敲回车；随后脚本会进入“重试 / 跳过”选择
-- 如果 `chsh` 不可用，或者你没有权限修改默认 shell，部署不会退出；脚本会继续，并询问你是否把“自动进入 zsh”的配置写入当前 shell 的配置文件
-- `Rust` 的安装通过 `rustup --no-modify-path` 完成；`~/.cargo/bin` 由仓库的 `zshrc` 在需要时加入 PATH
-- `eza`、`bat`、`rg` 会作为默认依赖直接部署，并接到仓库的 `bin/` 目录
-- 仓库默认的 Oh My Zsh 主题是 `fino`
-- 如果你使用本仓库里的 `zshrc`，部署后不需要再手工维护 `plugins=(...)`
-- 在 Linux 上，`fast` 模式默认会启用 `cluster_proxy_tools`，编译并接入 `autossh` / `proxychains-ng`
+- `oh-my-zsh`
+- 常用 zsh 插件
+- `micromamba`
+- `vim` / `neovim`
+- repo-managed CLI：`eza`、`bat`、`rg`
+- 可选的 cluster proxy 工具：`autossh`、`proxychains-ng`
 
-### HTTPS 安装（普通用户）
+### Linux / macOS / WSL
 
-普通用户直接执行：
+普通使用：
 
 ```shell
 cd "$HOME"
 git clone https://github.com/hermanzhaozzzz/.my_shell_envs.git
 cd ~/.my_shell_envs
-
 ./mse deploy
 ```
 
-如果你要交互式部署，或者要链接 demo `zprofile`，用下面的命令：
+如果你要交互式选择步骤：
 
 ```shell
 ./mse deploy --interactive
-./mse deploy --interactive --use-zprofile-template
 ```
 
-执行 `./mse deploy` 时：
+如果你明确想把仓库里的 demo `zprofile` 链接到自己的 `~/.zprofile`：
 
-- 在 Linux / macOS / WSL 上，部署会先检查 `zsh`；如果没有，就报错退出，并提示你先手动安装 `zsh`
-- 如果 `zsh` 已经存在，脚本会默认安装 `Rust`、`eza`、`bat`、`rg`，然后安装 Oh My Zsh、安装必需插件、链接 `~/.zshrc`，并尝试把默认 shell 切到 `zsh`
-- 在执行 `chsh` 之前，脚本会先告诉你：如果不想现在改默认 shell，可以直接在密码提示处敲回车，然后在后续菜单里选择 retry 或 skip
-- 如果默认 shell 无法改成 `zsh`，脚本会继续部署，并给你两个选择：重试 `chsh`，或者跳过 `chsh`，改为把自动进入 `zsh` 的逻辑写到当前 shell 的配置文件里
-- 部署开始前，脚本会先打印即将修改的路径，例如 `~/.zshrc`、`~/.oh-my-zsh`、插件目录、`~/.condarc`、`~/.vim`、`~/.config/nvim`
-- 只有在显式传入 `--use-zprofile-template` 时，才会改动 `~/.zprofile`
-
-Windows 安装与更新：
-
-```powershell
-# run in PowerShell
-cd $HOME
-git clone https://github.com/hermanzhaozzzz/.my_shell_envs.git
-cd ~/.my_shell_envs
-
-# deploy with git-bash
-git-bash ./mse deploy
-# or
-git-bash ./mse deploy --interactive
-
-# update later
-git-bash ./mse update
+```shell
+./mse deploy --use-zprofile-template
 ```
 
-Windows 上直接这样做：
-
-- Windows 主流程是 `PowerShell` + `git-bash`
-- 普通用户默认使用 HTTPS clone
-- `mse deploy` 会把 PowerShell 用户 profile `~/Documents/PowerShell/Microsoft.PowerShell_profile.ps1` 链接到仓库中的 `powershell/Microsoft.PowerShell_profile.ps1`，因此后续直接修改任一侧都能实时联动，不需要重新部署
-
-### SSH 安装（开发者）
-
-本仓库开发者直接执行：
+如果你是仓库维护者，或者希望附属仓库也走 SSH：
 
 ```shell
 cd "$HOME"
 git clone git@github.com:hermanzhaozzzz/.my_shell_envs.git
 cd ~/.my_shell_envs
-
-./mse deploy --ssh --use-zprofile-template
+./mse deploy --ssh
 ```
 
-执行 `./mse deploy --ssh --use-zprofile-template` 时：
+`fast` 和 `interactive` 的区别很简单：
 
-- 这条路径默认使用 SSH clone
-- 在 Linux / macOS / WSL 上，会先检查 `zsh`；如果没有，就报错退出，并提示你先手动安装 `zsh`
-- 如果 `zsh` 已经存在，脚本会继续配置 Oh My Zsh、必需插件、`~/.zshrc` 和默认 shell 切换
-- 部署时默认走 `fast` 模式，也就是非交互式安装
-- `--ssh` 会让附属 Git 仓库也使用 SSH
-- `--use-zprofile-template` 会把仓库里的示例 `zprofile` 模板链接到 `~/.zprofile`
-- 如果你想保留自己的登录配置，可以去掉 `--use-zprofile-template`
+- `fast`：按默认 step 直接部署，适合新机器或你已经接受默认配置
+- `interactive`：逐步选择模块，适合你只想装一部分内容
 
-常用参数这样理解：
+`--use-zprofile-template` 只适合明确知道自己在做什么时使用。默认情况下，`mse` 不会改你的 `~/.zprofile`。
 
-- `--interactive`
-  作用：进入交互模式，按 step 逐个确认要不要执行
-  什么时候加：如果你想自己选择安装哪些模块，就加这个参数
-- `--ssh`
-  作用：附属 Git 仓库也使用 SSH 地址
-  什么时候加：如果你已经配置好 GitHub SSH key，并且希望附属仓库也走 SSH，就保留这个参数
-- `--use-zprofile-template`
-  作用：把仓库里的 demo `zprofile` 链接到 `~/.zprofile`
-  什么时候加：只有你明确要使用这个 demo 文件时才加；如果你要保留自己的登录配置，就不要加
+### Windows
 
-常用组合命令：
+Windows 的主路径是 PowerShell 配合 `git-bash`：
 
-```shell
-# 开发者默认方式：SSH + demo zprofile
-./mse deploy --ssh --use-zprofile-template
-
-# 自己选 step，但保留自己的 ~/.zprofile
-./mse deploy --ssh --interactive
-
-# 自己选 step，并且同时使用 demo zprofile
-./mse deploy --ssh --interactive --use-zprofile-template
+```powershell
+cd $HOME
+git clone https://github.com/hermanzhaozzzz/.my_shell_envs.git
+cd ~/.my_shell_envs
+git-bash ./mse deploy
 ```
 
-### 更新
+后续更新：
 
-更新时直接执行：
-
-```shell
-./mse update
-
-# 临时覆盖上次 deploy 保存的设置
-./mse update --interactive
-./mse update --ssh --interactive
-./mse update --interactive --use-zprofile-template
+```powershell
+git-bash ./mse update
 ```
 
-安装或部署完成后，仓库会把 `mse` 放到：
+## `mse` 怎么工作
 
-```shell
-~/.my_shell_envs/bin/mse
-```
+### `deploy`
 
-仓库的 `zsh/zshrc` 会把这个目录加入 PATH：
+`./mse deploy` 会在当前机器上安装或接入默认工具，并把公共 shell 配置链接到这个仓库。常见行为包括：
 
-```shell
-~/.my_shell_envs/bin
-```
+- 链接 `~/.zshrc`
+- 安装或接入 `oh-my-zsh` 和插件
+- 安装 `micromamba`
+- 处理 `vim` / `neovim`
+- 构建 repo-managed CLI 工具
+- 按 step 安装额外模块
 
-所以打开一个新的 zsh 终端后，你可以在任意目录直接执行：
+部署过程中会尝试 `chsh -s "$(which zsh)"`。如果你不想现在改默认 shell，可以在密码提示时直接回车并跳过。
 
-```shell
-mse update
-mse deploy
-```
+### `update`
 
-执行 `./mse update` 时：
+`./mse update` 会先更新仓库，再按你上一次保存的配置重新执行部署。它不会再次要求你修改默认 shell。
 
-- `mse update` 会先更新源码，再重新执行部署
-- Git 安装会走 `git fetch` + `git pull --rebase`
-- 不会再次执行 `chsh`，也不会要求你输入默认 shell 的密码
-- 如果你上次 `deploy` 用的是 interactive mode，`update` 会直接复用上次保存的 step 选择，不再重新逐项提问
-- 这些持久化设置保存在仓库根目录的 `~/.my_shell_envs/.mse-install.env`
-- 每次成功执行 `mse deploy` 或 `mse update` 后，这个文件都会按本次实际使用的配置重写
+### `.mse-install.env`
 
-`~/.my_shell_envs/.mse-install.env` 是普通文本文件，可以手动修改。格式示例：
+仓库根目录下的 `.mse-install.env` 会记录最近一次成功执行的部署参数和 step 开关，例如：
 
 ```shell
 MSE_GIT_METHOD='ssh'
 MSE_DEPLOY_MODE='fast'
-MSE_DEFAULT_BRANCH='main'
 MSE_USE_ZPROFILE_TEMPLATE='false'
-MSE_STEP_MICROMAMBA='true'
-MSE_STEP_CONDARC='true'
-MSE_STEP_PIP='true'
-MSE_STEP_VIM='true'
 MSE_STEP_NVIM='true'
-MSE_STEP_JCAT='false'
-MSE_STEP_WD='true'
 MSE_STEP_CODE_NOTIFY='true'
 MSE_STEP_CLUSTER_PROXY_TOOLS='true'
 ```
 
-这些字段的含义：
+这也是为什么：
 
-- `MSE_GIT_METHOD`：update 默认用 HTTPS 还是 SSH
-- `MSE_DEPLOY_MODE`：update 默认按 fast 还是 interactive 的部署方式走
-- `MSE_DEFAULT_BRANCH`：当前这份安装配置对应的默认分支信息
-- `MSE_USE_ZPROFILE_TEMPLATE`：update 时是否继续使用仓库里的 demo `~/.zprofile`
-- `MSE_STEP_<NAME>`：每个可选 step 是否启用，`update` 会直接按这里的 `true/false` 执行，不再重新询问
+- `mse deploy --fast` 默认行为和
+- 之后的 `mse update`
 
-如果你想改默认行为，有两种方式：
+可能不完全一样。`update` 优先复用 `.mse-install.env` 中已经保存的选择。
 
-- 直接手改 `~/.my_shell_envs/.mse-install.env`
+你有两种方式改默认行为：
+
 - 重新执行 `mse deploy --interactive`
+- 直接修改 `.mse-install.env`
 
-如果你手动改了这个文件，下一次执行 `mse update` 就会按你修改后的值执行。你也可以直接在命令行传参数；只要这次执行成功，`.mse-install.env` 就会同步更新成这次实际使用的配置。
+## 个人配置
 
-如果你希望把自己的命令也做成全局可用，直接放到这个目录里即可：
+### `~/.zprofile` 和 `~/.zshrc`
 
-```shell
-ln -s /absolute/path/to/your_tool ~/.my_shell_envs/bin/your_tool
-```
+推荐的边界是：
 
-或者把可执行文件直接复制进去：
+- `~/.zprofile`：放你自己的机器相关变量、PATH、代理参数、私有 token
+- `~/.zshrc`：由本仓库统一管理公共交互逻辑
 
-```shell
-cp /absolute/path/to/your_tool ~/.my_shell_envs/bin/
-chmod +x ~/.my_shell_envs/bin/your_tool
-```
+不要在自己的 `~/.zprofile` 里重新定义仓库已经提供的命令，尤其是 `proxy.on` / `proxy.off` 这一类。当前这些命令由仓库的 `zsh/zshrc` 提供。
 
-这样打开一个新的 zsh 终端后，你就可以在任意目录直接运行 `your_tool`。
-
-### Conda 环境
-
-这个仓库里，`conda` 就是 `micromamba` 的 alias。
-
-执行 `./mse deploy` 时，脚本会：
-
-- 安装 `micromamba`
-- 把当前平台对应的环境文件从 `conda/<platform>/` 软链接到 `conda_local_env_settings/`
-- 在 Windows 上，如果仓库里存在 `tools/micromamba/Windows/micromamba-win-64.exe`，会优先直接复用这份本地备份，避免 TLS / 代理问题导致的在线安装失败
-
-它不会自动创建所有环境。部署完成后，需要你自己执行 `conda` 命令。
-
-当前平台的 `base.yml` 会链接到：
+### 推荐放在 `~/.zprofile` 的变量
 
 ```shell
-~/.my_shell_envs/conda_local_env_settings/base.yml
-```
-
-要在 PowerShell 中重建或更新 `base` 环境，直接执行：
-
-```shell
-conda env update -n base -f ~/.my_shell_envs/conda_local_env_settings/base.yml --prune
-```
-
-如果你要装别的环境，就把 `base.yml` 换成对应的 `.yml` 文件。
-
-### 个人配置
-
-默认情况下，`./mse deploy` 只处理公共配置，不改你的个人登录配置：
-
-- 在 Linux / macOS / WSL 上，`./mse deploy` 要求系统里已经有 `zsh`；确认后会继续配置 Oh My Zsh、插件，并链接 `~/.zshrc`
-- `./mse deploy` 默认不会改动 `~/.zprofile`
-- `--use-zprofile-template` 只会把仓库里的 demo 模板链接到 `~/.zprofile`
-
-```shell
-./mse deploy --interactive
-
-# optional: also link the demo zprofile template
-./mse deploy --interactive --use-zprofile-template
-```
-
-这里直接说明白：
-
-- 对普通用户来说，不建议直接链接我的 `zprofile` 模板
-- `zsh/zprofile_hermanzhaozzzz_demo` 只是 demo，主要方便我自己使用，里面是个人习惯示例，不是通用配置
-- 如果你要 DIY 自己的环境，建议你自己新建 `~/.zprofile`
-- 这个仓库的公共交互配置在 `zsh/zshrc`，个人机器相关配置放你自己的 `~/.zprofile`
-
-Zsh 的加载顺序是：
-
-```text
-.zshenv -> .zprofile -> .zshrc -> .zlogin -> .zlogout
-```
-
-每个文件建议这样用：
-
-- `~/.zshenv`
-  作用：每次启动 zsh 都会加载，包括非交互 shell
-  建议：尽量少放东西。不要放代理、别名、插件、复杂逻辑。这个仓库现在不要求你改它
-- `~/.zprofile`
-  作用：login shell 时加载，在 `~/.zshrc` 之前
-  建议：把你自己的 PATH、代理、机器相关环境变量、私有 token、主机别名放这里
-- `~/.zshrc`
-  作用：interactive shell 时加载，是你平时开终端最常用的配置文件
-  建议：这个仓库已经帮你管理公共配置，里面负责 Oh My Zsh、主题、插件、alias、函数和 `~/.my_shell_envs/bin`
-- `~/.zlogin`
-  作用：login shell 的最后阶段才加载
-  建议：大多数用户不用它
-
-如果你要 DIY，推荐这样放：
-
-- PATH：放在 `~/.zprofile`
-- 代理开关：放在 `~/.zprofile`
-- 私有 token / 公司内网配置：放在 `~/.zprofile`，或者再 `source` 一个只有本机有的私有文件
-- 公共 alias / 函数：继续让仓库的 `zsh/zshrc` 管理
-- 如果你只想改 Oh My Zsh 主题或插件，不要改仓库里的 `zsh/zshrc`，直接在你自己的 `~/.zprofile` 里覆盖
-
-`PATH` 最重要的规则只有一条：不要覆盖现有的 `$PATH`，要在现有值前后追加。
-
-如果你要覆盖主题或插件，直接把下面这些变量写进 `~/.zprofile`：
-
-```shell
-# optional: override Oh My Zsh theme
-export MSE_ZSH_THEME="robbyrussell"
-
-# optional: override plugin list
+export MSE_ZSH_THEME="fino"
 export MSE_ZSH_PLUGINS="git z zsh-syntax-highlighting zsh-autosuggestions"
-
-# optional: auto-activate micromamba base in new shells
 export MSE_MAMBA_AUTO_ACTIVATE_BASE=false
+export MSE_SLURM_NODE_PROXY_AUTO_ENABLE=false
+export MSE_PROXY_PORT=8234
 ```
 
-规则很简单：
+常用变量说明：
 
-- `MSE_ZSH_THEME`：覆盖仓库默认主题 `fino`
-- `MSE_ZSH_PLUGINS`：整体覆盖仓库默认插件列表
-- `MSE_MAMBA_AUTO_ACTIVATE_BASE`：是否在新 shell 中自动 `micromamba activate base`
-- 这些变量放在 `~/.zprofile` 里即可，仓库的 `zsh/zshrc` 会读取它们
+- `MSE_ZSH_THEME`：覆盖默认 Oh My Zsh 主题
+- `MSE_ZSH_PLUGINS`：整体覆盖默认插件列表
+- `MSE_MAMBA_AUTO_ACTIVATE_BASE=true|false`：是否在新 shell 中自动 `micromamba activate base`
+- `MSE_SLURM_NODE_PROXY_AUTO_ENABLE=true|false`：是否在 Slurm 计算节点加载 `zshrc` 时自动尝试启用代理
+- `MSE_PROXY_PORT=<port>`：代理端口，默认是 `8234`
+- `MSE_PROXY_HOST=<host>`：默认 `127.0.0.1`
+- `MSE_PROXY_FORCE_MODE=compute|direct`：手动覆盖代理模式判断
+- `MSE_PROXY_UPSTREAM_HOST=<host>`：在计算节点无法自动推断上游 login 节点时手动指定
 
-如果你不想改主题和插件，就不要写这两个变量。
-
-推荐写法：
-
-```shell
-# keep existing PATH, then prepend your own paths
-export PATH="$HOME/.local/bin:$PATH"
-
-# add extra toolchain paths only when they exist
-[ -d "/opt/homebrew/bin" ] && export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
-```
-
-如果你使用仓库默认的 `Rust` 安装方式，不需要手工把 `~/.cargo/bin` 写进 `~/.zprofile`。仓库的 `zsh/zshrc` 会在检测到 `cargo` 存在时自动把它加入 PATH。
-
-写 `PATH` 时注意：
-
-- 一定要保留 `$PATH`，不要写成 `export PATH="/some/path"` 这种覆盖式写法
-- 这样系统已有命令、仓库里的 `~/.my_shell_envs/bin`、以及 `zsh/zshrc` 后续追加的内容都不会丢
-- 优先把你自己的 bin 目录放在前面，例如 `~/.local/bin`
-- 在这个仓库里，通常不需要在 `~/.zprofile` 里手动加入 `micromamba/bin`，因为仓库的 `zsh/zshrc` 已经会处理 `micromamba` / `conda`
-- 只有当你明确希望在 `zsh/zshrc` 执行之前就能直接使用 `micromamba` 时，才自己把它加到 `~/.zprofile`
-- 对平台相关路径做存在性判断，避免在别的机器上报错
-- 除非你非常确定后果，否则不要随意 `unset PATH`
-
-一个最小可用的 `~/.zprofile` 示例：
+### 一个最小可用的 `~/.zprofile`
 
 ```shell
-# keep existing PATH
 export PATH="$HOME/.local/bin:$PATH"
 export EDITOR="nvim"
-export PAGER="less"
-```
+export MSE_MAMBA_AUTO_ACTIVATE_BASE=false
+export MSE_SLURM_NODE_PROXY_AUTO_ENABLE=false
+export MSE_PROXY_PORT=8234
 
-代理配置示例：
-
-```shell
-proxy_on() {
-  export http_proxy="http://127.0.0.1:7890"
-  export https_proxy="http://127.0.0.1:7890"
-  export all_proxy="socks5://127.0.0.1:7890"
-}
-
-proxy_off() {
-  unset http_proxy https_proxy all_proxy
-}
-
-alias proxy.on=proxy_on
-alias proxy.off=proxy_off
-```
-
-如果你要放敏感 token、私有主机名或公司内网配置，更稳妥的做法是：
-
-```shell
 [ -f "$HOME/.zprofile.private" ] && source "$HOME/.zprofile.private"
 ```
 
-把这些私密内容放进你自己的 `~/.zprofile.private`，不要直接写进仓库里的公共配置。
-
-## 主要特性
-
-### 1. micromamba
-
-我用 micromamba 替代 conda / miniconda / mamba，主要原因是：
-
-- conda / miniconda 速度偏慢
-- mamba 在更新某些已有环境时有时不够稳
-
-在这个仓库里，日常命令直接写 `conda` 即可，因为 `conda` 已经被 alias 到 `micromamba`。
-
-如果你只想保留自己的 conda，不想安装 micromamba，可以直接使用：
+如果你在 WSL 里仍然通过 Clash for Windows 暴露 `7890` 端口，不需要再找旧的 WSL 特例逻辑，直接在 `~/.zprofile` 中写：
 
 ```shell
-./mse deploy --interactive
+export MSE_PROXY_PORT=7890
 ```
 
-![](https://pic3.zhimg.com/v2-9b990548c624931878c88dbc65154bea_b.jpg)
+当前仓库里，WSL 和其它平台统一通过 `MSE_PROXY_PORT` 控制代理端口。
 
-### 2. Vim / Neovim
+## 主要功能
+
+### micromamba
+
+这个仓库默认使用 `micromamba`，并把 `conda` / `mamba` alias 到 `micromamba`。部署完成后，你可以直接使用 `conda` 命令管理环境。
+
+### Vim / Neovim
 
 - Vim 配置参考 [vim-for-coding](https://github.com/Leptune/vim-for-coding)
-- Neovim 配置参考我的 [MyLazyVim](https://github.com/hermanzhaozzzz/MyLazyVim)
+- Neovim 配置参考 [MyLazyVim](https://github.com/hermanzhaozzzz/MyLazyVim)
 
-![](https://pic4.zhimg.com/v2-9587f7dca82dc9b6e700b661e96207db_b.jpg)
+### Zsh
 
-### 3. Zsh
+默认会配置：
 
-包含一套我常用的 Zsh 插件和命令习惯：
-
-- Oh My Zsh 主题：`fino`
-- Oh My Zsh 标准插件：`git`、`z`
-- [zsh-syntax-highlighting](https://github.com/zsh-users/zsh-syntax-highlighting.git)
-- [zsh-autosuggestions](https://github.com/zsh-users/zsh-autosuggestions)
-- [z](https://github.com/rupa/z)
-
-默认插件的作用和常用用法：
-
+- Oh My Zsh
 - `git`
-  作用：提供常用 git alias
-  例子：`gst` 查看状态，`gco <branch>` 切分支，`gaa` 添加全部修改
 - `z`
-  作用：记录你常去的目录，之后可以快速跳转
-  例子：先多 `cd` 几次，之后直接 `z project`、`z Downloads`
 - `zsh-syntax-highlighting`
-  作用：命令行里直接高亮语法
-  用法：输入命令时，通常可执行的命令会高亮，拼错的命令不会高亮
 - `zsh-autosuggestions`
-  作用：根据历史命令自动补全建议
-  用法：终端里会显示灰色建议，通常按右方向键接受建议
 
-如果你不改任何个人配置，部署后这些插件就会直接生效。
+### jcat
 
-![](https://pic2.zhimg.com/v2-1d5b7cade272ec46c293bf80353d36e5_b.jpg)
+用于在终端中快速查看 `ipynb` 内容。参考项目：[jcat](https://github.com/zhifanzhu/jcat)
 
-### 4. jcat
+### wd
 
-终端里快速查看 `ipynb` 文件内容，参考项目：
+终端词典工具。参考项目：[Wudao-dict](https://github.com/ChestnutHeng/Wudao-dict)
 
-- [jcat](https://github.com/zhifanzhu/jcat)
+### code-notify
 
-![](https://pic1.zhimg.com/v2-cc31145bcbe6d57e78dbf90db7b78f10_b.jpg)
-![](https://pic4.zhimg.com/v2-42f94f107405490e83cef241d413ca97_b.jpg)
+这是一个 macOS 终端通知工具。参考项目：[code-notify](https://github.com/mylee04/code-notify)
 
-### 5. wd
+如果你在 macOS 上启用了 `code_notify` step，`mse` 会完成对应接入；Linux 和 Windows 上会跳过这一步。
 
-终端词典工具，参考项目：
+## Cluster Proxy
 
-- [Wudao-dict](https://github.com/ChestnutHeng/Wudao-dict)
+这一部分是给 Slurm 集群用户准备的。它的目标不是替代你现有的代理软件，而是把 compute 节点的流量稳定地接回 login 节点，再复用 login 节点上已经存在的 Clash。
 
-如果你在交互模式里选择配置 `wd`，MSE 会：
+### 组成
 
-- clone 或 update `~/.Wudao-dict`
-- 直接生成可执行文件 `~/.my_shell_envs/bin/wd`
-- 这个 `wd` 命令会进入 `~/.Wudao-dict/wudao-dict` 并执行词典程序
-
-如果你在交互模式里没有选择 `wd`，MSE 会删除 `~/.my_shell_envs/bin/wd`，避免 PATH 里残留一个你并不想保留的命令。
-
-![](https://pic1.zhimg.com/v2-4941f3b7b7c83780d50bcfb36b6dbad8_b.jpg)
-
-### 6. 其他小工具
-
-还包含一些我日常会用的小功能：
-
-- 一个“回收站式”的删除机制，避免误用 `rm -rf`
-- `l` / `ll` / `lll` / `llll` 这些更顺手的目录查看命令
-- `open` 等常用别名
-- `conda/micromamba-pycharm`：给 PyCharm 用的 micromamba 兼容桥接，让 PyCharm 可以把 micromamba 当成 conda 可执行文件
-- 可以通过在 `~/.my_shell_envs/bin` 下建立软链接，把你自己的命令加入 PATH
-
-### 7. code-notify
-
-macOS 终端通知工具，参考项目：
-
-- [code-notify](https://github.com/mylee04/code-notify)
-
-如果你在 macOS 上部署时选择了 `code_notify`，MSE 会：
-
-### 8. Cluster Proxy
-
-这个仓库里还集成了一套面向 Slurm 集群节点的代理工具链：
+`cluster_proxy_tools` step 会接入：
 
 - `autossh`
 - `proxychains-ng`
-- `proxy.on` / `proxy.off` / `proxy.status` / `proxy.test` / `proxy.exec`
+- `proxy.on`
+- `proxy.off`
+- `proxy.status`
+- `proxy.test`
+- `proxy.exec`
 
 默认情况下：
 
 - `mse deploy --fast` 会启用 `cluster_proxy_tools`
-- `mse update` 会沿用 `~/.my_shell_envs/.mse-install.env` 里上次保存的 step 选择
+- `mse update` 会沿用 `.mse-install.env` 中保存的 step 选择
 
-这套代理的设计目标是：
+### 工作方式
 
-- 在 login 节点复用本机已经开启的 Clash 入口
-- 在 compute 节点通过 `autossh` 把本地 `127.0.0.1:8234` 转发到 login 节点的 `127.0.0.1:8234`
-- 用 `http_proxy` / `https_proxy` / `all_proxy` 覆盖大多数 CLI
-- 用 `proxychains-ng` 兜底那些不认代理环境变量的 TCP 程序
-
-流量路径是：
+在 compute 节点上的流量路径是：
 
 ```text
-compute command
--> 127.0.0.1:8234 on compute
+program on compute
+-> ${MSE_PROXY_HOST:-127.0.0.1}:${MSE_PROXY_PORT:-8234} on compute
 -> autossh tunnel
--> 127.0.0.1:8234 on login
+-> ${MSE_PROXY_HOST:-127.0.0.1}:${MSE_PROXY_PORT:-8234} on login
 -> Clash on login
 -> Clash rules / PAC / 分流
 ```
 
-也就是说：
+这意味着：
 
 - compute 节点本身不负责国内外分流
-- 最终的分流决策仍然由 login 节点上的 Clash 完成
-- 如果 Clash 配置里是“国内直连、国外走代理”，compute 节点也会复用这套规则
+- 分流规则完全复用 login 节点上的 Clash
+- 如果 Clash 当前是“国内直连、国外走代理”，compute 节点也会沿用这套规则
 
-当前集群的自动识别规则是：
+### 模式判断
 
-- `login*` 视为 login/direct
-- `c55b01n08` 视为 login/direct
+当前仓库里的自动识别规则是：
+
+- `login*` 视为 direct
+- `c55b01n08` 视为 direct
 - 其他 `c*b*n*` 视为 compute
 - `MSE_PROXY_FORCE_MODE=compute|direct` 可以手动覆盖
 
-默认行为：
+### 默认行为
 
-- 在 compute 节点，加载 `zshrc` 时会自动尝试 `proxy.on`
-- 在 login/direct 节点，如果本地 `8234` 已经在监听，也会自动启用代理
-- 成功后会打印提示，提醒你可以用 `proxy.test` 或 `curl -I https://www.baidu.com` 验证网络
+- 在 compute 节点，加载 `zshrc` 时会自动尝试启用代理
+- 在 direct/login 节点，如果本地代理端口已经在监听，也会自动启用代理
+- 自动启用成功后，会打印提示，提醒你可以测试网络
 
-如果你不希望默认自动开启 Slurm 计算节点代理，在你自己的 `~/.zprofile` 里加：
+如果你不希望在计算节点默认自动启用代理，在自己的 `~/.zprofile` 中设置：
 
 ```shell
 export MSE_SLURM_NODE_PROXY_AUTO_ENABLE=false
 ```
 
-这样打开新 shell 时不会自动执行计算节点代理初始化，但命令仍然保留，你可以手动执行：
+这样命令仍然保留，但新 shell 不会自动执行 `proxy.on`。
+
+### 端口和主机变量
+
+当前正式支持的变量是：
 
 ```shell
-proxy.on
-proxy.off
-proxy.status
-proxy.test
-proxy.exec curl -I https://www.baidu.com
+export MSE_PROXY_PORT=8234
+export MSE_PROXY_HOST=127.0.0.1
+export MSE_PROXY_UPSTREAM_HOST=login03
 ```
 
-几个常用命令的含义：
+说明：
 
-- `proxy.on`
-  在 login 节点直接启用本地 `8234` 代理；在 compute 节点建立到 login 节点的 `autossh` 隧道并启用代理环境变量
-- `proxy.off`
-  清理代理环境变量；在 compute 节点上也会尝试关闭本次代理隧道
-- `proxy.status`
-  查看当前模式、upstream host、隧道状态和本地端口状态
-- `proxy.test`
-  用 `curl` 和 `proxychains-ng` 做最小连通性测试
-- `proxy.exec <cmd>`
-  对不认 `http_proxy` 的 TCP 程序，用 `proxychains-ng` 强制套代理
+- `MSE_PROXY_PORT` 默认 `8234`，不要再把 `8234` 当作写死常量理解
+- 如果你的 WSL 代理入口是 `7890`，就在 `~/.zprofile` 里改成 `MSE_PROXY_PORT=7890`
+- Windows PowerShell profile 默认仍然使用 `7890`，这是为了兼容 Clash for Windows 的常见默认设置；如果你改了本机代理端口，同样用 `MSE_PROXY_PORT` 覆盖即可
+- `MSE_PROXY_UPSTREAM_HOST` 只在 compute 节点无法自动推断上游 login 节点时需要设置
 
-需要注意：
+### 常用命令
 
-- `proxychains-ng` 只支持 TCP，不支持 UDP / ICMP
-- `scancel` 掉 compute 节点后，节点上的 `autossh` / `sshd` / shell 都会一起结束，代理也会随节点消失
-- 换新节点后，需要重新进入节点并重新初始化代理
+```shell
+proxy.status
+proxy.on
+proxy.test
+proxy.exec curl -I https://www.baidu.com
+proxy.off
+```
 
-兼容性说明：
+含义分别是：
 
-- 默认开关变量是 `MSE_SLURM_NODE_PROXY_AUTO_ENABLE=true|false`
+- `proxy.on`：在 direct 节点直接启用本地代理环境；在 compute 节点建立到 login 节点的 `autossh` 隧道并设置环境变量
+- `proxy.off`：清理代理环境；在 compute 节点还会尝试关闭对应隧道
+- `proxy.status`：查看当前模式、端口、上游节点、隧道状态
+- `proxy.test`：用 `curl` 和 `proxychains-ng` 做最小连通性测试
+- `proxy.exec <cmd>`：对不认 `http_proxy` / `https_proxy` / `all_proxy` 的 TCP 程序强制套代理
 
-- 通过 Homebrew 安装 `code-notify`
-- 设置提示音为 `Blow.aiff`
-- 添加 `permission_prompt` 和 `auth_success` 两种 alert
-- 启用通知
+### 限制和生命周期
 
-交互式部署中你可以跳过这一步。Windows / Linux 上该步骤自动忽略。
+- `proxychains-ng` 只适用于 TCP，不覆盖 UDP / ICMP
+- 这套方案的核心是“复用 login 节点已有代理”，不是做系统级透明代理
+- 如果你 `scancel` 了 compute 节点，对应的 `autossh`、`sshd`、shell 和代理状态都会一起结束
+- 换新节点后，需要重新进入节点并重新建立代理
 
 ## 贡献
 
 欢迎提交 Issue 和 Pull Request。
 
-如果你发现了 bug、兼容性问题、文档缺失，或者希望补充新的环境模块，都可以直接在仓库中发起讨论或提交修改。
-
-一个最基础的贡献流程如下：
-
-1. 先在 GitHub 上 fork 本仓库到你自己的账号下。
-2. 把你自己的 fork 克隆到本地。
+如果你想贡献代码，最简单的路径是：
 
 ```shell
 cd "$HOME"
 git clone git@github.com:<your-github-name>/.my_shell_envs.git
 cd ~/.my_shell_envs
-```
-
-3. 在本地部署你自己的 fork，确认修改能实际跑通。
-
-```shell
 ./mse deploy
 ```
 
-4. 修改代码或文档，反复调试，直到你本地用起来没问题。
-5. 把修改提交到你自己的 fork。
-6. 在 GitHub 上从你的 fork 发起一个 PR，请求合并到本仓库。
-
-如果你只改文档，也欢迎直接提 PR。
-
-如果你不确定改动方向，也可以先开 Issue 讨论。
-
-非常欢迎大家一起维护这个仓库。
+确认本地能正常使用后，再提交你的修改。
 
 ## 许可证
 

@@ -523,6 +523,11 @@ _func_proxy_status() {
 _func_proxy_test() {
     local runtime_conf=""
     local proxy_mode=""
+    local urls=()
+    local url=""
+    local short=""
+    local code=""
+    local failed=0
 
     command -v curl >/dev/null 2>&1 || {
         echo "proxy.test: curl not found"
@@ -531,23 +536,53 @@ _func_proxy_test() {
     runtime_conf="$(_mse_proxy_runtime_proxychains_conf)"
     proxy_mode="$(_mse_proxy_mode_setting)"
 
-    echo "== curl via env proxy =="
     if [[ "${proxy_mode}" == "direct-egress" ]]; then
-        curl -I --max-time 8 https://www.google.com | sed -n '1,5p'
+        urls=(
+            "https://www.google.com.hk|google.com.hk"
+            "https://www.baidu.com|baidu.com"
+            "https://api.openai.com|openai"
+            "https://api.anthropic.com|claude"
+            "https://z.ai|z.ai"
+        )
     else
-        curl -I --max-time 8 https://www.baidu.com | sed -n '1,5p'
+        urls=(
+            "https://www.baidu.com|baidu.com"
+            "https://www.google.com.hk|google.com.hk"
+            "https://api.openai.com|openai"
+            "https://api.anthropic.com|claude"
+            "https://z.ai|z.ai"
+        )
     fi
+
+    echo "== curl via env proxy =="
+    for url in "${urls[@]}"; do
+        short="${url#*|}"
+        url="${url%%|*}"
+        code=$(curl -I -s -o /dev/null -w '%{http_code}' --max-time 8 "${url}" 2>/dev/null)
+        if [[ "${code}" != "000" && -n "${code}" ]]; then
+            printf '  \033[1;32m%-15s\033[0m %s (HTTP %s)\n' "OK" "${short}" "${code}"
+        else
+            printf '  \033[1;31m%-15s\033[0m %s (HTTP %s)\n' "FAIL" "${short}" "${code:-timeout}"
+            failed=$((failed + 1))
+        fi
+    done
 
     if [[ -n "$(_mse_proxy_proxychains_bin)" ]]; then
         echo "== curl via proxychains =="
-        if [[ "${proxy_mode}" == "direct-egress" ]]; then
-            "$(_mse_proxy_proxychains_bin)" -f "${runtime_conf}" curl -I --max-time 8 https://www.google.com | sed -n '1,5p'
-            "$(_mse_proxy_proxychains_bin)" -f "${runtime_conf}" curl -I --max-time 8 https://api.openai.com | sed -n '1,5p'
-            "$(_mse_proxy_proxychains_bin)" -f "${runtime_conf}" curl -I --max-time 8 https://api.anthropic.com | sed -n '1,5p'
-        else
-            "$(_mse_proxy_proxychains_bin)" -f "${runtime_conf}" curl -I --max-time 8 https://www.baidu.com | sed -n '1,5p'
-        fi
+        for url in "${urls[@]}"; do
+            short="${url#*|}"
+            url="${url%%|*}"
+            code=$("$(_mse_proxy_proxychains_bin)" -f "${runtime_conf}" curl -I -s -o /dev/null -w '%{http_code}' --max-time 8 "${url}" 2>/dev/null)
+            if [[ "${code}" != "000" && -n "${code}" ]]; then
+                printf '  \033[1;32m%-15s\033[0m %s (HTTP %s)\n' "OK" "${short}" "${code}"
+            else
+                printf '  \033[1;31m%-15s\033[0m %s (HTTP %s)\n' "FAIL" "${short}" "${code:-timeout}"
+                failed=$((failed + 1))
+            fi
+        done
     fi
+
+    return ${failed}
 }
 
 _func_proxy_exec() {
@@ -585,7 +620,7 @@ _mse_proxy_auto_init() {
         if _func_proxy_on; then
             echo '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
             echo -e '\t\033[1;32mproxy auto-enabled\033[0m on compute node'
-            echo -e '\ttest with \033[1;35mproxy.test\033[0m or \033[1;35mcurl -I https://www.baidu.com\033[0m'
+            echo -e '\ttest with \033[1;35mproxy.test\033[0m (baidu, google.com.hk, openai, claude, z.ai)'
             echo '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
         else
             echo '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'

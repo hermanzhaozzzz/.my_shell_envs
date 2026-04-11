@@ -2,13 +2,13 @@
 
 [简体中文](README.md) | [English](docs/README.en.md)
 
-一个用来快速落地个人终端环境的仓库。它主要做三件事：
+这个仓库用来快速搭一套顺手的终端环境，主要包括：
 
 - 部署一套可直接用的 `zsh` / `vim` / `neovim` / `micromamba` 环境
 - 管理常用 CLI 工具和若干辅助脚本
 - 在 Slurm 集群上提供一套可复用的代理工作流
 
-常用入口只有两个：
+平时最常用的命令只有两个：
 
 ```shell
 ./mse deploy
@@ -32,7 +32,7 @@ sudo apt update
 sudo apt install -y git zsh build-essential pkg-config
 ```
 
-`mse deploy` 之后会继续处理：
+`mse deploy` 会继续处理这些内容：
 
 - `oh-my-zsh`
 - 常用 zsh 插件
@@ -58,13 +58,13 @@ cd ~/.my_shell_envs
 ./mse deploy --interactive
 ```
 
-如果你明确想把仓库里的 demo `zprofile` 链接到自己的 `~/.zprofile`：
+如果你就是想直接用仓库里的 demo `zprofile`：
 
 ```shell
 ./mse deploy --use-zprofile-template
 ```
 
-如果你是仓库维护者，或者希望附属仓库也走 SSH：
+如果你是仓库维护者，或者希望相关仓库都走 SSH：
 
 ```shell
 cd "$HOME"
@@ -78,7 +78,7 @@ cd ~/.my_shell_envs
 - `fast`：按默认 step 直接部署，适合新机器或你已经接受默认配置
 - `interactive`：逐步选择模块，适合你只想装一部分内容
 
-`--use-zprofile-template` 只适合明确知道自己在做什么时使用。默认情况下，`mse` 不会改你的 `~/.zprofile`。
+`--use-zprofile-template` 只适合你明确想接管自己的 `~/.zprofile` 时使用。默认情况下，`mse` 不会改这个文件。
 
 ### Windows
 
@@ -101,7 +101,7 @@ git-bash ./mse update
 
 ### `deploy`
 
-`./mse deploy` 会在当前机器上安装或接入默认工具，并把公共 shell 配置链接到这个仓库。常见行为包括：
+`./mse deploy` 会在当前机器上安装或接入默认工具，并把公共 shell 配置链接到这个仓库。常见动作包括：
 
 - 链接 `~/.zshrc`
 - 安装或接入 `oh-my-zsh` 和插件
@@ -129,12 +129,12 @@ MSE_STEP_CODE_NOTIFY='true'
 MSE_STEP_CLUSTER_PROXY_TOOLS='true'
 ```
 
-这也是为什么：
+所以：
 
-- `mse deploy --fast` 默认行为和
-- 之后的 `mse update`
+- `mse deploy --fast` 的默认行为
+- 后面的 `mse update`
 
-可能不完全一样。`update` 优先复用 `.mse-install.env` 中已经保存的选择。
+不一定完全一样。`update` 会优先复用 `.mse-install.env` 里已经保存的选择。
 
 你有两种方式改默认行为：
 
@@ -145,14 +145,37 @@ MSE_STEP_CLUSTER_PROXY_TOOLS='true'
 
 ### `~/.zprofile` 和 `~/.zshrc`
 
-推荐的边界是：
+推荐这样分工：
 
 - `~/.zprofile`：放你自己的机器相关变量、PATH、代理参数、私有 token
 - `~/.zshrc`：由本仓库统一管理公共交互逻辑
 
-不要在自己的 `~/.zprofile` 里重新定义仓库已经提供的命令，尤其是 `proxy.on` / `proxy.off` 这一类。当前这些命令由仓库的 `zsh/zshrc` 提供。
+不要在自己的 `~/.zprofile` 里重新定义仓库已经提供的命令，尤其是 `proxy.on` / `proxy.off`。这些命令现在统一由仓库里的 `zsh/zshrc` 提供。
 
-### 推荐放在 `~/.zprofile` 的变量
+如果你容易混淆这几个文件，可以先记住 zsh 的常见加载顺序：
+
+```text
+.zshenv -> .zprofile -> .zshrc -> .zlogin -> .zlogout
+```
+
+通常可以这样理解：
+
+- `~/.zshenv`：所有 zsh 进程都会读，尽量少放东西
+- `~/.zprofile`：登录 shell 会先读，适合放 PATH、代理端口、主机相关变量
+- `~/.zshrc`：交互式 shell 会读，你平时开终端最常接触的是它
+- `~/.zlogin`：登录 shell 的收尾阶段才读，大多数时候用不上
+- `~/.zlogout`：退出登录 shell 时才读
+
+这个仓库的思路很简单：
+
+- 机器相关、个人相关的设置放 `~/.zprofile`
+- 公共 alias、函数、插件和交互逻辑放仓库里的 `zsh/zshrc`
+
+### 可选变量示例
+
+下面这些都不是必须项，只是你想覆盖默认行为时可以写进 `~/.zprofile` 的示例。
+
+如果你什么都不写，大多数功能也能正常工作，因为仓库里的 `zsh/zshrc` 已经提供了默认值。
 
 ```shell
 export MSE_ZSH_THEME="fino"
@@ -162,7 +185,7 @@ export MSE_SLURM_NODE_PROXY_AUTO_ENABLE=false
 export MSE_PROXY_PORT=8234
 ```
 
-常用变量说明：
+这些变量的作用分别是：
 
 - `MSE_ZSH_THEME`：覆盖默认 Oh My Zsh 主题
 - `MSE_ZSH_PLUGINS`：整体覆盖默认插件列表
@@ -230,7 +253,13 @@ export MSE_PROXY_PORT=7890
 
 ## Cluster Proxy
 
-这一部分是给 Slurm 集群用户准备的。它的目标不是替代你现有的代理软件，而是把 compute 节点的流量稳定地接回 login 节点，再复用 login 节点上已经存在的 Clash。
+这一部分是给 Slurm 集群用户准备的小 trick，主要用来解决计算节点本身不联网的问题。
+
+思路很简单：
+
+- login 节点继续跑你平时就在用的 Clash
+- compute 节点把流量通过 SSH 隧道转回 login 节点
+- 这样在 compute 节点里也能继续联网
 
 ### 组成
 
@@ -262,15 +291,15 @@ program on compute
 -> Clash rules / PAC / 分流
 ```
 
-这意味着：
+可以把它理解成：
 
-- compute 节点本身不负责国内外分流
-- 分流规则完全复用 login 节点上的 Clash
-- 如果 Clash 当前是“国内直连、国外走代理”，compute 节点也会沿用这套规则
+- compute 节点自己不做分流
+- 分流规则直接复用 login 节点上的 Clash
+- 如果 Clash 现在是“国内直连、国外走代理”，compute 节点也会跟着这样走
 
 ### 模式判断
 
-当前仓库里的自动识别规则是：
+当前仓库里的自动识别规则如下：
 
 - `login*` 视为 direct
 - `c55b01n08` 视为 direct
@@ -280,7 +309,7 @@ program on compute
 ### 默认行为
 
 - 在 compute 节点，加载 `zshrc` 时会自动尝试启用代理
-- 在 direct/login 节点，如果本地代理端口已经在监听，也会自动启用代理
+- 在 direct/login 节点，如果本地代理端口已经在监听，也会顺手启用代理
 - 自动启用成功后，会打印提示，提醒你可以测试网络
 
 如果你不希望在计算节点默认自动启用代理，在自己的 `~/.zprofile` 中设置：
@@ -289,7 +318,7 @@ program on compute
 export MSE_SLURM_NODE_PROXY_AUTO_ENABLE=false
 ```
 
-这样命令仍然保留，但新 shell 不会自动执行 `proxy.on`。
+这样命令还在，只是新 shell 不会自动执行 `proxy.on`。
 
 ### 端口和主机变量
 
@@ -303,7 +332,7 @@ export MSE_PROXY_UPSTREAM_HOST=login03
 
 说明：
 
-- `MSE_PROXY_PORT` 默认 `8234`，不要再把 `8234` 当作写死常量理解
+- `MSE_PROXY_PORT` 默认是 `8234`
 - 如果你的 WSL 代理入口是 `7890`，就在 `~/.zprofile` 里改成 `MSE_PROXY_PORT=7890`
 - Windows PowerShell profile 默认仍然使用 `7890`，这是为了兼容 Clash for Windows 的常见默认设置；如果你改了本机代理端口，同样用 `MSE_PROXY_PORT` 覆盖即可
 - `MSE_PROXY_UPSTREAM_HOST` 只在 compute 节点无法自动推断上游 login 节点时需要设置
@@ -318,18 +347,18 @@ proxy.exec curl -I https://www.baidu.com
 proxy.off
 ```
 
-含义分别是：
+大致作用如下：
 
 - `proxy.on`：在 direct 节点直接启用本地代理环境；在 compute 节点建立到 login 节点的 `autossh` 隧道并设置环境变量
 - `proxy.off`：清理代理环境；在 compute 节点还会尝试关闭对应隧道
-- `proxy.status`：查看当前模式、端口、上游节点、隧道状态
-- `proxy.test`：用 `curl` 和 `proxychains-ng` 做最小连通性测试
-- `proxy.exec <cmd>`：对不认 `http_proxy` / `https_proxy` / `all_proxy` 的 TCP 程序强制套代理
+- `proxy.status`：查看当前模式、端口、上游节点和隧道状态
+- `proxy.test`：用 `curl` 和 `proxychains-ng` 做一轮最小连通性测试
+- `proxy.exec <cmd>`：给那些不认 `http_proxy` / `https_proxy` / `all_proxy` 的 TCP 程序强制套代理
 
 ### 限制和生命周期
 
 - `proxychains-ng` 只适用于 TCP，不覆盖 UDP / ICMP
-- 这套方案的核心是“复用 login 节点已有代理”，不是做系统级透明代理
+- 这套方案本质上还是“复用 login 节点已有代理”，不是系统级透明代理
 - 如果你 `scancel` 了 compute 节点，对应的 `autossh`、`sshd`、shell 和代理状态都会一起结束
 - 换新节点后，需要重新进入节点并重新建立代理
 

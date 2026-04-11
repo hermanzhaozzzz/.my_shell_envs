@@ -27,6 +27,7 @@ Fast deployment for shell environments.
   - [5. wd](#5-wd)
   - [6. 其他小工具](#6-其他小工具)
   - [7. code-notify](#7-code-notify)
+  - [8. Cluster Proxy](#8-cluster-proxy)
 - [贡献](#贡献)
 - [许可证](#许可证)
 
@@ -57,6 +58,7 @@ Fast deployment for shell environments.
 - `oh-my-zsh`
 - Oh My Zsh 标准插件：`git`、`z`
 - 自定义插件：`zsh-syntax-highlighting`、`zsh-autosuggestions`
+- cluster proxy 工具：`autossh`、`proxychains-ng`
 
 你需要提前准备的是：
 
@@ -80,6 +82,7 @@ sudo apt install -y build-essential pkg-config
 - `eza`、`bat`、`rg` 会作为默认依赖直接部署，并接到仓库的 `bin/` 目录
 - 仓库默认的 Oh My Zsh 主题是 `fino`
 - 如果你使用本仓库里的 `zshrc`，部署后不需要再手工维护 `plugins=(...)`
+- 在 Linux 上，`fast` 模式默认会启用 `cluster_proxy_tools`，编译并接入 `autossh` / `proxychains-ng`
 
 ### HTTPS 安装（普通用户）
 
@@ -235,6 +238,7 @@ MSE_STEP_NVIM='true'
 MSE_STEP_JCAT='false'
 MSE_STEP_WD='true'
 MSE_STEP_CODE_NOTIFY='true'
+MSE_STEP_CLUSTER_PROXY_TOOLS='true'
 ```
 
 这些字段的含义：
@@ -354,12 +358,16 @@ export MSE_ZSH_THEME="robbyrussell"
 
 # optional: override plugin list
 export MSE_ZSH_PLUGINS="git z zsh-syntax-highlighting zsh-autosuggestions"
+
+# optional: auto-activate micromamba base in new shells
+export MSE_MAMBA_AUTO_ACTIVATE_BASE=false
 ```
 
 规则很简单：
 
 - `MSE_ZSH_THEME`：覆盖仓库默认主题 `fino`
 - `MSE_ZSH_PLUGINS`：整体覆盖仓库默认插件列表
+- `MSE_MAMBA_AUTO_ACTIVATE_BASE`：是否在新 shell 中自动 `micromamba activate base`
 - 这些变量放在 `~/.zprofile` 里即可，仓库的 `zsh/zshrc` 会读取它们
 
 如果你不想改主题和插件，就不要写这两个变量。
@@ -517,6 +525,95 @@ macOS 终端通知工具，参考项目：
 - [code-notify](https://github.com/mylee04/code-notify)
 
 如果你在 macOS 上部署时选择了 `code_notify`，MSE 会：
+
+### 8. Cluster Proxy
+
+这个仓库里还集成了一套面向 Slurm 集群节点的代理工具链：
+
+- `autossh`
+- `proxychains-ng`
+- `proxy.on` / `proxy.off` / `proxy.status` / `proxy.test` / `proxy.exec`
+
+默认情况下：
+
+- `mse deploy --fast` 会启用 `cluster_proxy_tools`
+- `mse update` 会沿用 `~/.my_shell_envs/.mse-install.env` 里上次保存的 step 选择
+
+这套代理的设计目标是：
+
+- 在 login 节点复用本机已经开启的 Clash 入口
+- 在 compute 节点通过 `autossh` 把本地 `127.0.0.1:8234` 转发到 login 节点的 `127.0.0.1:8234`
+- 用 `http_proxy` / `https_proxy` / `all_proxy` 覆盖大多数 CLI
+- 用 `proxychains-ng` 兜底那些不认代理环境变量的 TCP 程序
+
+流量路径是：
+
+```text
+compute command
+-> 127.0.0.1:8234 on compute
+-> autossh tunnel
+-> 127.0.0.1:8234 on login
+-> Clash on login
+-> Clash rules / PAC / 分流
+```
+
+也就是说：
+
+- compute 节点本身不负责国内外分流
+- 最终的分流决策仍然由 login 节点上的 Clash 完成
+- 如果 Clash 配置里是“国内直连、国外走代理”，compute 节点也会复用这套规则
+
+当前集群的自动识别规则是：
+
+- `login*` 视为 login/direct
+- `c55b01n08` 视为 login/direct
+- 其他 `c*b*n*` 视为 compute
+- `MSE_PROXY_FORCE_MODE=compute|direct` 可以手动覆盖
+
+默认行为：
+
+- 在 compute 节点，加载 `zshrc` 时会自动尝试 `proxy.on`
+- 在 login/direct 节点，如果本地 `8234` 已经在监听，也会自动启用代理
+- 成功后会打印提示，提醒你可以用 `proxy.test` 或 `curl -I https://www.baidu.com` 验证网络
+
+如果你不希望默认自动开启 Slurm 计算节点代理，在你自己的 `~/.zprofile` 里加：
+
+```shell
+export MSE_SLURM_NODE_PROXY_AUTO_ENABLE=false
+```
+
+这样打开新 shell 时不会自动执行计算节点代理初始化，但命令仍然保留，你可以手动执行：
+
+```shell
+proxy.on
+proxy.off
+proxy.status
+proxy.test
+proxy.exec curl -I https://www.baidu.com
+```
+
+几个常用命令的含义：
+
+- `proxy.on`
+  在 login 节点直接启用本地 `8234` 代理；在 compute 节点建立到 login 节点的 `autossh` 隧道并启用代理环境变量
+- `proxy.off`
+  清理代理环境变量；在 compute 节点上也会尝试关闭本次代理隧道
+- `proxy.status`
+  查看当前模式、upstream host、隧道状态和本地端口状态
+- `proxy.test`
+  用 `curl` 和 `proxychains-ng` 做最小连通性测试
+- `proxy.exec <cmd>`
+  对不认 `http_proxy` 的 TCP 程序，用 `proxychains-ng` 强制套代理
+
+需要注意：
+
+- `proxychains-ng` 只支持 TCP，不支持 UDP / ICMP
+- `scancel` 掉 compute 节点后，节点上的 `autossh` / `sshd` / shell 都会一起结束，代理也会随节点消失
+- 换新节点后，需要重新进入节点并重新初始化代理
+
+兼容性说明：
+
+- 默认开关变量是 `MSE_SLURM_NODE_PROXY_AUTO_ENABLE=true|false`
 
 - 通过 Homebrew 安装 `code-notify`
 - 设置提示音为 `Blow.aiff`

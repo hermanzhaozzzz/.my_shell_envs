@@ -203,6 +203,8 @@ fi
 export MSE_PROXY_PORT="${MSE_PROXY_PORT:-8234}"
 export MSE_PROXY_HOST="${MSE_PROXY_HOST:-127.0.0.1}"
 export MSE_PROXYCHAINS_CONF="${MSE_PROXYCHAINS_CONF:-${HOME}/.my_shell_envs/tools/proxychains/proxychains.conf}"
+export MSE_SLURM_NODE_PROXY_AUTO_ENABLE="${MSE_SLURM_NODE_PROXY_AUTO_ENABLE:-true}"
+export MSE_MAMBA_AUTO_ACTIVATE_BASE="${MSE_MAMBA_AUTO_ACTIVATE_BASE:-false}"
 
 _mse_proxy_default_no_proxy() {
     printf '%s\n' "192.168.59.102,192.168.59.103"
@@ -230,10 +232,15 @@ _mse_proxy_port_open() {
 }
 
 _mse_proxy_is_compute_node() {
+    local host_name=""
+
+    [[ "${MSE_PROXY_FORCE_MODE:-}" == "compute" ]] && return 0
+    [[ "${MSE_PROXY_FORCE_MODE:-}" == "direct" ]] && return 1
+    host_name="$(hostname)"
+    [[ "${host_name}" == login* ]] && return 1
+    [[ "${host_name}" == "c55b01n08" ]] && return 1
+    [[ "${host_name}" =~ '^c[0-9]+b[0-9]+n[0-9]+$' ]] && return 0
     [[ -n "${SLURM_JOB_ID:-}" ]] && return 0
-    if [[ -n "${SSH_CONNECTION:-}" ]]; then
-        [[ "$(_mse_proxy_upstream_host 2>/dev/null || true)" != "" ]] && [[ "$(_mse_proxy_upstream_host 2>/dev/null || true)" != "$(hostname)" ]] && return 0
-    fi
     return 1
 }
 
@@ -462,6 +469,44 @@ _func_proxy_exec() {
     "${proxychains_bin}" -f "${MSE_PROXYCHAINS_CONF}" "$@"
 }
 
+_mse_proxy_auto_init() {
+    local mode=""
+
+    case "${MSE_SLURM_NODE_PROXY_AUTO_ENABLE}" in
+        false|FALSE|False|no|NO|No|off|OFF|Off)
+            return 0
+            ;;
+    esac
+
+    [[ -n "${http_proxy:-}" || -n "${https_proxy:-}" || -n "${all_proxy:-}" ]] && return 0
+
+    mode="$(_mse_proxy_mode)"
+
+    if [[ "${mode}" == "compute" ]]; then
+        if _func_proxy_on; then
+            echo '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
+            echo -e '\t\033[1;32mproxy auto-enabled\033[0m on compute node'
+            echo -e '\ttest with \033[1;35mproxy.test\033[0m or \033[1;35mcurl -I https://www.baidu.com\033[0m'
+            echo '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
+        else
+            echo '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
+            echo -e '\t\033[1;31mproxy auto-enable failed\033[0m on compute node'
+            echo -e '\tset \033[1;35mMSE_PROXY_UPSTREAM_HOST\033[0m manually, then run \033[1;35mproxy.on\033[0m'
+            echo '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
+        fi
+        return 0
+    fi
+
+    if _mse_proxy_port_open "127.0.0.1" "${MSE_PROXY_PORT}"; then
+        if _func_proxy_on; then
+            echo '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
+            echo -e '\t\033[1;32mproxy auto-enabled\033[0m on login/direct node'
+            echo -e '\ttest with \033[1;35mproxy.test\033[0m or \033[1;35mcurl -I https://www.baidu.com\033[0m'
+            echo '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
+        fi
+    fi
+}
+
 unalias proxy.on proxy.off proxy.status proxy.test proxy.exec 2>/dev/null
 alias proxy.on=_func_proxy_on
 alias proxy.off=_func_proxy_off
@@ -557,8 +602,6 @@ fi
 
 
 # 第三方命令别名
-echo -e "\talias \033[1;35mlg\033[0m=eza -lh --tree -L 1 --no-user --time-style long-iso | grep -v 'job.srp' | grep -v '.err' | grep -v '.out'"
-alias lg="eza -lh --tree -L 1 --no-user --time-style long-iso | grep -v 'job.srp' | grep -v '.err' | grep -v '.out'"
 echo -e '\talias \033[1;35mllll\033[0m=/bin/ls -lh'
 alias llll="/bin/ls -lh"
 echo -e '\talias \033[1;35mlll\033[0m=eza -lh --time-style long-iso'
@@ -636,8 +679,10 @@ echo -e '\talias \033[1;35mconda\033[0m=micromamba'
 echo -e '\talias \033[1;35mmamba\033[0m=micromamba'
 alias conda=micromamba
 alias mamba=micromamba
-echo -e '\tset   \033[1;35mauto_activate_base\033[0m=false'
-# micromamba config set auto_activate_base=false
+echo -e '\tset   \033[1;35mauto_activate_base\033[0m='${MSE_MAMBA_AUTO_ACTIVATE_BASE}
+if [[ "${MSE_MAMBA_AUTO_ACTIVATE_BASE}" == "true" ]]; then
+    micromamba activate base >/dev/null 2>&1
+fi
 
 export SCRCPY_SERVER_PATH=/Applications/极空间.app/Contents/Resources/app.asar.unpacked/bin/platform-tools/scrcpy-server
 export PATH=$PATH:/Applications/极空间.app/Contents/Resources/app.asar.unpacked/bin/platform-tools
@@ -647,6 +692,8 @@ echo -e '\twelcome to use this zsh env'
 echo -e '\tnew features and issues can be raised at:'
 echo -e '\t\thttps://github.com/hermanzhaozzzz/.my_shell_envs/issues'
 echo '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
+
+_mse_proxy_auto_init
 
 
 

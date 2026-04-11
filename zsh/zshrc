@@ -597,12 +597,10 @@ _mse_proxy_auto_init() {
     fi
 
     if _mse_proxy_port_open "127.0.0.1" "${MSE_PROXY_PORT}"; then
-        if _func_proxy_on; then
-            echo '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
-            echo -e '\t\033[1;32mproxy auto-enabled\033[0m on login/direct node'
-            echo -e '\ttest with \033[1;35mproxy.test\033[0m or \033[1;35mcurl -I https://www.baidu.com\033[0m'
-            echo '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
-        fi
+        echo '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
+        echo -e '\t\033[1;33mproxy NOT auto-enabled\033[0m on login/direct node'
+        echo -e '\trun \033[1;35mproxy.on\033[0m to enable when needed'
+        echo '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
     fi
 }
 

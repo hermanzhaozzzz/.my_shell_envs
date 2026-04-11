@@ -24,6 +24,9 @@ BIN_PATH="$REPO_PATH/bin"
 REPO_BIN_EZA_PATH="$BIN_PATH/eza"
 REPO_BIN_BAT_PATH="$BIN_PATH/bat"
 REPO_BIN_RG_PATH="$BIN_PATH/rg"
+REPO_BIN_AUTOSSH_PATH="$BIN_PATH/autossh"
+REPO_BIN_PROXYCHAINS4_PATH="$BIN_PATH/proxychains4"
+REPO_BIN_PROXYCHAINS_PATH="$BIN_PATH/proxychains"
 CONDA_ENVS="$REPO_PATH/conda_local_env_settings"
 METADATA_FILE="$REPO_PATH/.mse-install.env"
 REPO_BIN_MSE_PATH="$BIN_PATH/mse"
@@ -31,12 +34,22 @@ ZPROFILE_TEMPLATE_PATH="$REPO_PATH/zsh/zprofile_hermanzhaozzzz_demo"
 DEFAULT_REPO_URL="https://github.com/hermanzhaozzzz/.my_shell_envs.git"
 DEFAULT_REPO_SSH_URL="git@github.com:hermanzhaozzzz/.my_shell_envs.git"
 DEFAULT_BRANCH="main"
-AVAILABLE_STEPS="micromamba condarc pip vim nvim jcat wd powershell code_notify"
+AVAILABLE_STEPS="micromamba condarc pip vim nvim jcat wd powershell code_notify cluster_proxy_tools"
 OH_MY_ZSH_PATH="$HOME/.oh-my-zsh"
 OH_MY_ZSH_INSTALL_URL="https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh"
 RUSTUP_INSTALL_URL="https://sh.rustup.rs"
 ZSH_HIGHLIGHTING_REPO_PATH="zsh-users/zsh-syntax-highlighting.git"
 ZSH_AUTOSUGGESTIONS_REPO_PATH="zsh-users/zsh-autosuggestions"
+AUTOSSH_TARBALL_PATH="$REPO_PATH/tools/autossh/autossh-1.4e.tgz"
+AUTOSSH_BUILD_ROOT="$REPO_PATH/tools/autossh/build"
+AUTOSSH_BUILD_DIR="$AUTOSSH_BUILD_ROOT/autossh-1.4e"
+AUTOSSH_PREFIX_DIR="$REPO_PATH/tools/autossh/prefix"
+AUTOSSH_BIN_PATH="$AUTOSSH_PREFIX_DIR/bin/autossh"
+PROXYCHAINS_CONFIG_PATH="$REPO_PATH/tools/proxychains/proxychains.conf"
+PROXYCHAINS_SOURCE_DIR="$REPO_PATH/tools/proxychains-ng"
+PROXYCHAINS_PREFIX_DIR="$REPO_PATH/tools/proxychains-ng/prefix"
+PROXYCHAINS_BIN_PATH="$PROXYCHAINS_PREFIX_DIR/bin/proxychains4"
+PROXYCHAINS_LIB_PATH="$PROXYCHAINS_PREFIX_DIR/lib/libproxychains4.so"
 
 git_method="https"
 deploy_mode="fast"
@@ -329,6 +342,7 @@ describe_step() {
         wd) echo "clone or update Wudao-dict" ;;
         powershell) echo "set the PowerShell profile on Windows" ;;
         code_notify) echo "install code-notify and configure macOS terminal alerts" ;;
+        cluster_proxy_tools) echo "build autossh and link proxychains4 for cluster proxy workflows" ;;
         *) echo "custom step" ;;
     esac
 }
@@ -646,6 +660,15 @@ print_deploy_warnings() {
         print_path_item "$REPO_BIN_EZA_PATH"
         print_path_item "$REPO_BIN_BAT_PATH"
         print_path_item "$REPO_BIN_RG_PATH"
+        if step_selected "cluster_proxy_tools"; then
+            print_path_item "$AUTOSSH_TARBALL_PATH"
+            print_path_item "$AUTOSSH_PREFIX_DIR"
+            print_path_item "$REPO_BIN_AUTOSSH_PATH"
+            print_path_item "$PROXYCHAINS_PREFIX_DIR"
+            print_path_item "$REPO_BIN_PROXYCHAINS4_PATH"
+            print_path_item "$REPO_BIN_PROXYCHAINS_PATH"
+            print_path_item "$PROXYCHAINS_CONFIG_PATH"
+        fi
         print_list_item "default shell for the current user (via chsh)"
     fi
     if step_selected "micromamba"; then
@@ -1021,6 +1044,11 @@ remove_managed_bin_entry() {
 sync_optional_bin_entries() {
     if ! step_selected "wd"; then
         remove_managed_bin_entry "$BIN_PATH/wd"
+    fi
+    if ! step_selected "cluster_proxy_tools"; then
+        remove_managed_bin_entry "$REPO_BIN_AUTOSSH_PATH"
+        remove_managed_bin_entry "$REPO_BIN_PROXYCHAINS4_PATH"
+        remove_managed_bin_entry "$REPO_BIN_PROXYCHAINS_PATH"
     fi
 }
 
@@ -1567,6 +1595,82 @@ step_jcat() {
     log_ok "jcat ready at $(fmt_path "$BIN_PATH/jcat")"
 }
 
+step_cluster_proxy_tools() {
+    local build_stamp="$AUTOSSH_BUILD_DIR/config.status"
+    local makefile_path="$AUTOSSH_BUILD_DIR/Makefile"
+
+    if [ "$platform" = "Windows" ]; then
+        log_warn "cluster proxy tools are not supported on platform: $platform"
+        return 0
+    fi
+
+    log_info "prepare cluster proxy tools"
+    require_cmd tar
+    require_cmd make
+    require_cmd gcc
+
+    [ -f "$AUTOSSH_TARBALL_PATH" ] || fail "autossh source tarball not found at $AUTOSSH_TARBALL_PATH"
+    [ -d "$PROXYCHAINS_SOURCE_DIR" ] || fail "proxychains-ng source not found at $PROXYCHAINS_SOURCE_DIR"
+    [ -x "$PROXYCHAINS_SOURCE_DIR/configure" ] || fail "proxychains-ng configure script not found at $PROXYCHAINS_SOURCE_DIR/configure"
+    [ -f "$PROXYCHAINS_CONFIG_PATH" ] || fail "proxychains config not found at $PROXYCHAINS_CONFIG_PATH"
+
+    mkdir -p "$AUTOSSH_BUILD_ROOT"
+
+    if [ ! -d "$AUTOSSH_BUILD_DIR" ]; then
+        log_info "extract autossh source"
+        tar -xf "$AUTOSSH_TARBALL_PATH" -C "$AUTOSSH_BUILD_ROOT" || fail "failed to extract autossh source"
+    else
+        log_ok "autossh source already extracted"
+    fi
+
+    if [ ! -f "$build_stamp" ] || [ ! -f "$makefile_path" ]; then
+        log_info "configure autossh"
+        (
+            cd "$AUTOSSH_BUILD_DIR" || exit 1
+            ./configure --prefix="$AUTOSSH_PREFIX_DIR"
+        ) || fail "autossh configure failed"
+    else
+        log_ok "autossh configure step already completed"
+    fi
+
+    if [ ! -x "$AUTOSSH_BIN_PATH" ]; then
+        log_info "build and install autossh"
+        (
+            cd "$AUTOSSH_BUILD_DIR" || exit 1
+            make
+            make install
+        ) || fail "autossh build failed"
+    else
+        log_ok "autossh binary already exists at $(fmt_path "$AUTOSSH_BIN_PATH")"
+    fi
+
+    [ -x "$AUTOSSH_BIN_PATH" ] || fail "autossh was not installed at $AUTOSSH_BIN_PATH"
+
+    if [ ! -x "$PROXYCHAINS_BIN_PATH" ] || [ ! -f "$PROXYCHAINS_LIB_PATH" ]; then
+        log_info "configure, build, and install proxychains-ng"
+        (
+            cd "$PROXYCHAINS_SOURCE_DIR" || exit 1
+            ./configure --prefix="$PROXYCHAINS_PREFIX_DIR" --sysconfdir="$PROXYCHAINS_PREFIX_DIR/etc"
+            make clean
+            make
+            make install
+            make clean
+        ) || fail "proxychains-ng build failed"
+    else
+        log_ok "proxychains-ng binary already exists at $(fmt_path "$PROXYCHAINS_BIN_PATH")"
+    fi
+
+    [ -x "$PROXYCHAINS_BIN_PATH" ] || fail "proxychains-ng binary was not installed at $PROXYCHAINS_BIN_PATH"
+
+    force_link "$AUTOSSH_BIN_PATH" "$REPO_BIN_AUTOSSH_PATH"
+    force_link "$PROXYCHAINS_BIN_PATH" "$REPO_BIN_PROXYCHAINS4_PATH"
+    force_link "$REPO_BIN_PROXYCHAINS4_PATH" "$REPO_BIN_PROXYCHAINS_PATH"
+
+    log_ok "autossh ready at $(fmt_path "$REPO_BIN_AUTOSSH_PATH")"
+    log_ok "proxychains4 linked at $(fmt_path "$REPO_BIN_PROXYCHAINS4_PATH")"
+    log_ok "proxychains compatibility link ready at $(fmt_path "$REPO_BIN_PROXYCHAINS_PATH")"
+}
+
 step_wd() {
     local dict_root="$HOME/.Wudao-dict"
     local wd_root="$dict_root/wudao-dict"
@@ -1722,6 +1826,7 @@ command_deploy() {
     run_step "wd" step_wd
     run_step "powershell" step_powershell
     run_step "code_notify" step_code_notify
+    run_step "cluster_proxy_tools" step_cluster_proxy_tools
 
     if [ "$use_zprofile_template" -eq 1 ]; then
         apply_zprofile_template

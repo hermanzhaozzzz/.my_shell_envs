@@ -5,6 +5,11 @@
 /conda_local_env_settings/
 /conda/micromamba-pycharm/
 /tools/jcat/jcat
+/tools/autossh/build/
+/tools/autossh/prefix/
+/tools/proxychains-ng/prefix/
+/tools/proxychains-ng/config.mak
+/tools/proxychains-ng/src/version.h
 /tools/jgi-query/
 /tools/nvim/plugin/
 

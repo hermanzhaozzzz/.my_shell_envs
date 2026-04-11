@@ -196,6 +196,278 @@ if [ -x "${HOME}/.cargo/bin/cargo" ]; then
         *) export PATH="${HOME}/.cargo/bin:$PATH" ;;
     esac
 fi
+
+# ------------------------------------------------------------------->>>>>>>>>>
+# Proxy helpers
+# ------------------------------------------------------------------->>>>>>>>>>
+export MSE_PROXY_PORT="${MSE_PROXY_PORT:-8234}"
+export MSE_PROXY_HOST="${MSE_PROXY_HOST:-127.0.0.1}"
+export MSE_PROXYCHAINS_CONF="${MSE_PROXYCHAINS_CONF:-${HOME}/.my_shell_envs/tools/proxychains/proxychains.conf}"
+
+_mse_proxy_default_no_proxy() {
+    printf '%s\n' "192.168.59.102,192.168.59.103"
+}
+
+_mse_proxy_http_url() {
+    printf 'http://%s:%s\n' "${MSE_PROXY_HOST}" "${MSE_PROXY_PORT}"
+}
+
+_mse_proxy_socks_url() {
+    printf 'socks5://%s:%s\n' "${MSE_PROXY_HOST}" "${MSE_PROXY_PORT}"
+}
+
+_mse_proxy_autossh_bin() {
+    command -v autossh 2>/dev/null
+}
+
+_mse_proxy_proxychains_bin() {
+    command -v proxychains4 2>/dev/null || command -v proxychains 2>/dev/null
+}
+
+_mse_proxy_port_open() {
+    command -v nc >/dev/null 2>&1 || return 1
+    nc -z "${1:-127.0.0.1}" "${2:-${MSE_PROXY_PORT}}" >/dev/null 2>&1
+}
+
+_mse_proxy_is_compute_node() {
+    [[ -n "${SLURM_JOB_ID:-}" ]] && return 0
+    if [[ -n "${SSH_CONNECTION:-}" ]]; then
+        [[ "$(_mse_proxy_upstream_host 2>/dev/null || true)" != "" ]] && [[ "$(_mse_proxy_upstream_host 2>/dev/null || true)" != "$(hostname)" ]] && return 0
+    fi
+    return 1
+}
+
+_mse_proxy_upstream_host() {
+    local client_ip=""
+    local resolved_host=""
+
+    if [[ -n "${MSE_PROXY_UPSTREAM_HOST:-}" ]]; then
+        printf '%s\n' "${MSE_PROXY_UPSTREAM_HOST}"
+        return 0
+    fi
+
+    if [[ -n "${SSH_CONNECTION:-}" ]]; then
+        client_ip="${SSH_CONNECTION%% *}"
+        if [[ -n "${client_ip}" ]]; then
+            if command -v getent >/dev/null 2>&1; then
+                resolved_host="$(getent hosts "${client_ip}" 2>/dev/null | awk 'NR==1 {print $2}')"
+            fi
+            if [[ -n "${resolved_host}" ]]; then
+                printf '%s\n' "${resolved_host}"
+            else
+                printf '%s\n' "${client_ip}"
+            fi
+            return 0
+        fi
+    fi
+
+    return 1
+}
+
+_mse_proxy_tunnel_pattern() {
+    local upstream_host="$1"
+    printf 'autossh .*127.0.0.1:%s:127.0.0.1:%s %s' "${MSE_PROXY_PORT}" "${MSE_PROXY_PORT}" "${upstream_host}"
+}
+
+_mse_proxy_tunnel_pid() {
+    local upstream_host="$1"
+    pgrep -f "$(_mse_proxy_tunnel_pattern "${upstream_host}")" 2>/dev/null | head -n 1
+}
+
+_mse_proxy_enable_env() {
+    local http_url="$(_mse_proxy_http_url)"
+    local socks_url="$(_mse_proxy_socks_url)"
+
+    export https_proxy="${http_url}"
+    export http_proxy="${http_url}"
+    export all_proxy="${socks_url}"
+    export no_proxy="${MSE_PROXY_NO_PROXY:-$(_mse_proxy_default_no_proxy)}"
+
+    echo -e '\texport \033[1;35mhttps_proxy\033[0m='${https_proxy}
+    echo -e '\texport \033[1;35mhttp_proxy\033[0m='${http_proxy}
+    echo -e '\texport \033[1;35mall_proxy\033[0m='${all_proxy}
+    echo -e '\texport \033[1;35mno_proxy\033[0m='${no_proxy}
+}
+
+_mse_proxy_disable_env() {
+    unset https_proxy
+    unset http_proxy
+    unset all_proxy
+}
+
+_mse_proxy_start_tunnel() {
+    local upstream_host="$1"
+    local autossh_bin=""
+    local existing_pid=""
+
+    autossh_bin="$(_mse_proxy_autossh_bin)"
+    [[ -n "${autossh_bin}" ]] || {
+        echo "proxy.on: autossh not found in PATH"
+        return 1
+    }
+
+    existing_pid="$(_mse_proxy_tunnel_pid "${upstream_host}")"
+    if [[ -n "${existing_pid}" ]]; then
+        echo "proxy tunnel already running via ${upstream_host} (pid=${existing_pid})"
+        return 0
+    fi
+
+    if _mse_proxy_port_open "127.0.0.1" "${MSE_PROXY_PORT}"; then
+        echo "proxy.on: local ${MSE_PROXY_PORT} is already listening, refusing to overwrite it"
+        return 1
+    fi
+
+    AUTOSSH_GATETIME=0 AUTOSSH_POLL=30 AUTOSSH_FIRST_POLL=30 \
+        "${autossh_bin}" -M 0 -f -N \
+        -o ExitOnForwardFailure=yes \
+        -o ServerAliveInterval=30 \
+        -o ServerAliveCountMax=3 \
+        -o StrictHostKeyChecking=no \
+        -L "127.0.0.1:${MSE_PROXY_PORT}:127.0.0.1:${MSE_PROXY_PORT}" \
+        "${upstream_host}" || {
+            echo "proxy.on: failed to start autossh tunnel via ${upstream_host}"
+            return 1
+        }
+
+    sleep 1
+    if ! _mse_proxy_port_open "127.0.0.1" "${MSE_PROXY_PORT}"; then
+        echo "proxy.on: tunnel start returned but local port ${MSE_PROXY_PORT} is still unavailable"
+        return 1
+    fi
+
+    echo "proxy tunnel started via ${upstream_host}"
+}
+
+_mse_proxy_stop_tunnel() {
+    local upstream_host="$1"
+    local pids=""
+
+    pids="$(pgrep -f "$(_mse_proxy_tunnel_pattern "${upstream_host}")" 2>/dev/null | tr '\n' ' ')"
+    [[ -n "${pids}" ]] || return 0
+    kill ${=pids} >/dev/null 2>&1 || true
+}
+
+_mse_proxy_mode() {
+    if _mse_proxy_is_compute_node; then
+        printf '%s\n' "compute"
+    elif _mse_proxy_port_open "127.0.0.1" "${MSE_PROXY_PORT}"; then
+        printf '%s\n' "direct"
+    else
+        printf '%s\n' "direct"
+    fi
+}
+
+_func_proxy_on() {
+    local mode=""
+    local upstream_host=""
+
+    mode="$(_mse_proxy_mode)"
+
+    if [[ "${mode}" == "compute" ]]; then
+        upstream_host="$(_mse_proxy_upstream_host)" || {
+            echo "proxy.on: failed to detect upstream login host; set MSE_PROXY_UPSTREAM_HOST manually"
+            return 1
+        }
+        _mse_proxy_start_tunnel "${upstream_host}" || return 1
+        echo "proxy mode: compute-via-login-tunnel"
+        echo "proxy upstream: ${upstream_host}:${MSE_PROXY_PORT}"
+    else
+        echo "proxy mode: login-direct"
+        if ! _mse_proxy_port_open "127.0.0.1" "${MSE_PROXY_PORT}"; then
+            echo "proxy.on: warning: local proxy ${MSE_PROXY_PORT} is not listening yet"
+        fi
+    fi
+
+    _mse_proxy_enable_env
+}
+
+_func_proxy_off() {
+    local upstream_host=""
+
+    _mse_proxy_disable_env
+    git config --global --unset https.proxy 2>/dev/null
+    git config --global --unset http.proxy 2>/dev/null
+
+    if _mse_proxy_is_compute_node; then
+        upstream_host="$(_mse_proxy_upstream_host 2>/dev/null || true)"
+        if [[ -n "${upstream_host}" ]]; then
+            _mse_proxy_stop_tunnel "${upstream_host}"
+        fi
+    fi
+}
+
+_func_proxy_status() {
+    local mode=""
+    local upstream_host=""
+    local tunnel_pid=""
+
+    mode="$(_mse_proxy_mode)"
+    echo "proxy mode: ${mode}"
+    echo "proxy env http: ${http_proxy:-<unset>}"
+    echo "proxy env socks: ${all_proxy:-<unset>}"
+    echo "autossh: $(_mse_proxy_autossh_bin || echo '<missing>')"
+    echo "proxychains: $(_mse_proxy_proxychains_bin || echo '<missing>')"
+    echo "proxychains conf: ${MSE_PROXYCHAINS_CONF}"
+
+    if _mse_proxy_is_compute_node; then
+        upstream_host="$(_mse_proxy_upstream_host 2>/dev/null || true)"
+        echo "proxy upstream: ${upstream_host:-<unknown>}"
+        if [[ -n "${upstream_host}" ]]; then
+            tunnel_pid="$(_mse_proxy_tunnel_pid "${upstream_host}")"
+            echo "proxy tunnel pid: ${tunnel_pid:-<not running>}"
+        fi
+    fi
+
+    if _mse_proxy_port_open "127.0.0.1" "${MSE_PROXY_PORT}"; then
+        echo "local proxy port ${MSE_PROXY_PORT}: listening"
+    else
+        echo "local proxy port ${MSE_PROXY_PORT}: closed"
+    fi
+}
+
+_func_proxy_test() {
+    command -v curl >/dev/null 2>&1 || {
+        echo "proxy.test: curl not found"
+        return 1
+    }
+
+    echo "== curl via env proxy =="
+    curl -I --max-time 8 https://www.baidu.com | sed -n '1,5p'
+
+    if [[ -x "${MSE_PROXYCHAINS_CONF}" ]] || [[ -f "${MSE_PROXYCHAINS_CONF}" ]]; then
+        if [[ -n "$(_mse_proxy_proxychains_bin)" ]]; then
+            echo "== curl via proxychains =="
+            "$(_mse_proxy_proxychains_bin)" -f "${MSE_PROXYCHAINS_CONF}" curl -I --max-time 8 https://www.baidu.com | sed -n '1,5p'
+        fi
+    fi
+}
+
+_func_proxy_exec() {
+    local proxychains_bin=""
+
+    proxychains_bin="$(_mse_proxy_proxychains_bin)"
+    [[ -n "${proxychains_bin}" ]] || {
+        echo "proxy.exec: proxychains4 not found in PATH"
+        return 1
+    }
+    [[ -f "${MSE_PROXYCHAINS_CONF}" ]] || {
+        echo "proxy.exec: proxychains config not found at ${MSE_PROXYCHAINS_CONF}"
+        return 1
+    }
+    [[ $# -gt 0 ]] || {
+        echo "usage: proxy.exec <command> [args...]"
+        return 1
+    }
+
+    "${proxychains_bin}" -f "${MSE_PROXYCHAINS_CONF}" "$@"
+}
+
+unalias proxy.on proxy.off proxy.status proxy.test proxy.exec 2>/dev/null
+alias proxy.on=_func_proxy_on
+alias proxy.off=_func_proxy_off
+alias proxy.status=_func_proxy_status
+alias proxy.test=_func_proxy_test
+alias proxy.exec=_func_proxy_exec
 # ------------------------------------------------------------------->>>>>>>>>>
 # 自定义函数命令
 # ------------------------------------------------------------------->>>>>>>>>>
@@ -379,5 +651,3 @@ echo '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
 
 
 # micromamba activate base 2>/dev/null
-
-

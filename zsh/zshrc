@@ -257,6 +257,10 @@ _mse_proxy_socks_url() {
     printf 'socks5://%s:%s\n' "${MSE_PROXY_HOST}" "${MSE_PROXY_PORT}"
 }
 
+_mse_proxy_socks_remote_dns_url() {
+    printf 'socks5h://%s:%s\n' "${MSE_PROXY_HOST}" "${MSE_PROXY_PORT}"
+}
+
 _mse_proxy_autossh_bin() {
     command -v autossh 2>/dev/null
 }
@@ -327,12 +331,17 @@ _mse_proxy_tunnel_pid() {
 
 _mse_proxy_enable_env() {
     local http_url="$(_mse_proxy_http_url)"
-    local socks_url="$(_mse_proxy_socks_url)"
+    local socks_remote_dns_url="$(_mse_proxy_socks_remote_dns_url)"
 
     export https_proxy="${http_url}"
     export http_proxy="${http_url}"
-    export all_proxy="${socks_url}"
+    export HTTPS_PROXY="${http_url}"
+    export HTTP_PROXY="${http_url}"
+    # Prefer remote DNS resolution whenever a client honors SOCKS5h.
+    export all_proxy="${socks_remote_dns_url}"
+    export ALL_PROXY="${socks_remote_dns_url}"
     export no_proxy="${MSE_PROXY_NO_PROXY:-$(_mse_proxy_default_no_proxy)}"
+    export NO_PROXY="${no_proxy}"
 
     # On compute nodes, SSH can't resolve external hostnames (e.g. ssh.github.com).
     # Route git SSH through the SOCKS5 proxy via ncat.
@@ -344,6 +353,7 @@ _mse_proxy_enable_env() {
     echo -e '\texport \033[1;35mhttps_proxy\033[0m='${https_proxy}
     echo -e '\texport \033[1;35mhttp_proxy\033[0m='${http_proxy}
     echo -e '\texport \033[1;35mall_proxy\033[0m='${all_proxy}
+    echo -e '\texport \033[1;35mALL_PROXY\033[0m='${ALL_PROXY}
     echo -e '\texport \033[1;35mno_proxy\033[0m='${no_proxy}
 }
 
@@ -351,7 +361,12 @@ _mse_proxy_disable_env() {
     unset https_proxy
     unset http_proxy
     unset all_proxy
+    unset HTTPS_PROXY
+    unset HTTP_PROXY
+    unset ALL_PROXY
     unset GIT_SSH_COMMAND
+    unset no_proxy
+    unset NO_PROXY
 }
 
 _mse_proxy_runtime_proxychains_conf() {

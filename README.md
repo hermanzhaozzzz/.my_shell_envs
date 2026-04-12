@@ -382,8 +382,13 @@ proxy.exec curl -I https://www.google.com
 - `http_proxy`
 - `https_proxy`
 - `all_proxy`
+- `HTTP_PROXY`
+- `HTTPS_PROXY`
+- `ALL_PROXY`
 
 有些程序不认这些环境变量，或者你只是想强制它走代理，这时就用 `proxy.exec`。
+
+这里有一个关键点：仓库现在会把 `all_proxy` / `ALL_PROXY` 设成 `socks5h://127.0.0.1:${MSE_PROXY_PORT}`，优先让支持 SOCKS5h 的客户端把域名解析交给代理端，而不是让 compute 节点本地先做 DNS。这样解决的不只是 `git`，而是尽量把 `curl`、`pip`、`conda`、Python HTTP 客户端等一批常见 CLI 的 DNS 行为统一到“远端解析”。
 
 ```shell
 # curl
@@ -457,12 +462,22 @@ export MSE_SLURM_NODE_PROXY_AUTO_ENABLE=false
 
 compute 节点 DNS 无法解析外网域名（如 `ssh.github.com`），SSH 不走 `http_proxy`。`proxy.on` 会在 compute 节点自动设置 `GIT_SSH_COMMAND`，通过 SOCKS5 代理路由 git SSH 流量，`git push` / `git pull` 可以直接使用。
 
+如果你还想把这套 SSH 代理能力扩展到不止 `git` 的其它 SSH 命令，可以在自己的 `~/.ssh/config` 里额外放一个 Host 段，例如：
+
+```sshconfig
+Host github.com ssh.github.com
+    ProxyCommand ncat --proxy 127.0.0.1:8234 --proxy-type socks5 %h %p
+```
+
+这样 `ssh` 本身也会直接走 SOCKS5，而不是只靠 `GIT_SSH_COMMAND` 给 git 单独兜底。
+
 ### 限制
 
 - `proxychains-ng` 只适用于 TCP，不覆盖 UDP / ICMP
 - `scancel` 掉 compute 节点后，节点上的 `autossh`、`sshd`、shell 和代理状态会一起结束
 - 换新节点后，要重新进入节点，再重新执行 `proxy.on`
 - Go 程序（如 `frp-panel`）绕过 libc 做 DNS，`proxychains` 无法拦截；compute 节点上需要用 IP 替代域名
+- 如果你希望“几乎所有程序都无脑可用”，那已经不是 shell 环境变量层面能彻底解决的问题，而是需要 TUN / 透明代理，或者集群管理员直接提供可用 DNS
 
 ## 贡献
 

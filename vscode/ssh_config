@@ -3,7 +3,13 @@ Host Sunny_Alioth_Login
     HostName frp.zhaohuanan.cc  # frp 服务器地址
     Port 27000  # Sunny 转发端口
     User hnzhao
-    IdentityFile ~/.ssh/id_rsa  # 替换为你的私钥路径（可选）,记得在Sunny_Alioth_Login节点配置好公钥
+    IdentityFile ~/.ssh/id_rsa  # 替换为你的私钥路径（可选）
+    ServerAliveInterval 60  # 保持连接的心跳包时间间隔（可选）
+Host Sunny_Alioth_Compute_General
+    HostName frp.zhaohuanan.cc  # frp 服务器地址
+    Port 27002  # Sunny 转发端口
+    User hnzhao
+    IdentityFile ~/.ssh/id_rsa  # 替换为你的私钥路径（可选）
     ServerAliveInterval 60  # 保持连接的心跳包时间间隔（可选）
 Host Alioth_A800_c54b01n01
     HostName c54b01n01

@@ -300,6 +300,13 @@ _mse_proxy_upstream_host() {
     if [[ -n "${SSH_CONNECTION:-}" ]]; then
         client_ip="${SSH_CONNECTION%% *}"
         if [[ -n "${client_ip}" ]]; then
+            case "${client_ip}" in
+                127.0.0.1|::1|localhost)
+                    client_ip=""
+                    ;;
+            esac
+        fi
+        if [[ -n "${client_ip}" ]]; then
             if command -v getent >/dev/null 2>&1; then
                 resolved_host="$(getent hosts "${client_ip}" 2>/dev/null | awk 'NR==1 {print $2}')"
             fi

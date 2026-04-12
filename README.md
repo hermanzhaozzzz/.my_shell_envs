@@ -423,6 +423,24 @@ export MSE_PROXY_DIRECT_HOSTS="c55b01n08"
 export MSE_PROXY_UPSTREAM_HOST=login03
 ```
 
+如果你是在 VSCode Remote SSH 里再打开 compute 节点上的 Terminal，常见情况是 `SSH_CONNECTION` 只会显示 `127.0.0.1 -> 127.0.0.1` 的本地转发，而不是真正的 login 节点地址。这时自动推断上游主机会失效，需要在 `~/.zprofile` 里手动设置 `MSE_PROXY_UPSTREAM_HOST=login03` 这类真实 login 主机名。
+
+一个常见用法是先在 `~/.zprofile` 里固定写：
+
+```shell
+export MSE_PROXY_UPSTREAM_HOST=login03
+```
+
+之后每次用 VSCode Remote 打开 compute 节点上的 Terminal，直接执行：
+
+```shell
+proxy.on
+proxy.status
+git fetch
+```
+
+只要 `proxy.status` 里显示的 `proxy upstream` 是你期望的 login 节点，后面的 `git fetch` / `git pull` / `git push` 就应该沿着同一条代理链路工作。
+
 当前自动判断规则：
 
 - `login*` 按 login/direct 处理
@@ -446,6 +464,20 @@ MSE_PROXY_DIRECT_HOSTS="c55b01n08" proxy.on
 # 只对这一次手动指定上游 login 节点
 MSE_PROXY_UPSTREAM_HOST=login03 proxy.on
 ```
+
+这里要区分两个变量：
+
+- `MSE_PROXY_UPSTREAM_HOST=login03 proxy.on`
+  这是在说：这一次 `proxy.on` 不要自动猜上游，而是明确回连 `login03`
+- `MSE_PROXY_DIRECT_HOSTS="c55b01n08" proxy.on`
+  这是在说：这一次把 `c55b01n08` 当成 direct/login-like 主机，不把它识别成 compute 节点
+
+所以 `MSE_PROXY_UPSTREAM_HOST=c55b01n08 proxy.on` 这种写法本身也有语义，但它表示的是：
+
+- 当前这个 shell 所在节点要把代理隧道回连到 `c55b01n08`
+- 只有当 `c55b01n08` 真的就是你想借出的那台上游主机，并且它本地确实有可用代理时，这样写才合理
+
+大多数情况下，如果 `c55b01n08` 只是另一台 compute 节点，而不是登录入口或 direct 节点，那么这条命令通常不是你真正想要的配置。VSCode Remote 的典型正确写法仍然是把 `MSE_PROXY_UPSTREAM_HOST` 设成真实的 `login03` / `login04` 这类 login 主机名。
 
 ### 自动启用
 

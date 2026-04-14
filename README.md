@@ -80,6 +80,8 @@ cd ~/.my_shell_envs
 
 `--use-zprofile-template` 只在你明确想直接使用仓库里的 demo `zprofile` 时再加。`mse` 默认不会改你的 `~/.zprofile`。
 
+在 Linux 上，`fast` 模式会默认启用所有受支持的可选 step，其中包括 `sqtop`。它是一个类似 `htop` / `nvitop` 的 Slurm 终端查看工具。
+
 ### Windows
 
 Windows 的主路径是 PowerShell 配合 `git-bash`：
@@ -110,6 +112,8 @@ git-bash ./mse update
 - 构建 repo-managed CLI 工具
 - 按 step 安装额外模块
 
+如果启用了 `sqtop` step，`mse` 会通过 `cargo install sqtop` 安装它，并把仓库里的 `bin/sqtop` 接到 `~/.cargo/bin/sqtop`。
+
 部署过程中会尝试 `chsh -s "$(which zsh)"`。如果你不想现在改默认 shell，可以在密码提示时直接回车并跳过。
 
 ### `update`
@@ -125,6 +129,7 @@ MSE_GIT_METHOD='ssh'
 MSE_DEPLOY_MODE='fast'
 MSE_USE_ZPROFILE_TEMPLATE='false'
 MSE_STEP_NVIM='true'
+MSE_STEP_SQTOP='true'
 MSE_STEP_CODE_NOTIFY='true'
 MSE_STEP_CLUSTER_PROXY_TOOLS='true'
 ```
@@ -256,6 +261,12 @@ export MSE_PROXY_PORT=7890
 ### wd
 
 终端词典工具。参考项目：[Wudao-dict](https://github.com/ChestnutHeng/Wudao-dict)
+
+### sqtop
+
+Linux 上可选启用 `sqtop` step。它会通过 `cargo install sqtop` 安装一个面向 Slurm 的终端监控工具，使用体验更接近 `htop` / `nvitop` 这一类 TUI 工具，适合快速查看队列、节点和作业占用情况。
+
+如果你执行 `mse deploy --fast`，并且当前平台支持这个 step，那么 `sqtop` 会默认安装；如果你执行 `mse deploy --interactive`，则可以在 step 选择阶段单独决定是否启用。
 
 ### code-notify
 

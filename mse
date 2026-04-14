@@ -24,6 +24,7 @@ BIN_PATH="$REPO_PATH/bin"
 REPO_BIN_EZA_PATH="$BIN_PATH/eza"
 REPO_BIN_BAT_PATH="$BIN_PATH/bat"
 REPO_BIN_RG_PATH="$BIN_PATH/rg"
+REPO_BIN_SQTOP_PATH="$BIN_PATH/sqtop"
 REPO_BIN_AUTOSSH_PATH="$BIN_PATH/autossh"
 REPO_BIN_PROXYCHAINS4_PATH="$BIN_PATH/proxychains4"
 REPO_BIN_PROXYCHAINS_PATH="$BIN_PATH/proxychains"
@@ -35,7 +36,7 @@ ZPROFILE_TEMPLATE_PATH="$REPO_PATH/zsh/zprofile_hermanzhaozzzz_demo"
 DEFAULT_REPO_URL="https://github.com/hermanzhaozzzz/.my_shell_envs.git"
 DEFAULT_REPO_SSH_URL="git@github.com:hermanzhaozzzz/.my_shell_envs.git"
 DEFAULT_BRANCH="main"
-AVAILABLE_STEPS="micromamba condarc pip vim nvim jcat wd powershell code_notify cluster_proxy_tools"
+AVAILABLE_STEPS="micromamba condarc pip vim nvim jcat wd sqtop powershell code_notify cluster_proxy_tools"
 OH_MY_ZSH_PATH="$HOME/.oh-my-zsh"
 OH_MY_ZSH_INSTALL_URL="https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh"
 RUSTUP_INSTALL_URL="https://sh.rustup.rs"
@@ -348,6 +349,7 @@ describe_step() {
         nvim) echo "clone or update MyLazyVim" ;;
         jcat) echo "build and link jcat" ;;
         wd) echo "clone or update Wudao-dict" ;;
+        sqtop) echo "install sqtop for Slurm queue monitoring" ;;
         powershell) echo "set the PowerShell profile on Windows" ;;
         code_notify) echo "install code-notify and configure macOS terminal alerts" ;;
         cluster_proxy_tools) echo "build autossh/proxychains and prepare cluster proxy tooling" ;;
@@ -382,6 +384,9 @@ step_supported_on_platform() {
             ;;
         jcat|rust)
             [ "$platform" != "Windows" ]
+            ;;
+        sqtop)
+            [ "$platform" = "Linux" ]
             ;;
         code_notify)
             [ "$platform_family" = "MacOS" ]
@@ -922,6 +927,10 @@ ensure_ripgrep_installed() {
     ensure_repo_cargo_tool_installed "ripgrep" "rg" "$REPO_BIN_RG_PATH" "ripgrep"
 }
 
+ensure_sqtop_installed() {
+    ensure_repo_cargo_tool_installed "sqtop" "sqtop" "$REPO_BIN_SQTOP_PATH" "sqtop"
+}
+
 ensure_repo_cargo_tool_installed() {
     local crate_name="$1"
     local binary_name="$2"
@@ -1159,6 +1168,9 @@ remove_managed_bin_entry() {
 sync_optional_bin_entries() {
     if ! step_selected "wd"; then
         remove_managed_bin_entry "$BIN_PATH/wd"
+    fi
+    if ! step_selected "sqtop"; then
+        remove_managed_bin_entry "$REPO_BIN_SQTOP_PATH"
     fi
     if ! step_selected "cluster_proxy_tools"; then
         remove_managed_bin_entry "$REPO_BIN_AUTOSSH_PATH"
@@ -1837,6 +1849,12 @@ EOF
     log_ok "wd ready at $(fmt_path "$wd_script")"
 }
 
+step_sqtop() {
+    log_info "prepare sqtop"
+    ensure_sqtop_installed
+    log_ok "sqtop ready at $(fmt_path "$REPO_BIN_SQTOP_PATH")"
+}
+
 step_code_notify() {
     if [ "$platform_family" != "MacOS" ]; then
         log_warn "skip code-notify on platform: $platform"
@@ -1958,6 +1976,7 @@ command_deploy() {
     run_step "nvim" step_nvim
     run_step "jcat" step_jcat
     run_step "wd" step_wd
+    run_step "sqtop" step_sqtop
     run_step "powershell" step_powershell
     run_step "code_notify" step_code_notify
     run_step "cluster_proxy_tools" step_cluster_proxy_tools

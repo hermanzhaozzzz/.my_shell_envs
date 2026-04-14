@@ -1,6 +1,7 @@
 ##############
 # this project
 ##############
+.codex
 /bin/
 /conda_local_env_settings/
 /conda/micromamba-pycharm/

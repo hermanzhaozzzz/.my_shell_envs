@@ -269,9 +269,45 @@ _mse_proxy_proxychains_bin() {
     command -v proxychains4 2>/dev/null || command -v proxychains 2>/dev/null
 }
 
+_mse_proxy_is_quiet() {
+    [[ "${MSE_PROXY_QUIET:-}" == "1" || "${MSE_PROXY_QUIET:-}" == "true" ]]
+}
+
 _mse_proxy_port_open() {
     command -v nc >/dev/null 2>&1 || return 1
     nc -z "${1:-127.0.0.1}" "${2:-${MSE_PROXY_PORT}}" >/dev/null 2>&1
+}
+
+_mse_proxy_probe_url() {
+    if [[ "$(_mse_proxy_mode_setting)" == "direct-egress" ]]; then
+        printf '%s\n' "https://www.google.com.hk"
+    else
+        printf '%s\n' "https://www.baidu.com"
+    fi
+}
+
+_mse_proxy_probe_local_proxy() {
+    local probe_url=""
+    local proxy_mode=""
+    local proxy_url=""
+    local code=""
+
+    command -v curl >/dev/null 2>&1 || return 0
+
+    probe_url="$(_mse_proxy_probe_url)"
+    proxy_mode="$(_mse_proxy_mode_setting)"
+    if [[ "${proxy_mode}" == "direct-egress" ]]; then
+        proxy_url="$(_mse_proxy_socks_remote_dns_url)"
+    else
+        proxy_url="$(_mse_proxy_http_url)"
+    fi
+
+    code=$(
+        env -u http_proxy -u https_proxy -u all_proxy -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY -u no_proxy -u NO_PROXY \
+            curl -I -s -o /dev/null -w '%{http_code}' --max-time 6 --proxy "${proxy_url}" "${probe_url}" 2>/dev/null
+    )
+
+    [[ -n "${code}" && "${code}" != "000" ]]
 }
 
 _mse_proxy_is_compute_node() {
@@ -288,9 +324,31 @@ _mse_proxy_is_compute_node() {
     return 1
 }
 
-_mse_proxy_upstream_host() {
-    local client_ip=""
+_mse_proxy_resolve_host_by_ip() {
+    local client_ip="$1"
     local resolved_host=""
+
+    case "${client_ip}" in
+        ""|127.0.0.1|::1|localhost)
+            return 1
+            ;;
+    esac
+
+    if command -v getent >/dev/null 2>&1; then
+        resolved_host="$(getent hosts "${client_ip}" 2>/dev/null | awk 'NR==1 {print $2}')"
+    fi
+    if [[ -n "${resolved_host}" ]]; then
+        printf '%s\n' "${resolved_host}"
+    else
+        printf '%s\n' "${client_ip}"
+    fi
+}
+
+_mse_proxy_upstream_candidates() {
+    local client_ip=""
+    local candidate=""
+    typeset -a candidates=()
+    typeset -A seen=()
 
     if [[ -n "${MSE_PROXY_UPSTREAM_HOST:-}" ]]; then
         printf '%s\n' "${MSE_PROXY_UPSTREAM_HOST}"
@@ -299,27 +357,44 @@ _mse_proxy_upstream_host() {
 
     if [[ -n "${SSH_CONNECTION:-}" ]]; then
         client_ip="${SSH_CONNECTION%% *}"
-        if [[ -n "${client_ip}" ]]; then
-            case "${client_ip}" in
-                127.0.0.1|::1|localhost)
-                    client_ip=""
-                    ;;
-            esac
-        fi
-        if [[ -n "${client_ip}" ]]; then
-            if command -v getent >/dev/null 2>&1; then
-                resolved_host="$(getent hosts "${client_ip}" 2>/dev/null | awk 'NR==1 {print $2}')"
-            fi
-            if [[ -n "${resolved_host}" ]]; then
-                printf '%s\n' "${resolved_host}"
-            else
-                printf '%s\n' "${client_ip}"
-            fi
-            return 0
+        candidate="$(_mse_proxy_resolve_host_by_ip "${client_ip}" 2>/dev/null || true)"
+        if [[ -n "${candidate}" && -z "${seen[${candidate}]:-}" ]]; then
+            candidates+=("${candidate}")
+            seen["${candidate}"]=1
         fi
     fi
 
-    return 1
+    if [[ -n "${SSH_CLIENT:-}" ]]; then
+        client_ip="${SSH_CLIENT%% *}"
+        candidate="$(_mse_proxy_resolve_host_by_ip "${client_ip}" 2>/dev/null || true)"
+        if [[ -n "${candidate}" && -z "${seen[${candidate}]:-}" ]]; then
+            candidates+=("${candidate}")
+            seen["${candidate}"]=1
+        fi
+    fi
+
+    if [[ -n "${SLURM_SUBMIT_HOST:-}" && -z "${seen[${SLURM_SUBMIT_HOST}]:-}" ]]; then
+        candidates+=("${SLURM_SUBMIT_HOST}")
+        seen["${SLURM_SUBMIT_HOST}"]=1
+    fi
+
+    for candidate in ${(s: :)MSE_PROXY_DIRECT_HOSTS}; do
+        if [[ -n "${candidate}" && -z "${seen[${candidate}]:-}" ]]; then
+            candidates+=("${candidate}")
+            seen["${candidate}"]=1
+        fi
+    done
+
+    [[ ${#candidates[@]} -gt 0 ]] || return 1
+    printf '%s\n' "${candidates[@]}"
+}
+
+_mse_proxy_upstream_host() {
+    local first_host=""
+
+    first_host="$(_mse_proxy_upstream_candidates 2>/dev/null | head -n 1)"
+    [[ -n "${first_host}" ]] || return 1
+    printf '%s\n' "${first_host}"
 }
 
 _mse_proxy_tunnel_pattern() {
@@ -334,6 +409,17 @@ _mse_proxy_tunnel_pattern() {
 _mse_proxy_tunnel_pid() {
     local upstream_host="$1"
     pgrep -f "$(_mse_proxy_tunnel_pattern "${upstream_host}")" 2>/dev/null | head -n 1
+}
+
+_mse_proxy_all_tunnel_pids() {
+    local proxy_mode=""
+
+    proxy_mode="$(_mse_proxy_mode_setting)"
+    if [[ "${proxy_mode}" == "direct-egress" ]]; then
+        pgrep -f "autossh .* -D 127.0.0.1:${MSE_PROXY_PORT} " 2>/dev/null
+    else
+        pgrep -f "autossh .*127.0.0.1:${MSE_PROXY_PORT}:127.0.0.1:${MSE_PROXY_PORT} " 2>/dev/null
+    fi
 }
 
 _mse_proxy_enable_env() {
@@ -354,14 +440,18 @@ _mse_proxy_enable_env() {
     # Route git SSH through the SOCKS5 proxy via ncat.
     if _mse_proxy_is_compute_node && command -v ncat >/dev/null 2>&1; then
         export GIT_SSH_COMMAND="ssh -o ProxyCommand='ncat --proxy 127.0.0.1:${MSE_PROXY_PORT} --proxy-type socks5 %h %p'"
-        echo -e '\texport \033[1;35mGIT_SSH_COMMAND\033[0m=ssh via SOCKS5 proxy'
+        if ! _mse_proxy_is_quiet; then
+            echo -e '\texport \033[1;35mGIT_SSH_COMMAND\033[0m=ssh via SOCKS5 proxy'
+        fi
     fi
 
-    echo -e '\texport \033[1;35mhttps_proxy\033[0m='${https_proxy}
-    echo -e '\texport \033[1;35mhttp_proxy\033[0m='${http_proxy}
-    echo -e '\texport \033[1;35mall_proxy\033[0m='${all_proxy}
-    echo -e '\texport \033[1;35mALL_PROXY\033[0m='${ALL_PROXY}
-    echo -e '\texport \033[1;35mno_proxy\033[0m='${no_proxy}
+    if ! _mse_proxy_is_quiet; then
+        echo -e '\texport \033[1;35mhttps_proxy\033[0m='${https_proxy}
+        echo -e '\texport \033[1;35mhttp_proxy\033[0m='${http_proxy}
+        echo -e '\texport \033[1;35mall_proxy\033[0m='${all_proxy}
+        echo -e '\texport \033[1;35mALL_PROXY\033[0m='${ALL_PROXY}
+        echo -e '\texport \033[1;35mno_proxy\033[0m='${no_proxy}
+    fi
 }
 
 _mse_proxy_disable_env() {
@@ -407,13 +497,26 @@ _mse_proxy_start_tunnel() {
 
     existing_pid="$(_mse_proxy_tunnel_pid "${upstream_host}")"
     if [[ -n "${existing_pid}" ]]; then
-        echo "proxy tunnel already running via ${upstream_host} (pid=${existing_pid})"
-        return 0
+        if _mse_proxy_port_open "127.0.0.1" "${MSE_PROXY_PORT}" && _mse_proxy_probe_local_proxy; then
+            if ! _mse_proxy_is_quiet; then
+                echo "proxy tunnel already running via ${upstream_host} (pid=${existing_pid})"
+            fi
+            return 0
+        fi
+        echo "proxy.on: existing tunnel via ${upstream_host} is unhealthy, restarting"
+        kill "${existing_pid}" >/dev/null 2>&1 || true
+        sleep 1
     fi
 
     if _mse_proxy_port_open "127.0.0.1" "${MSE_PROXY_PORT}"; then
-        echo "proxy.on: local ${MSE_PROXY_PORT} is already listening, reusing existing tunnel"
-        return 0
+        if _mse_proxy_probe_local_proxy; then
+            if ! _mse_proxy_is_quiet; then
+                echo "proxy.on: local ${MSE_PROXY_PORT} is already listening, reusing existing proxy"
+            fi
+            return 0
+        fi
+        echo "proxy.on: local ${MSE_PROXY_PORT} is listening but proxy probe failed"
+        return 1
     fi
 
     if [[ "${proxy_mode}" == "direct-egress" ]]; then
@@ -439,8 +542,15 @@ _mse_proxy_start_tunnel() {
         echo "proxy.on: tunnel start returned but local port ${MSE_PROXY_PORT} is still unavailable"
         return 1
     fi
+    if ! _mse_proxy_probe_local_proxy; then
+        echo "proxy.on: tunnel via ${upstream_host} is up but proxy probe failed"
+        _mse_proxy_stop_tunnel "${upstream_host}"
+        return 1
+    fi
 
-    echo "proxy tunnel started via ${upstream_host}"
+    if ! _mse_proxy_is_quiet; then
+        echo "proxy tunnel started via ${upstream_host}"
+    fi
 }
 
 _mse_proxy_stop_tunnel() {
@@ -448,6 +558,14 @@ _mse_proxy_stop_tunnel() {
     local pids=""
 
     pids="$(pgrep -f "$(_mse_proxy_tunnel_pattern "${upstream_host}")" 2>/dev/null | tr '\n' ' ')"
+    [[ -n "${pids}" ]] || return 0
+    kill ${=pids} >/dev/null 2>&1 || true
+}
+
+_mse_proxy_stop_all_tunnels() {
+    local pids=""
+
+    pids="$(_mse_proxy_all_tunnel_pids 2>/dev/null | tr '\n' ' ')"
     [[ -n "${pids}" ]] || return 0
     kill ${=pids} >/dev/null 2>&1 || true
 }
@@ -465,27 +583,46 @@ _mse_proxy_mode() {
 _func_proxy_on() {
     local mode=""
     local upstream_host=""
+    local candidate=""
     local proxy_mode=""
+    typeset -a upstream_candidates=()
 
     mode="$(_mse_proxy_mode)"
     proxy_mode="$(_mse_proxy_mode_setting)"
 
     if [[ "${mode}" == "compute" ]]; then
-        upstream_host="$(_mse_proxy_upstream_host)" || {
+        upstream_candidates=("${(@f)$(_mse_proxy_upstream_candidates 2>/dev/null)}")
+        [[ ${#upstream_candidates[@]} -gt 0 ]] || {
             echo "proxy.on: failed to detect upstream login host; set MSE_PROXY_UPSTREAM_HOST manually"
             return 1
         }
-        _mse_proxy_start_tunnel "${upstream_host}" || return 1
-        echo "proxy mode: ${proxy_mode}"
-        if [[ "${proxy_mode}" == "direct-egress" ]]; then
-            echo "proxy tunnel type: dynamic-socks"
-        else
-            echo "proxy tunnel type: local-forward"
+        for candidate in "${upstream_candidates[@]}"; do
+            [[ -n "${candidate}" ]] || continue
+            if _mse_proxy_start_tunnel "${candidate}"; then
+                upstream_host="${candidate}"
+                break
+            fi
+        done
+        [[ -n "${upstream_host}" ]] || {
+            echo "proxy.on: no healthy upstream proxy was found"
+            echo "proxy.on: tried ${upstream_candidates[*]}"
+            echo "proxy.on: set MSE_PROXY_UPSTREAM_HOST=<loginXX> manually if auto detection is wrong"
+            return 1
+        }
+        if ! _mse_proxy_is_quiet; then
+            echo "proxy mode: ${proxy_mode}"
+            if [[ "${proxy_mode}" == "direct-egress" ]]; then
+                echo "proxy tunnel type: dynamic-socks"
+            else
+                echo "proxy tunnel type: local-forward"
+            fi
+            echo "proxy upstream: ${upstream_host}:${MSE_PROXY_PORT}"
         fi
-        echo "proxy upstream: ${upstream_host}:${MSE_PROXY_PORT}"
     else
-        echo "proxy mode: ${proxy_mode}"
-        echo "proxy node role: direct"
+        if ! _mse_proxy_is_quiet; then
+            echo "proxy mode: ${proxy_mode}"
+            echo "proxy node role: direct"
+        fi
         if [[ "${proxy_mode}" == "direct-egress" ]]; then
             echo "proxy.on: direct-egress mode is mainly for compute nodes borrowing the login node network"
             return 1
@@ -499,17 +636,12 @@ _func_proxy_on() {
 }
 
 _func_proxy_off() {
-    local upstream_host=""
-
     _mse_proxy_disable_env
     git config --global --unset https.proxy 2>/dev/null
     git config --global --unset http.proxy 2>/dev/null
 
     if _mse_proxy_is_compute_node; then
-        upstream_host="$(_mse_proxy_upstream_host 2>/dev/null || true)"
-        if [[ -n "${upstream_host}" ]]; then
-            _mse_proxy_stop_tunnel "${upstream_host}"
-        fi
+        _mse_proxy_stop_all_tunnels
     fi
 }
 
@@ -545,6 +677,11 @@ _func_proxy_status() {
 
     if _mse_proxy_port_open "127.0.0.1" "${MSE_PROXY_PORT}"; then
         echo "local proxy port ${MSE_PROXY_PORT}: listening"
+        if _mse_proxy_probe_local_proxy; then
+            echo "local proxy probe: ok"
+        else
+            echo "local proxy probe: failed"
+        fi
     else
         echo "local proxy port ${MSE_PROXY_PORT}: closed"
     fi
@@ -633,8 +770,40 @@ _func_proxy_exec() {
     "${proxychains_bin}" -f "${runtime_conf}" "$@"
 }
 
+_mse_proxy_print_shell_hint() {
+    local mode=""
+    local proxy_mode=""
+    local upstream_host=""
+    local probe_status=""
+
+    mode="$(_mse_proxy_mode)"
+    proxy_mode="$(_mse_proxy_mode_setting)"
+
+    if [[ -n "${http_proxy:-}" || -n "${https_proxy:-}" || -n "${all_proxy:-}" ]]; then
+        if _mse_proxy_probe_local_proxy; then
+            probe_status='\033[1;32mok\033[0m'
+        else
+            probe_status='\033[1;31mfailed\033[0m'
+        fi
+        if _mse_proxy_is_compute_node; then
+            upstream_host="$(_mse_proxy_upstream_host 2>/dev/null || true)"
+            echo -e "\tproxy: \033[1;32mon\033[0m | role=${mode} | mode=${proxy_mode} | upstream=${upstream_host:-<unknown>} | probe=${probe_status}"
+        else
+            echo -e "\tproxy: \033[1;32mon\033[0m | role=${mode} | mode=${proxy_mode} | probe=${probe_status}"
+        fi
+        echo -e '\tcheck: \033[1;35mproxy.status\033[0m'
+    else
+        if [[ "${mode}" == "compute" ]]; then
+            echo -e "\tproxy: \033[1;33moff\033[0m | role=${mode} | mode=${proxy_mode} | run \033[1;35mproxy.on\033[0m"
+        else
+            echo -e "\tproxy: \033[1;33moff\033[0m | role=${mode} | mode=${proxy_mode} | run \033[1;35mproxy.on\033[0m"
+        fi
+    fi
+}
+
 _mse_proxy_auto_init() {
     local mode=""
+    local proxy_mode=""
 
     case "${MSE_SLURM_NODE_PROXY_AUTO_ENABLE}" in
         false|FALSE|False|no|NO|No|off|OFF|Off)
@@ -642,31 +811,26 @@ _mse_proxy_auto_init() {
             ;;
     esac
 
-    [[ -n "${http_proxy:-}" || -n "${https_proxy:-}" || -n "${all_proxy:-}" ]] && return 0
+    if [[ -n "${http_proxy:-}" || -n "${https_proxy:-}" || -n "${all_proxy:-}" ]]; then
+        _mse_proxy_print_shell_hint
+        return 0
+    fi
 
     mode="$(_mse_proxy_mode)"
+    proxy_mode="$(_mse_proxy_mode_setting)"
 
     if [[ "${mode}" == "compute" ]]; then
-        if _func_proxy_on; then
-            echo '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
-            echo -e '\t\033[1;32mproxy auto-enabled\033[0m on compute node'
-            echo -e '\ttest with \033[1;35mproxy.test\033[0m (baidu, google.com.hk, openai, claude, z.ai)'
-            echo '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
+        if MSE_PROXY_QUIET=1 _func_proxy_on; then
+            _mse_proxy_print_shell_hint
+            echo -e '\tauto: startup enabled'
         else
-            echo '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
-            echo -e '\t\033[1;31mproxy auto-enable failed\033[0m on compute node'
-            echo -e '\tset \033[1;35mMSE_PROXY_UPSTREAM_HOST\033[0m manually, then run \033[1;35mproxy.on\033[0m'
-            echo '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
+            echo -e "\tproxy: \033[1;31mfailed\033[0m | role=${mode} | mode=${proxy_mode} | auto=startup"
+            echo -e '\thint: set \033[1;35mMSE_PROXY_UPSTREAM_HOST\033[0m, then run \033[1;35mproxy.on\033[0m'
         fi
         return 0
     fi
 
-    if _mse_proxy_port_open "127.0.0.1" "${MSE_PROXY_PORT}"; then
-        echo '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
-        echo -e '\t\033[1;33mproxy NOT auto-enabled\033[0m on login/direct node'
-        echo -e '\trun \033[1;35mproxy.on\033[0m to enable when needed'
-        echo '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
-    fi
+    _mse_proxy_print_shell_hint
 }
 
 unalias proxy.on proxy.off proxy.status proxy.test proxy.exec 2>/dev/null
@@ -813,6 +977,7 @@ elif [[ "$platform" == "Linux" ]]; then
     export MAMBA_ROOT_PREFIX="$HOME/0.apps/micromamba";
 fi
 
+unalias conda mamba 2>/dev/null
 __mamba_setup="$("$MAMBA_EXE" shell hook --shell zsh --root-prefix "$MAMBA_ROOT_PREFIX" 2> /dev/null)"
 
 if [ $? -eq 0 ]; then

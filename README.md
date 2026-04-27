@@ -458,6 +458,24 @@ git fetch
 - 其他 `c*b*n*` 按 compute 处理
 - `MSE_PROXY_DIRECT_HOSTS` 里的主机名也按 login/direct 处理
 
+compute 节点上的 `proxy.on` 现在不再只看本地端口是否在监听，还会额外做一次真实代理探测。也就是说：
+
+- 如果旧的 autossh 进程还在，但它连到的上游主机 `127.0.0.1:${MSE_PROXY_PORT}` 实际不可用，`proxy.on` 会把它判定为坏隧道并重建
+- 如果自动猜出来的第一个上游主机不可用，`proxy.on` 会继续尝试后续候选
+
+当前上游候选顺序是：
+
+- `MSE_PROXY_UPSTREAM_HOST`
+- `SSH_CONNECTION` / `SSH_CLIENT` 反查到的主机
+- `SLURM_SUBMIT_HOST`
+- `MSE_PROXY_DIRECT_HOSTS` 里的主机
+
+如果这些候选都不对，还是建议在 `~/.zprofile` 里显式写死正确的 login 主机：
+
+```shell
+export MSE_PROXY_UPSTREAM_HOST=login05
+```
+
 补充说明：
 
 - `zsh` 侧默认端口是 `8234`
@@ -494,6 +512,12 @@ MSE_PROXY_UPSTREAM_HOST=login03 proxy.on
 
 - **compute 节点**：加载 `zshrc` 时自动执行 `proxy.on`（开 autossh 隧道 + 设环境变量 + 设 `GIT_SSH_COMMAND`）
 - **login/direct 节点**：不会自动开代理，只提示 `proxy.on` 可用；需要时手动执行
+
+如果自动启用失败，说明当前自动探测到的所有上游候选都没有提供一个真正可用的代理端口。这时优先检查：
+
+- login 节点上是否已经执行过 `proxy.on`
+- `proxy.status` 里的 `proxy upstream` 是否真的是你想借出的那台 login 节点
+- 是否需要在 `~/.zprofile` 里显式设置 `MSE_PROXY_UPSTREAM_HOST=loginXX`
 
 如果你不想要 compute 节点的自动启用行为，在 `~/.zprofile` 里写：
 

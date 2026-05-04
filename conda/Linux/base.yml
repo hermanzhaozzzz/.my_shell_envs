@@ -33,7 +33,7 @@ dependencies:
   - bat=0.25.0=h8fae777_0
   - beautifulsoup4=4.13.3=pyha770c72_0
   - binutils_impl_linux-64=2.43=h4bf12b8_2
-  - bioat=0.17.3=pyhd8ed1ab_0
+  - bioat=0.17.4=pyhd8ed1ab_0
   - biopython=1.85=py312h66e93f0_1
   - black=25.1.0=py312h7900ff3_0
   - blas=2.131=openblas

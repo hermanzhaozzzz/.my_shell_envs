@@ -478,6 +478,10 @@ export MSE_PROXY_DIRECT_HOSTS="c55b01n08"
 
 # 手动指定 compute 节点回连到哪个 login 节点
 export MSE_PROXY_UPSTREAM_HOST=login03
+
+# 可选：限制 compute 节点启动代理时的反查和 SSH 连接等待时间
+export MSE_PROXY_HOST_LOOKUP_TIMEOUT=2
+export MSE_PROXY_SSH_CONNECT_TIMEOUT=5
 ```
 
 如果你是在 VSCode Remote SSH 里再打开 compute 节点上的 Terminal，常见情况是 `SSH_CONNECTION` 只会显示 `127.0.0.1 -> 127.0.0.1` 的本地转发，而不是真正的 login 节点地址。这时自动推断上游主机会失效，需要在 `~/.zprofile` 里手动设置 `MSE_PROXY_UPSTREAM_HOST=login03` 这类真实 login 主机名。
@@ -512,11 +516,13 @@ compute 节点上的 `proxy.on` 现在不再只看本地端口是否在监听，
 当前上游候选顺序是：
 
 - `MSE_PROXY_UPSTREAM_HOST`
-- `SSH_CONNECTION` / `SSH_CLIENT` 反查到的主机
 - `SLURM_SUBMIT_HOST`
+- `SSH_CONNECTION` / `SSH_CLIENT` 反查到的主机
 - `MSE_PROXY_DIRECT_HOSTS` 里的主机
 
-如果这些候选都不对，还是建议在 `~/.zprofile` 里显式写死正确的 login 主机：
+反查 `SSH_CONNECTION` / `SSH_CLIENT` 时会受 `MSE_PROXY_HOST_LOOKUP_TIMEOUT` 限制；启动 autossh 隧道时会受 `MSE_PROXY_SSH_CONNECT_TIMEOUT` 限制，并使用非交互 SSH，避免 compute 节点登录时因为上游不可达或密码提示卡在 zsh 启动阶段。
+
+如果这些候选都不对，建议在 `~/.zprofile` 里显式设置正确的 login 主机：
 
 ```shell
 export MSE_PROXY_UPSTREAM_HOST=login05
@@ -566,6 +572,7 @@ MSE_PROXY_UPSTREAM_HOST=login03 proxy.on
 - login 节点上是否已经执行过 `proxy.on`
 - `proxy.status` 里的 `proxy upstream` 是否真的是你想借出的那台 login 节点
 - 是否需要在 `~/.zprofile` 里显式设置 `MSE_PROXY_UPSTREAM_HOST=loginXX`
+- 是否需要临时设置 `MSE_PROXY_DEBUG=1` 后重新执行 `proxy.on` 查看上游推断过程
 
 如果你不想要 compute 节点的自动启用行为，在 `~/.zprofile` 里写：
 

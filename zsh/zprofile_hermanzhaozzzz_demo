@@ -160,9 +160,9 @@ if [[ $_OS == "Linux" ]]; then
         fi
     }
 
-    if _func_has_slurm_cmds; then
+    _SLURM_PROFILE="$(_func_detect_slurm_profile)"
+    if [[ $_SLURM_PROFILE == "polaris" || $_SLURM_PROFILE == "alioth" ]] || _func_has_slurm_cmds; then
         alias rm.slurmlogs=_func_delslrumlogs
-        _SLURM_PROFILE="$(_func_detect_slurm_profile)"
 
         ###########################
         ## Polaris-like Slurm env
@@ -205,11 +205,14 @@ if [[ $_OS == "Linux" ]]; then
             # slurm salloc alias
             alias salloc_gpu_a800_8="salloc -N 1 --job-name=nb_gui  --partition=gpu_a800 --gres=gpu:8 --overcommit --mincpus=64"
             alias salloc_gpu_l40_8="salloc -N 1 --job-name=nb_gui  --partition=gpu_l40 --gres=gpu:8 --overcommit --mincpus=64"
-            echo 'source /appsnew/source/gcc-12.1.0.sh'
-            echo 'source /appsnew/source/cuda-12.8.1.sh'
-            source /appsnew/source/gcc-12.1.0.sh 
-            source /appsnew/source/cuda-12.8.1.sh
-            export MSE_PROXY_UPSTREAM_HOST=login05
+            if [[ -r /appsnew/source/gcc-12.1.0.sh ]]; then
+                echo 'source /appsnew/source/gcc-12.1.0.sh'
+                source /appsnew/source/gcc-12.1.0.sh
+            fi
+            if [[ -r /appsnew/source/cuda-12.8.1.sh ]]; then
+                echo 'source /appsnew/source/cuda-12.8.1.sh'
+                source /appsnew/source/cuda-12.8.1.sh
+            fi
 
             _func_codex_alioth_proxy_mcp() {
                 local proxy_port="${MSE_PROXY_PORT:-}"

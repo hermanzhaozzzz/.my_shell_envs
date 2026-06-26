@@ -391,6 +391,8 @@ export MSE_MAMBA_AUTO_ACTIVATE_BASE=false
 export MSE_SLURM_NODE_PROXY_AUTO_ENABLE=false
 # Optional when zshrc can read clashctl runtime.yaml on native Linux.
 export MSE_PROXY_PORT=<proxy-http-port>
+# Optional on Slurm compute nodes.
+export MSE_PROXY_UPSTREAM_HOST=<login-host>
 ```
 
 Proxy commands are provided by the repo `zsh/zshrc`. Keep machine-specific proxy settings as variables in `~/.zprofile`, for example:
@@ -400,6 +402,8 @@ export MSE_PROXY_PORT=<proxy-http-port>
 ```
 
 Proxy ports are no longer controlled by `.mse-install.env`. They come from explicit environment variables, or from `clashctl` `runtime.yaml` when `clashctl` is available on native Linux.
+
+On Slurm compute nodes, `zshrc` tries upstream hosts in this order: `MSE_PROXY_UPSTREAM_HOST`, `SLURM_SUBMIT_HOST`, reverse lookup from `SSH_CONNECTION` / `SSH_CLIENT`, then `MSE_PROXY_DIRECT_HOSTS`. Host lookup is capped by `MSE_PROXY_HOST_LOOKUP_TIMEOUT`, and the autossh connection is capped by `MSE_PROXY_SSH_CONNECT_TIMEOUT` with non-interactive SSH, so a bad upstream should fail quickly instead of blocking shell startup. Set `MSE_PROXY_DEBUG=1` before running `proxy.on` if you need to inspect upstream detection.
 
 If you are on WSL and expose Clash through a Windows client, set the HTTP proxy port explicitly:
 

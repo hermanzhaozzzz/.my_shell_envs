@@ -213,6 +213,8 @@ export MSE_PROXY_SOCKS_PORT="${MSE_PROXY_SOCKS_PORT:-}"
 export MSE_PROXYCHAINS_CONF="${MSE_PROXYCHAINS_CONF:-${HOME}/.my_shell_envs/tools/proxychains/proxychains.conf}"
 export MSE_SLURM_NODE_PROXY_AUTO_ENABLE="${MSE_SLURM_NODE_PROXY_AUTO_ENABLE:-true}"
 export MSE_MAMBA_AUTO_ACTIVATE_BASE="${MSE_MAMBA_AUTO_ACTIVATE_BASE:-false}"
+export MSE_PROXY_HOST_LOOKUP_TIMEOUT="${MSE_PROXY_HOST_LOOKUP_TIMEOUT:-2}"
+export MSE_PROXY_SSH_CONNECT_TIMEOUT="${MSE_PROXY_SSH_CONNECT_TIMEOUT:-5}"
 
 _mse_proxy_mode_setting() {
     case "${MSE_PROXY_MODE}" in
@@ -319,7 +321,7 @@ _mse_proxy_sync_clashctl_ports() {
     if [[ -z "${MSE_PROXY_PORT:-}" && -n "${proxy_port}" ]]; then
         export MSE_PROXY_PORT="${proxy_port}"
     fi
-    if [[ -n "${socks_port}" ]]; then
+    if [[ -z "${MSE_PROXY_SOCKS_PORT:-}" && -n "${socks_port}" ]]; then
         export MSE_PROXY_SOCKS_PORT="${socks_port}"
     fi
     [[ -n "${proxy_port}" || -n "${socks_port}" ]]
@@ -416,6 +418,38 @@ _mse_proxy_is_quiet() {
     [[ "${MSE_PROXY_QUIET:-}" == "1" || "${MSE_PROXY_QUIET:-}" == "true" ]]
 }
 
+_mse_proxy_is_debug() {
+    [[ "${MSE_PROXY_DEBUG:-}" == "1" || "${MSE_PROXY_DEBUG:-}" == "true" ]]
+}
+
+_mse_proxy_debug_log() {
+    _mse_proxy_is_debug || return 0
+    echo "proxy.debug: $*" >&2
+}
+
+_mse_proxy_timeout_seconds() {
+    local value="$1"
+    local fallback="$2"
+
+    if [[ "${value}" == <-> && "${value}" -gt 0 ]]; then
+        printf '%s\n' "${value}"
+    else
+        printf '%s\n' "${fallback}"
+    fi
+}
+
+_mse_proxy_run_with_timeout() {
+    local timeout_seconds="$1"
+    shift
+
+    timeout_seconds="$(_mse_proxy_timeout_seconds "${timeout_seconds}" 2)"
+    if command -v timeout >/dev/null 2>&1; then
+        command timeout "${timeout_seconds}" "$@"
+    else
+        "$@"
+    fi
+}
+
 _mse_proxy_can_alias_clashctl() {
     [[ "$(_mse_proxy_mode_setting)" == "clash" ]] || return 1
     _mse_clashctl_available || return 1
@@ -496,11 +530,16 @@ _mse_proxy_resolve_host_by_ip() {
     esac
 
     if command -v getent >/dev/null 2>&1; then
-        resolved_host="$(getent hosts "${client_ip}" 2>/dev/null | awk 'NR==1 {print $2}')"
+        resolved_host="$(
+            _mse_proxy_run_with_timeout "${MSE_PROXY_HOST_LOOKUP_TIMEOUT}" getent hosts "${client_ip}" 2>/dev/null \
+                | awk 'NR==1 {print $2}'
+        )"
     fi
     if [[ -n "${resolved_host}" ]]; then
+        _mse_proxy_debug_log "resolved ${client_ip} -> ${resolved_host}"
         printf '%s\n' "${resolved_host}"
     else
+        _mse_proxy_debug_log "using upstream IP ${client_ip}"
         printf '%s\n' "${client_ip}"
     fi
 }
@@ -512,8 +551,14 @@ _mse_proxy_upstream_candidates() {
     typeset -A seen=()
 
     if [[ -n "${MSE_PROXY_UPSTREAM_HOST:-}" ]]; then
+        _mse_proxy_debug_log "upstream candidate from MSE_PROXY_UPSTREAM_HOST: ${MSE_PROXY_UPSTREAM_HOST}"
         printf '%s\n' "${MSE_PROXY_UPSTREAM_HOST}"
         return 0
+    fi
+
+    if [[ -n "${SLURM_SUBMIT_HOST:-}" && -z "${seen[${SLURM_SUBMIT_HOST}]:-}" ]]; then
+        candidates+=("${SLURM_SUBMIT_HOST}")
+        seen["${SLURM_SUBMIT_HOST}"]=1
     fi
 
     if [[ -n "${SSH_CONNECTION:-}" ]]; then
@@ -532,11 +577,6 @@ _mse_proxy_upstream_candidates() {
             candidates+=("${candidate}")
             seen["${candidate}"]=1
         fi
-    fi
-
-    if [[ -n "${SLURM_SUBMIT_HOST:-}" && -z "${seen[${SLURM_SUBMIT_HOST}]:-}" ]]; then
-        candidates+=("${SLURM_SUBMIT_HOST}")
-        seen["${SLURM_SUBMIT_HOST}"]=1
     fi
 
     for candidate in ${(s: :)MSE_PROXY_DIRECT_HOSTS}; do
@@ -561,9 +601,9 @@ _mse_proxy_upstream_host() {
 _mse_proxy_tunnel_pattern() {
     local upstream_host="$1"
     if [[ "$(_mse_proxy_mode_setting)" == "direct-egress" ]]; then
-        printf 'autossh .* -D 127.0.0.1:%s %s' "${MSE_PROXY_PORT}" "${upstream_host}"
+        printf 'autossh .* -D 127.0.0.1:%s.* %s' "${MSE_PROXY_PORT}" "${upstream_host}"
     else
-        printf 'autossh .*127.0.0.1:%s:127.0.0.1:%s %s' "${MSE_PROXY_PORT}" "${MSE_PROXY_PORT}" "${upstream_host}"
+        printf 'autossh .*127.0.0.1:%s:127.0.0.1:%s.* %s' "${MSE_PROXY_PORT}" "${MSE_PROXY_PORT}" "${upstream_host}"
     fi
 }
 
@@ -577,9 +617,9 @@ _mse_proxy_all_tunnel_pids() {
 
     proxy_mode="$(_mse_proxy_mode_setting)"
     if [[ "${proxy_mode}" == "direct-egress" ]]; then
-        pgrep -f "autossh .* -D 127.0.0.1:${MSE_PROXY_PORT} " 2>/dev/null
+        pgrep -f "autossh .* -D 127.0.0.1:${MSE_PROXY_PORT}" 2>/dev/null
     else
-        pgrep -f "autossh .*127.0.0.1:${MSE_PROXY_PORT}:127.0.0.1:${MSE_PROXY_PORT} " 2>/dev/null
+        pgrep -f "autossh .*127.0.0.1:${MSE_PROXY_PORT}:127.0.0.1:${MSE_PROXY_PORT}" 2>/dev/null
     fi
 }
 
@@ -697,6 +737,10 @@ _mse_proxy_start_tunnel() {
         -o ExitOnForwardFailure=yes \
         -o ServerAliveInterval=30 \
         -o ServerAliveCountMax=3 \
+        -o BatchMode=yes \
+        -o ConnectTimeout="$(_mse_proxy_timeout_seconds "${MSE_PROXY_SSH_CONNECT_TIMEOUT}" 5)" \
+        -o ConnectionAttempts=1 \
+        -o NumberOfPasswordPrompts=0 \
         -o StrictHostKeyChecking=no \
         "${forward_args[@]}" \
         "${upstream_host}" || {
@@ -707,6 +751,7 @@ _mse_proxy_start_tunnel() {
     sleep 1
     if ! _mse_proxy_required_ports_open; then
         echo "proxy.on: tunnel start returned but required local proxy ports are still unavailable"
+        _mse_proxy_stop_tunnel "${upstream_host}"
         return 1
     fi
     if ! _mse_proxy_probe_local_proxy; then
@@ -727,6 +772,10 @@ _mse_proxy_stop_tunnel() {
     pids="$(pgrep -f "$(_mse_proxy_tunnel_pattern "${upstream_host}")" 2>/dev/null | tr '\n' ' ')"
     [[ -n "${pids}" ]] || return 0
     kill ${=pids} >/dev/null 2>&1 || true
+    sleep 1
+    pids="$(pgrep -f "$(_mse_proxy_tunnel_pattern "${upstream_host}")" 2>/dev/null | tr '\n' ' ')"
+    [[ -n "${pids}" ]] || return 0
+    kill -9 ${=pids} >/dev/null 2>&1 || true
 }
 
 _mse_proxy_stop_all_tunnels() {
@@ -735,6 +784,10 @@ _mse_proxy_stop_all_tunnels() {
     pids="$(_mse_proxy_all_tunnel_pids 2>/dev/null | tr '\n' ' ')"
     [[ -n "${pids}" ]] || return 0
     kill ${=pids} >/dev/null 2>&1 || true
+    sleep 1
+    pids="$(_mse_proxy_all_tunnel_pids 2>/dev/null | tr '\n' ' ')"
+    [[ -n "${pids}" ]] || return 0
+    kill -9 ${=pids} >/dev/null 2>&1 || true
 }
 
 _mse_proxy_mode() {

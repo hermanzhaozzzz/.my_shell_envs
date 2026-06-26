@@ -67,12 +67,6 @@ persisted_deploy_mode="fast"
 persisted_use_zprofile_template=0
 persisted_selected_steps=""
 persisted_default_branch="$DEFAULT_BRANCH"
-region="china"
-proxy_mode="clash"
-proxy_port="8234"
-persisted_region="china"
-persisted_proxy_mode="clash"
-persisted_proxy_port="8234"
 
 print_root_usage() {
     cat <<'EOF'
@@ -525,9 +519,6 @@ load_persisted_deploy_settings() {
     persisted_use_zprofile_template=0
     persisted_selected_steps=""
     persisted_default_branch="$DEFAULT_BRANCH"
-    persisted_region="china"
-    persisted_proxy_mode="clash"
-    persisted_proxy_port="8234"
 
     [ -f "$METADATA_FILE" ] || return 0
 
@@ -559,15 +550,6 @@ load_persisted_deploy_settings() {
             MSE_DEFAULT_BRANCH)
                 persisted_default_branch="$value"
                 ;;
-            MSE_REGION)
-                persisted_region="$value"
-                ;;
-            MSE_PROXY_MODE)
-                persisted_proxy_mode="$value"
-                ;;
-            MSE_PROXY_PORT)
-                persisted_proxy_port="$value"
-                ;;
             MSE_STEP_*)
                 step="$(step_from_env_key "$key" 2>/dev/null || true)"
                 if [ -n "$step" ]; then
@@ -596,29 +578,6 @@ load_persisted_deploy_settings() {
         *)
             log_warn "invalid MSE_DEPLOY_MODE in $(fmt_path "$METADATA_FILE"), falling back to fast"
             persisted_deploy_mode="fast"
-            ;;
-    esac
-
-    case "$persisted_region" in
-        china|global) ;;
-        *)
-            log_warn "invalid MSE_REGION in $(fmt_path "$METADATA_FILE"), falling back to china"
-            persisted_region="china"
-            ;;
-    esac
-
-    case "$persisted_proxy_mode" in
-        clash|direct-egress) ;;
-        *)
-            log_warn "invalid MSE_PROXY_MODE in $(fmt_path "$METADATA_FILE"), falling back to clash"
-            persisted_proxy_mode="clash"
-            ;;
-    esac
-
-    case "$persisted_proxy_port" in
-        ''|*[!0-9]*)
-            log_warn "invalid MSE_PROXY_PORT in $(fmt_path "$METADATA_FILE"), falling back to 8234"
-            persisted_proxy_port="8234"
             ;;
     esac
 
@@ -653,9 +612,6 @@ persist_deploy_settings() {
 # Allowed values:
 #   MSE_GIT_METHOD=https|ssh
 #   MSE_DEPLOY_MODE=fast|interactive
-#   MSE_REGION=china|global
-#   MSE_PROXY_MODE=clash|direct-egress
-#   MSE_PROXY_PORT=<number>
 #   MSE_USE_ZPROFILE_TEMPLATE=true|false
 #   MSE_STEP_<NAME>=true|false
 #
@@ -666,9 +622,6 @@ persist_deploy_settings() {
 MSE_GIT_METHOD='$git_method'
 MSE_DEPLOY_MODE='$deploy_mode'
 MSE_DEFAULT_BRANCH='$current_branch'
-MSE_REGION='$region'
-MSE_PROXY_MODE='$proxy_mode'
-MSE_PROXY_PORT='$proxy_port'
 MSE_USE_ZPROFILE_TEMPLATE='$(bool_string "$use_zprofile_template")'
 EOF
 
@@ -1075,68 +1028,6 @@ choose_steps() {
                 ;;
         esac
     done
-}
-
-choose_proxy_region() {
-    local answer=""
-
-    region="china"
-    proxy_mode="clash"
-    proxy_port="8234"
-
-    if ! step_selected "cluster_proxy_tools" || [ "$platform" = "Windows" ]; then
-        return 0
-    fi
-
-    if [ "$internal_update_mode" = "1" ]; then
-        region="$persisted_region"
-        proxy_mode="$persisted_proxy_mode"
-        proxy_port="$persisted_proxy_port"
-        log_info "update is reusing saved proxy profile: region=$region mode=$proxy_mode port=$proxy_port"
-        return 0
-    fi
-
-    if [ "$deploy_mode" = "fast" ]; then
-        region="china"
-        proxy_mode="clash"
-        proxy_port="8234"
-        log_info "fast mode uses the default proxy profile: region=$region mode=$proxy_mode port=$proxy_port"
-        return 0
-    fi
-
-    print_section "cluster proxy profile"
-    printf '%s are you in China and planning to use Clash on the login node? [Y/n]: ' "$(badge "$COLOR_BLUE" "ASK")"
-    read answer || answer=""
-    case "$answer" in
-        n|N|no|NO)
-            region="global"
-            proxy_mode="direct-egress"
-            proxy_port="${persisted_proxy_port:-8234}"
-            log_info "selected proxy profile: region=$region mode=$proxy_mode"
-            print_list_item "no Clash is required"
-            print_list_item "compute nodes will use autossh -D to borrow the login node network"
-            ;;
-        *)
-            region="china"
-            proxy_mode="clash"
-            proxy_port="${persisted_proxy_port:-8234}"
-            printf '%s Clash port on the login node [default: %s]: ' "$(badge "$COLOR_BLUE" "ASK")" "$proxy_port"
-            read answer || answer=""
-            if [ -n "$answer" ]; then
-                case "$answer" in
-                    *[!0-9]*)
-                        log_warn "invalid port '$answer', falling back to $proxy_port"
-                        ;;
-                    *)
-                        proxy_port="$answer"
-                        ;;
-                esac
-            fi
-            log_info "selected proxy profile: region=$region mode=$proxy_mode port=$proxy_port"
-            print_list_item "remember to start Clash on the login node"
-            print_list_item "make sure Clash listens on 127.0.0.1:$proxy_port"
-            ;;
-    esac
 }
 
 run_step() {
@@ -1950,13 +1841,6 @@ command_deploy() {
     cleanup_legacy_spyder
 
     choose_steps
-    choose_proxy_region
-
-    if step_selected "cluster_proxy_tools"; then
-        print_kv "region" "$region"
-        print_kv "proxy mode" "$proxy_mode"
-        print_kv "proxy port" "$proxy_port"
-    fi
 
     if [ "$platform" = "Windows" ] && [ -z "$SELECTED_STEPS" ] && [ "$use_zprofile_template" -eq 0 ]; then
         log_warn "no steps selected, nothing to do"

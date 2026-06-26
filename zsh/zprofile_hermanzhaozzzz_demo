@@ -37,11 +37,10 @@ export TRASH=${HOME}/.mytrash
 # proxy commands are provided by zsh/zshrc
 # keep machine-specific proxy defaults here as variables only
 export MSE_PROXY_HOST="${MSE_PROXY_HOST:-127.0.0.1}"
-export MSE_PROXY_PORT="${MSE_PROXY_PORT:-8234}"
 export MSE_SLURM_NODE_PROXY_AUTO_ENABLE="${MSE_SLURM_NODE_PROXY_AUTO_ENABLE:-true}"
 export MSE_PROXY_DIRECT_HOSTS="${MSE_PROXY_DIRECT_HOSTS:-c55b01n08}"
 echo -e '\tproxy commands are managed by \033[1;35m~/.my_shell_envs/zsh/zshrc\033[0m'
-echo -e '\tset \033[1;35mMSE_PROXY_PORT\033[0m='${MSE_PROXY_PORT}
+echo -e '\tset \033[1;35mMSE_PROXY_PORT\033[0m='${MSE_PROXY_PORT:-'<auto by zshrc>'}
 echo -e '\tset \033[1;35mMSE_SLURM_NODE_PROXY_AUTO_ENABLE\033[0m='${MSE_SLURM_NODE_PROXY_AUTO_ENABLE}
 echo -e '\tset \033[1;35mMSE_PROXY_DIRECT_HOSTS\033[0m='${MSE_PROXY_DIRECT_HOSTS}
 
@@ -213,9 +212,29 @@ if [[ $_OS == "Linux" ]]; then
             export MSE_PROXY_UPSTREAM_HOST=login05
 
             _func_codex_alioth_proxy_mcp() {
-                local proxy_port="${MSE_PROXY_PORT:-8234}"
+                local proxy_port="${MSE_PROXY_PORT:-}"
+                local socks_port="${MSE_PROXY_SOCKS_PORT:-}"
                 local http_proxy_url="http://127.0.0.1:${proxy_port}"
-                local socks_proxy_url="socks5h://127.0.0.1:${proxy_port}"
+                local socks_proxy_url="socks5h://127.0.0.1:${socks_port}"
+                local proxychains_conf="/appsnew/home/hnzhao/.my_shell_envs/tools/proxychains/proxychains.conf"
+
+                if [[ -z "${proxy_port}" ]] && type _mse_clashctl_proxy_port >/dev/null 2>&1; then
+                    proxy_port="$(_mse_clashctl_proxy_port 2>/dev/null || true)"
+                fi
+                if [[ -z "${socks_port}" ]] && type _mse_proxy_socks_port >/dev/null 2>&1; then
+                    socks_port="$(_mse_proxy_socks_port 2>/dev/null || true)"
+                fi
+                socks_port="${socks_port:-${proxy_port}}"
+                if [[ -z "${proxy_port}" ]]; then
+                    echo "codex: MSE_PROXY_PORT is not set; source zshrc or run proxy.on first" >&2
+                    return 1
+                fi
+
+                http_proxy_url="http://127.0.0.1:${proxy_port}"
+                socks_proxy_url="socks5h://127.0.0.1:${socks_port}"
+                if type _mse_proxy_runtime_proxychains_conf >/dev/null 2>&1; then
+                    proxychains_conf="$(_mse_proxy_runtime_proxychains_conf 2>/dev/null || printf '%s' "${proxychains_conf}")"
+                fi
                 if ! nc -z 127.0.0.1 "${proxy_port}" >/dev/null 2>&1; then
                     echo "codex: local proxy 127.0.0.1:${proxy_port} is not listening; run proxy.on first" >&2
                 fi
@@ -227,16 +246,16 @@ if [[ $_OS == "Linux" ]]; then
                 all_proxy="${socks_proxy_url}" \
                     command codex \
                     -c 'mcp_servers.fetch.command="/appsnew/home/hnzhao/.my_shell_envs/bin/proxychains4"' \
-                    -c 'mcp_servers.fetch.args=["-q","-f","/appsnew/home/hnzhao/.my_shell_envs/tools/proxychains/proxychains.conf","uvx","mcp-server-fetch"]' \
+                    -c "mcp_servers.fetch.args=[\"-q\",\"-f\",\"${proxychains_conf}\",\"uvx\",\"mcp-server-fetch\"]" \
                     -c 'mcp_servers.sequential-thinking.command="/appsnew/home/hnzhao/.my_shell_envs/bin/proxychains4"' \
-                    -c 'mcp_servers.sequential-thinking.args=["-q","-f","/appsnew/home/hnzhao/.my_shell_envs/tools/proxychains/proxychains.conf","npx","-y","@modelcontextprotocol/server-sequential-thinking"]' \
+                    -c "mcp_servers.sequential-thinking.args=[\"-q\",\"-f\",\"${proxychains_conf}\",\"npx\",\"-y\",\"@modelcontextprotocol/server-sequential-thinking\"]" \
                     -c 'mcp_servers.context7.command="/appsnew/home/hnzhao/.my_shell_envs/bin/proxychains4"' \
-                    -c 'mcp_servers.context7.args=["-q","-f","/appsnew/home/hnzhao/.my_shell_envs/tools/proxychains/proxychains.conf","npx","-y","@upstash/context7-mcp"]' \
+                    -c "mcp_servers.context7.args=[\"-q\",\"-f\",\"${proxychains_conf}\",\"npx\",\"-y\",\"@upstash/context7-mcp\"]" \
                     -c 'mcp_servers.memory.command="/appsnew/home/hnzhao/.my_shell_envs/bin/proxychains4"' \
-                    -c 'mcp_servers.memory.args=["-q","-f","/appsnew/home/hnzhao/.my_shell_envs/tools/proxychains/proxychains.conf","npx","-y","@modelcontextprotocol/server-memory"]' \
+                    -c "mcp_servers.memory.args=[\"-q\",\"-f\",\"${proxychains_conf}\",\"npx\",\"-y\",\"@modelcontextprotocol/server-memory\"]" \
                     "$@"
             }
-            alias codex=_func_codex_alioth_proxy_mcp
+            # alias codex=_func_codex_alioth_proxy_mcp
         fi
     fi
 

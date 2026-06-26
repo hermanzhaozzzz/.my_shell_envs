@@ -389,19 +389,22 @@ export EDITOR="nvim"
 export PAGER="less"
 export MSE_MAMBA_AUTO_ACTIVATE_BASE=false
 export MSE_SLURM_NODE_PROXY_AUTO_ENABLE=false
-export MSE_PROXY_PORT=8234
+# Optional when zshrc can read clashctl runtime.yaml on native Linux.
+export MSE_PROXY_PORT=<proxy-http-port>
 ```
 
 Proxy commands are provided by the repo `zsh/zshrc`. Keep machine-specific proxy settings as variables in `~/.zprofile`, for example:
 
 ```shell
-export MSE_PROXY_PORT=8234
+export MSE_PROXY_PORT=<proxy-http-port>
 ```
 
-If you are on WSL and still expose Clash through port `7890`, set:
+Proxy ports are no longer controlled by `.mse-install.env`. They come from explicit environment variables, or from `clashctl` `runtime.yaml` when `clashctl` is available on native Linux.
+
+If you are on WSL and expose Clash through a Windows client, set the HTTP proxy port explicitly:
 
 ```shell
-export MSE_PROXY_PORT=7890
+export MSE_PROXY_PORT=<clash-http-port>
 ```
 
 Keep machine-specific or organization-specific values in your own `~/.zprofile`. Do not add them to the shared repo-managed `zshrc`.

@@ -481,6 +481,7 @@ export MSE_PROXY_UPSTREAM_HOST=login03
 
 # 可选：限制 compute 节点启动代理时的反查和 SSH 连接等待时间
 export MSE_PROXY_HOST_LOOKUP_TIMEOUT=2
+export MSE_PROXY_PROCESS_LOOKUP_TIMEOUT=2
 export MSE_PROXY_SSH_CONNECT_TIMEOUT=5
 ```
 
@@ -520,13 +521,15 @@ compute 节点上的 `proxy.on` 现在不再只看本地端口是否在监听，
 - `SSH_CONNECTION` / `SSH_CLIENT` 反查到的主机
 - `MSE_PROXY_DIRECT_HOSTS` 里的主机
 
-反查 `SSH_CONNECTION` / `SSH_CLIENT` 时会受 `MSE_PROXY_HOST_LOOKUP_TIMEOUT` 限制；启动 autossh 隧道时会受 `MSE_PROXY_SSH_CONNECT_TIMEOUT` 限制，并使用非交互 SSH，避免 compute 节点登录时因为上游不可达或密码提示卡在 zsh 启动阶段。
+反查 `SSH_CONNECTION` / `SSH_CLIENT` 时会受 `MSE_PROXY_HOST_LOOKUP_TIMEOUT` 限制；查找旧 autossh 隧道时会直接读取 `/proc`，并受 `MSE_PROXY_PROCESS_LOOKUP_TIMEOUT` 限制；启动 autossh 隧道时会受 `MSE_PROXY_SSH_CONNECT_TIMEOUT` 限制，并使用非交互 SSH，避免 compute 节点登录时因为上游不可达、进程枚举异常或密码提示卡在 zsh 启动阶段。
 
 如果这些候选都不对，建议在 `~/.zprofile` 里显式设置正确的 login 主机：
 
 ```shell
 export MSE_PROXY_UPSTREAM_HOST=login05
 ```
+
+在部分 compute 节点上，裸 `ssh -p 32985 cXXbYYnZZ` 会先进入系统默认登录 shell `/bin/bash`，而系统 `/etc/profile` 里的进程枚举命令可能卡住。交互式 zsh 中的 `ssh` 包装函数会只针对 `-p 32985` 的 Slurm compute 节点裸登录自动改写为远程执行 `zsh -l`，绕过这段 bash 登录初始化；带远程命令的 `ssh host command` 不会被改写。
 
 补充说明：
 

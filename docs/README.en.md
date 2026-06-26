@@ -393,6 +393,7 @@ export MSE_SLURM_NODE_PROXY_AUTO_ENABLE=false
 export MSE_PROXY_PORT=<proxy-http-port>
 # Optional on Slurm compute nodes.
 export MSE_PROXY_UPSTREAM_HOST=<login-host>
+export MSE_PROXY_PROCESS_LOOKUP_TIMEOUT=2
 ```
 
 Proxy commands are provided by the repo `zsh/zshrc`. Keep machine-specific proxy settings as variables in `~/.zprofile`, for example:
@@ -403,7 +404,9 @@ export MSE_PROXY_PORT=<proxy-http-port>
 
 Proxy ports are no longer controlled by `.mse-install.env`. They come from explicit environment variables, or from `clashctl` `runtime.yaml` when `clashctl` is available on native Linux.
 
-On Slurm compute nodes, `zshrc` tries upstream hosts in this order: `MSE_PROXY_UPSTREAM_HOST`, `SLURM_SUBMIT_HOST`, reverse lookup from `SSH_CONNECTION` / `SSH_CLIENT`, then `MSE_PROXY_DIRECT_HOSTS`. Host lookup is capped by `MSE_PROXY_HOST_LOOKUP_TIMEOUT`, and the autossh connection is capped by `MSE_PROXY_SSH_CONNECT_TIMEOUT` with non-interactive SSH, so a bad upstream should fail quickly instead of blocking shell startup. Set `MSE_PROXY_DEBUG=1` before running `proxy.on` if you need to inspect upstream detection.
+On Slurm compute nodes, `zshrc` tries upstream hosts in this order: `MSE_PROXY_UPSTREAM_HOST`, `SLURM_SUBMIT_HOST`, reverse lookup from `SSH_CONNECTION` / `SSH_CLIENT`, then `MSE_PROXY_DIRECT_HOSTS`. Host lookup is capped by `MSE_PROXY_HOST_LOOKUP_TIMEOUT`; autossh process lookup reads `/proc` directly and is capped by `MSE_PROXY_PROCESS_LOOKUP_TIMEOUT`; the autossh connection is capped by `MSE_PROXY_SSH_CONNECT_TIMEOUT` with non-interactive SSH. A bad upstream or a slow process table should fail quickly instead of blocking shell startup. Set `MSE_PROXY_DEBUG=1` before running `proxy.on` if you need to inspect upstream detection.
+
+Some compute nodes can hang before reaching user dotfiles because the system login bash reads `/etc/profile` first. In interactive zsh, the repo wraps only bare `ssh -p 32985 cXXbYYnZZ` Slurm compute-node logins and runs remote `zsh -l` directly. SSH calls with an explicit remote command are left unchanged.
 
 If you are on WSL and expose Clash through a Windows client, set the HTTP proxy port explicitly:
 

@@ -214,6 +214,7 @@ export MSE_PROXYCHAINS_CONF="${MSE_PROXYCHAINS_CONF:-${HOME}/.my_shell_envs/tool
 export MSE_SLURM_NODE_PROXY_AUTO_ENABLE="${MSE_SLURM_NODE_PROXY_AUTO_ENABLE:-true}"
 export MSE_MAMBA_AUTO_ACTIVATE_BASE="${MSE_MAMBA_AUTO_ACTIVATE_BASE:-false}"
 export MSE_PROXY_HOST_LOOKUP_TIMEOUT="${MSE_PROXY_HOST_LOOKUP_TIMEOUT:-2}"
+export MSE_PROXY_PROCESS_LOOKUP_TIMEOUT="${MSE_PROXY_PROCESS_LOOKUP_TIMEOUT:-2}"
 export MSE_PROXY_SSH_CONNECT_TIMEOUT="${MSE_PROXY_SSH_CONNECT_TIMEOUT:-5}"
 
 _mse_proxy_mode_setting() {
@@ -607,9 +608,37 @@ _mse_proxy_tunnel_pattern() {
     fi
 }
 
+_mse_proxy_find_autossh_pids_by_proc() {
+    local pattern="$1"
+    local timeout_seconds=""
+    local start_seconds="${SECONDS:-0}"
+    local proc_dir=""
+    local comm=""
+    local cmdline=""
+
+    timeout_seconds="$(_mse_proxy_timeout_seconds "${MSE_PROXY_PROCESS_LOOKUP_TIMEOUT}" 2)"
+    for proc_dir in /proc/[0-9]*; do
+        if (( SECONDS - start_seconds >= timeout_seconds )); then
+            _mse_proxy_debug_log "autossh process scan timed out after ${timeout_seconds}s"
+            return 0
+        fi
+
+        [[ -r "${proc_dir}/comm" ]] || continue
+        IFS= read -r comm < "${proc_dir}/comm" 2>/dev/null || continue
+        [[ "${comm}" == "autossh" ]] || continue
+        [[ -r "${proc_dir}/cmdline" ]] || continue
+
+        cmdline="$(tr '\0' ' ' < "${proc_dir}/cmdline" 2>/dev/null)"
+        [[ -n "${cmdline}" ]] || continue
+        if [[ "${cmdline}" =~ "${pattern}" ]]; then
+            printf '%s\n' "${proc_dir:t}"
+        fi
+    done
+}
+
 _mse_proxy_tunnel_pid() {
     local upstream_host="$1"
-    pgrep -f "$(_mse_proxy_tunnel_pattern "${upstream_host}")" 2>/dev/null | head -n 1
+    _mse_proxy_find_autossh_pids_by_proc "$(_mse_proxy_tunnel_pattern "${upstream_host}")" 2>/dev/null | head -n 1
 }
 
 _mse_proxy_all_tunnel_pids() {
@@ -617,9 +646,9 @@ _mse_proxy_all_tunnel_pids() {
 
     proxy_mode="$(_mse_proxy_mode_setting)"
     if [[ "${proxy_mode}" == "direct-egress" ]]; then
-        pgrep -f "autossh .* -D 127.0.0.1:${MSE_PROXY_PORT}" 2>/dev/null
+        _mse_proxy_find_autossh_pids_by_proc "autossh .* -D 127.0.0.1:${MSE_PROXY_PORT}" 2>/dev/null
     else
-        pgrep -f "autossh .*127.0.0.1:${MSE_PROXY_PORT}:127.0.0.1:${MSE_PROXY_PORT}" 2>/dev/null
+        _mse_proxy_find_autossh_pids_by_proc "autossh .*127.0.0.1:${MSE_PROXY_PORT}:127.0.0.1:${MSE_PROXY_PORT}" 2>/dev/null
     fi
 }
 
@@ -769,11 +798,11 @@ _mse_proxy_stop_tunnel() {
     local upstream_host="$1"
     local pids=""
 
-    pids="$(pgrep -f "$(_mse_proxy_tunnel_pattern "${upstream_host}")" 2>/dev/null | tr '\n' ' ')"
+    pids="$(_mse_proxy_find_autossh_pids_by_proc "$(_mse_proxy_tunnel_pattern "${upstream_host}")" 2>/dev/null | tr '\n' ' ')"
     [[ -n "${pids}" ]] || return 0
     kill ${=pids} >/dev/null 2>&1 || true
     sleep 1
-    pids="$(pgrep -f "$(_mse_proxy_tunnel_pattern "${upstream_host}")" 2>/dev/null | tr '\n' ' ')"
+    pids="$(_mse_proxy_find_autossh_pids_by_proc "$(_mse_proxy_tunnel_pattern "${upstream_host}")" 2>/dev/null | tr '\n' ' ')"
     [[ -n "${pids}" ]] || return 0
     kill -9 ${=pids} >/dev/null 2>&1 || true
 }
@@ -1127,6 +1156,67 @@ alias proxy.off=_func_proxy_off
 alias proxy.status=_func_proxy_status
 alias proxy.test=_func_proxy_test
 alias proxy.exec=_func_proxy_exec
+
+_mse_ssh_slurm_node_auto_zsh_args() {
+    local arg=""
+    local expect_value=""
+    local host_name=""
+    local port_value=""
+    local has_remote_command=0
+
+    for arg in "$@"; do
+        if [[ -n "${expect_value}" ]]; then
+            case "${expect_value}" in
+                port)
+                    port_value="${arg}"
+                    ;;
+            esac
+            expect_value=""
+            continue
+        fi
+
+        case "${arg}" in
+            --)
+                continue
+                ;;
+            -p)
+                expect_value="port"
+                continue
+                ;;
+            -p<->)
+                port_value="${arg#-p}"
+                continue
+                ;;
+            -[bcDEeFIiJLlmOopQRSWw])
+                expect_value="skip"
+                continue
+                ;;
+            -*)
+                continue
+                ;;
+            *)
+                if [[ -z "${host_name}" ]]; then
+                    host_name="${arg}"
+                else
+                    has_remote_command=1
+                    break
+                fi
+                ;;
+        esac
+    done
+
+    [[ "${port_value}" == "32985" ]] || return 1
+    [[ "${host_name}" =~ '^c[0-9]+b[0-9]+n[0-9]+$' ]] || return 1
+    [[ "${has_remote_command}" -eq 0 ]] || return 1
+}
+
+ssh() {
+    if _mse_ssh_slurm_node_auto_zsh_args "$@"; then
+        command ssh -t "$@" zsh -l
+    else
+        command ssh "$@"
+    fi
+}
 # ------------------------------------------------------------------->>>>>>>>>>
 # 自定义函数命令
 # ------------------------------------------------------------------->>>>>>>>>>

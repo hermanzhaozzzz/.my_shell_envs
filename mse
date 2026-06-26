@@ -259,16 +259,22 @@ write_zsh_handoff_block() {
         : > "$tmp_file"
     fi
 
-    cat >>"$tmp_file" <<EOF
+    cat >"$tmp_file.with-handoff" <<EOF
 # >>> MSE auto-enter zsh >>>
-if [ -x "$zsh_path" ] && [ -z "\${MSE_AUTO_ENTER_ZSH:-}" ]; then
-    export SHELL="$zsh_path"
-    export MSE_AUTO_ENTER_ZSH=1
-    exec "$zsh_path" -l
-fi
+case "\$-" in
+    *i*)
+        if [ -x "$zsh_path" ] && [ -z "\${MSE_AUTO_ENTER_ZSH:-}" ]; then
+            export SHELL="$zsh_path"
+            export MSE_AUTO_ENTER_ZSH=1
+            exec "$zsh_path" -l
+        fi
+        ;;
+esac
 # <<< MSE auto-enter zsh <<<
 EOF
 
+    cat "$tmp_file" >>"$tmp_file.with-handoff"
+    mv "$tmp_file.with-handoff" "$tmp_file" || fail "failed to stage shell handoff config"
     mv "$tmp_file" "$rc_path" || fail "failed to update shell config at $rc_path"
     export SHELL="$zsh_path"
     log_ok "current shell handoff added to $(fmt_path "$rc_path")"

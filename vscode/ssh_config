@@ -1,13 +1,12 @@
 # Read more about SSH config files: https://linux.die.net/man/5/ssh_config
-Host Sunny_Alioth_Login
-    HostName frp.zhaohuanan.cc  # frp 服务器地址
-    Port 27000  # Sunny 转发端口
-    User hnzhao
+Host MacBookAir-M2-24G
+    HostName 100.66.1.4
+    Port 22
+    User zhaohuanan
     IdentityFile ~/.ssh/id_rsa  # 替换为你的私钥路径（可选）
     ServerAliveInterval 60  # 保持连接的心跳包时间间隔（可选）
-Host Sunny_Alioth_Compute_General
-    HostName frp.zhaohuanan.cc  # frp 服务器地址
-    Port 27002  # Sunny 转发端口
+Host Sunny_Alioth_Login
+    HostName 100.66.1.5
     User hnzhao
     IdentityFile ~/.ssh/id_rsa  # 替换为你的私钥路径（可选）
     ServerAliveInterval 60  # 保持连接的心跳包时间间隔（可选）
@@ -67,25 +66,6 @@ Host Alioth_L48_c57b01n01
     ProxyJump Sunny_Alioth_Login
     IdentityFile ~/.ssh/id_rsa
     ServerAliveInterval 60
-Host PKUSLS_Legend_GPZ
-    HostName 162.105.250.75
-    User gengpz
 Host ZSpace
-    HostName 192.168.3.238
+    HostName 100.66.1.1
     User zhaohuanan
-Host ZSpace_V_Windows
-    HostName 192.168.3.10
-    User herma
-    Port 22
-
-    IdentityFile ~/.ssh/id_ed25519_win
-    IdentitiesOnly yes
-
-    # 稳定性（可选但推荐）
-    ServerAliveInterval 30
-    ServerAliveCountMax 4
-
-    # 复用连接（可选但推荐）
-    ControlMaster auto
-    ControlPath ~/.ssh/cm-%r@%h:%p
-    ControlPersist 10m

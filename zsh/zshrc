@@ -1403,3 +1403,9 @@ _mse_proxy_auto_init
 
 
 # micromamba activate base 2>/dev/null
+
+# kimi-code
+export PATH="/Users/zhaohuanan/.kimi-code/bin:$PATH"
+
+# opencode
+export PATH=/Users/zhaohuanan/.opencode/bin:$PATH

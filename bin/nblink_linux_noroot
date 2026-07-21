@@ -1,0 +1,305 @@
+#!/usr/bin/env bash
+# codex魔改版，基于 owjdxb v4.3.4 https://iepose.com/install.sh 绕过 sudo 权限改用 tmux 挂后台
+set -Eeuo pipefail
+
+APP_NAME="owjdxb"
+VERSION="4.3.4"
+BUILD_ID="718"
+BASE_URL="https://cdn.ionewu.com/upgrade/jdxb"
+PORT="9118"
+
+APP_DIR="${HOME}/.local/share/${APP_NAME}"
+CACHE_DIR="${HOME}/.cache/${APP_NAME}"
+UNIT_FILE="${HOME}/.config/systemd/user/${APP_NAME}.service"
+UNIT_WANTS="${HOME}/.config/systemd/user/default.target.wants/${APP_NAME}.service"
+TMUX_SESSION="${APP_NAME}"
+LOG_DIR="/tmp/.${APP_NAME}"
+
+log() {
+  printf '%s\n' "$*"
+}
+
+warn() {
+  printf 'WARNING: %s\n' "$*" >&2
+}
+
+die() {
+  printf 'ERROR: %s\n' "$*" >&2
+  exit 1
+}
+
+usage() {
+  cat <<'EOF'
+Usage: owjdxb-user.sh COMMAND
+
+Commands:
+  install     Download, install, and start in a tmux session
+  update      Reinstall the pinned package version
+  start       Start in a tmux session
+  stop        Stop the app and remove the tmux session
+  restart     Stop, then start
+  status      Show service status
+  bind        Print the device binding URL and optional terminal QR code
+  uninstall   Stop and remove the application files
+  attach      Attach to the tmux log session
+  help        Show this help
+
+This script never uses sudo for normal operation. It installs under
+~/.local/share and uses tmux instead of systemd.
+EOF
+}
+
+require_user() {
+  [[ "${EUID}" -ne 0 ]] || die "Run this script as your normal user, not with sudo."
+  [[ "$(uname -s)" == "Linux" ]] || die "Only Linux is supported."
+}
+
+require_commands() {
+  local command_name
+  for command_name in curl tar find chmod grep sed head tr mktemp mv rm dirname pgrep ss; do
+    command -v "${command_name}" >/dev/null 2>&1 || die "Missing command: ${command_name}"
+  done
+  command -v tmux >/dev/null 2>&1 || die "Missing command: tmux"
+}
+
+package_filename() {
+  case "$(uname -m)" in
+  x86_64 | amd64)
+    printf '%s_linux_x64_%s-%s.tgz\n' "${APP_NAME}" "${VERSION}" "${BUILD_ID}"
+    ;;
+  aarch64 | arm64)
+    printf '%s_linux_arm64_%s-%s.tgz\n' "${APP_NAME}" "${VERSION}" "${BUILD_ID}"
+    ;;
+  armv7l | armv6l | armv5tel)
+    printf '%s_linux_arm32_%s-%s.tgz\n' "${APP_NAME}" "${VERSION}" "${BUILD_ID}"
+    ;;
+  *)
+    die "Unsupported architecture: $(uname -m)"
+    ;;
+  esac
+}
+
+download_package() {
+  local filename archive url
+  filename="$(package_filename)"
+  archive="${CACHE_DIR}/${filename}"
+  url="${BASE_URL}/${filename}"
+
+  mkdir -p "${CACHE_DIR}"
+  if [[ -f "${archive}" ]]; then
+    log "Using cached package: ${archive}" >&2
+  else
+    log "Downloading ${url}" >&2
+    curl -fL --retry 3 --progress-bar -o "${archive}" "${url}"
+  fi
+
+  printf '%s\n' "${archive}"
+}
+
+stop_service_if_present() {
+  if [[ -x "${APP_DIR}/stop.sh" ]]; then
+    "${APP_DIR}/stop.sh" >/dev/null 2>&1 || true
+  fi
+  tmux has-session -t "${TMUX_SESSION}" 2>/dev/null && tmux kill-session -t "${TMUX_SESSION}" || true
+}
+
+install_files() {
+  local archive data_dir temp_dir extracted_dir backup_dir
+  archive="$1"
+  data_dir="$(dirname "${APP_DIR}")"
+  mkdir -p "${data_dir}"
+
+  if tar -tzf "${archive}" | grep -Eq '(^/|(^|/)\.\.(/|$))'; then
+    die "Archive contains an unsafe path: ${archive}"
+  fi
+
+  temp_dir="$(mktemp -d "${data_dir}/.${APP_NAME}.new.XXXXXX")"
+  backup_dir="${data_dir}/.${APP_NAME}.backup.$$"
+  trap 'rm -rf "${temp_dir:-}" "${backup_dir:-}"' RETURN
+
+  tar -xzf "${archive}" -C "${temp_dir}"
+  extracted_dir="${temp_dir}/${APP_NAME}"
+  [[ -f "${extracted_dir}/start.sh" ]] || die "Package does not contain ${APP_NAME}/start.sh"
+
+  chmod +x "${extracted_dir}/start.sh"
+  find "${extracted_dir}" -type f \
+    \( -name '*.sh' -o -path '*/bin/*' -o -path '*/ownbsv/*' \) \
+    -exec chmod +x {} \; 2>/dev/null || true
+
+  stop_service_if_present
+
+  if [[ -e "${APP_DIR}" ]]; then
+    mv "${APP_DIR}" "${backup_dir}"
+  fi
+
+  if mv "${extracted_dir}" "${APP_DIR}"; then
+    rm -rf "${backup_dir}" "${temp_dir}"
+  else
+    [[ ! -e "${APP_DIR}" && -e "${backup_dir}" ]] && mv "${backup_dir}" "${APP_DIR}"
+    die "Could not install files into ${APP_DIR}"
+  fi
+
+  trap - RETURN
+}
+
+remove_old_user_unit() {
+  if command -v systemctl >/dev/null 2>&1 && systemctl --user show-environment >/dev/null 2>&1; then
+    systemctl --user stop "${APP_NAME}.service" >/dev/null 2>&1 || true
+    systemctl --user disable "${APP_NAME}.service" >/dev/null 2>&1 || true
+  fi
+  rm -f "${UNIT_WANTS}" "${UNIT_FILE}"
+  if command -v systemctl >/dev/null 2>&1 && systemctl --user show-environment >/dev/null 2>&1; then
+    systemctl --user daemon-reload >/dev/null 2>&1 || true
+  fi
+}
+
+install_app() {
+  local archive
+  archive="$(download_package)"
+  remove_old_user_unit
+  install_files "${archive}"
+
+  log "Installed files in ${APP_DIR}"
+  start_app
+}
+
+start_log_session() {
+  mkdir -p "${LOG_DIR}"
+  tmux has-session -t "${TMUX_SESSION}" 2>/dev/null && return 0
+  tmux new-session -d -s "${TMUX_SESSION}" -c "${APP_DIR}" \
+    "printf '[%s] ${APP_NAME} is running. Tailing logs from ${LOG_DIR}.\\n' \"\$(date)\"; touch ${LOG_DIR}/onewu.log; tail -n 80 -F ${LOG_DIR}/*.log"
+}
+
+start_app() {
+  [[ -x "${APP_DIR}/start.sh" ]] || die "Not installed: ${APP_DIR}/start.sh"
+  if pgrep -f "${APP_DIR}/bin/${APP_NAME}" >/dev/null 2>&1; then
+    log "${APP_NAME} is already running."
+    start_log_session
+    status_app
+    return 0
+  fi
+
+  tmux has-session -t "${TMUX_SESSION}" 2>/dev/null && tmux kill-session -t "${TMUX_SESSION}" || true
+  tmux new-session -d -s "${TMUX_SESSION}" -c "${APP_DIR}" \
+    "./start.sh; printf '\\n[%s] started. Tailing logs from ${LOG_DIR}.\\n' \"\$(date)\"; touch ${LOG_DIR}/onewu.log; tail -n 80 -F ${LOG_DIR}/*.log"
+
+  sleep 1
+  if pgrep -f "${APP_DIR}/bin/${APP_NAME}" >/dev/null 2>&1; then
+    log "Started ${APP_NAME} in tmux session: ${TMUX_SESSION}"
+    log "Attach logs with: tmux attach -t ${TMUX_SESSION}"
+  else
+    warn "${APP_NAME} did not stay running. Attach logs with: tmux attach -t ${TMUX_SESSION}"
+    return 1
+  fi
+}
+
+stop_app() {
+  if [[ -x "${APP_DIR}/stop.sh" ]]; then
+    "${APP_DIR}/stop.sh"
+  else
+    warn "No installed stop script was found."
+  fi
+  tmux has-session -t "${TMUX_SESSION}" 2>/dev/null && tmux kill-session -t "${TMUX_SESSION}" || true
+}
+
+restart_app() {
+  stop_app || true
+  start_app
+}
+
+status_app() {
+  if pgrep -f "${APP_DIR}/bin/${APP_NAME}" >/dev/null 2>&1; then
+    log "${APP_NAME}: running"
+  else
+    log "${APP_NAME}: stopped"
+  fi
+
+  if tmux has-session -t "${TMUX_SESSION}" 2>/dev/null; then
+    log "tmux: ${TMUX_SESSION}"
+  else
+    log "tmux: no session"
+  fi
+
+  ss -tuln 2>/dev/null | grep -E "[:.]${PORT}[[:space:]]" || true
+  pgrep -af "${APP_DIR}/bin/${APP_NAME}" || true
+  pgrep -af "NodeBabyLinkService .*${APP_DIR}" || true
+}
+
+show_bind_url() {
+  local attempt headers location
+  for ((attempt = 1; attempt <= 30; attempt++)); do
+    headers="$(curl -sS -D - -o /dev/null "http://127.0.0.1:${PORT}" 2>/dev/null || true)"
+    location="$(printf '%s\n' "${headers}" | sed -n 's/^[Ll][Oo][Cc][Aa][Tt][Ii][Oo][Nn]:[[:space:]]*//p' | head -n 1 | tr -d '\r')"
+    if [[ -n "${location}" ]]; then
+      cat <<EOF
+Device binding URL:
+${location}
+
+Open this URL in a browser on your Mac/Windows machine, then use WeChat to scan
+or confirm the login page shown there. You do not need to open a browser on this
+Linux server.
+EOF
+      if command -v qrencode >/dev/null 2>&1; then
+        printf '\nTerminal QR code:\n'
+        qrencode -t ANSIUTF8 "${location}"
+      fi
+      return 0
+    fi
+    [[ "${attempt}" -eq 30 ]] || sleep 5
+  done
+  die "No binding URL was returned by http://127.0.0.1:${PORT}"
+}
+
+uninstall_app() {
+  stop_service_if_present
+  remove_old_user_unit
+  rm -rf "${APP_DIR}"
+  log "Removed ${APP_DIR}"
+  log "Cached downloads remain in ${CACHE_DIR}"
+}
+
+attach_app() {
+  tmux has-session -t "${TMUX_SESSION}" 2>/dev/null || die "No tmux session: ${TMUX_SESSION}"
+  exec tmux attach -t "${TMUX_SESSION}"
+}
+
+main() {
+  require_user
+  require_commands
+
+  case "${1:-help}" in
+  install | update)
+    install_app
+    ;;
+  start)
+    start_app
+    ;;
+  stop)
+    stop_app
+    ;;
+  restart)
+    restart_app
+    ;;
+  status)
+    status_app
+    ;;
+  bind)
+    show_bind_url
+    ;;
+  uninstall)
+    uninstall_app
+    ;;
+  attach)
+    attach_app
+    ;;
+  help | -h | --help)
+    usage
+    ;;
+  *)
+    usage >&2
+    exit 2
+    ;;
+  esac
+}
+
+main "$@"

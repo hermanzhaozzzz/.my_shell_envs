@@ -14,6 +14,7 @@ UNIT_FILE="${HOME}/.config/systemd/user/${APP_NAME}.service"
 UNIT_WANTS="${HOME}/.config/systemd/user/default.target.wants/${APP_NAME}.service"
 TMUX_SESSION="${APP_NAME}"
 LOG_DIR="/tmp/.${APP_NAME}"
+DETACHED_LOG="${CACHE_DIR}/last-disruptive-action.log"
 
 log() {
   printf '%s\n' "$*"
@@ -36,16 +37,20 @@ Commands:
   install     Download, install, and start in a tmux session
   update      Reinstall the pinned package version
   start       Start in a tmux session
-  stop        Stop the app and remove the tmux session
-  restart     Stop, then start
+  stop        DANGEROUS: stop the app and remove the tmux session
+  restart     DANGEROUS: restart in a detached background job
   status      Show service status
   bind        Print the device binding URL and optional terminal QR code
-  uninstall   Stop and remove the application files
+  uninstall   DANGEROUS: stop and remove the application files
   attach      Attach to the tmux log session
   help        Show this help
 
 This script never uses sudo for normal operation. It installs under
 ~/.local/share and uses tmux instead of systemd.
+
+WARNING: stop/restart/install/update/uninstall can break the current SSH
+connection if this host is reached through this P2P tunnel. These commands ask
+for confirmation, run the actual work detached, and then disconnect this shell.
 EOF
 }
 
@@ -56,7 +61,7 @@ require_user() {
 
 require_commands() {
   local command_name
-  for command_name in curl tar find chmod grep sed head tr mktemp mv rm dirname pgrep ss; do
+  for command_name in curl tar find chmod grep sed head tr mktemp mv rm dirname pgrep ss nohup sleep kill; do
     command -v "${command_name}" >/dev/null 2>&1 || die "Missing command: ${command_name}"
   done
   command -v tmux >/dev/null 2>&1 || die "Missing command: tmux"
@@ -207,6 +212,101 @@ restart_app() {
   start_app
 }
 
+confirm_disruptive_action() {
+  local action answer token
+  action="$1"
+  token="YES ${action}"
+
+  cat >/dev/tty <<EOF
+WARNING: '${action}' may break your current SSH connection.
+
+If this SSH session depends on ${APP_NAME}'s P2P tunnel, the connection will
+drop while ${APP_NAME} is stopped. The script will run the real work in a
+detached background job first, then disconnect this shell so you can reconnect.
+
+Type exactly '${token}' to continue: 
+EOF
+  IFS= read -r answer </dev/tty || die "Could not read confirmation from /dev/tty"
+  [[ "${answer}" == "${token}" ]] || die "Canceled."
+}
+
+disconnect_current_shell() {
+  if [[ "${NBLINK_NO_DISCONNECT:-}" == "1" ]]; then
+    warn "NBLINK_NO_DISCONNECT=1 is set; not disconnecting this shell."
+    return 0
+  fi
+
+  if [[ -n "${SSH_CONNECTION:-}${SSH_TTY:-}" ]]; then
+    warn "Disconnecting current SSH shell. Reconnect after a few seconds."
+    sleep 1
+    kill -HUP "${PPID}" 2>/dev/null || true
+  else
+    warn "No SSH environment was detected; leaving this shell attached."
+  fi
+}
+
+run_detached_action() {
+  local action script_path
+  action="$1"
+  script_path="$0"
+  if [[ "${script_path}" != */* ]]; then
+    script_path="$(command -v -- "${script_path}" 2>/dev/null || printf '%s\n' "${script_path}")"
+  fi
+  if command -v readlink >/dev/null 2>&1; then
+    script_path="$(readlink -f "${script_path}" 2>/dev/null || printf '%s\n' "${script_path}")"
+  fi
+
+  mkdir -p "${CACHE_DIR}"
+  : >"${DETACHED_LOG}"
+
+  if command -v setsid >/dev/null 2>&1; then
+    setsid nohup bash "${script_path}" "__${action}_detached" >>"${DETACHED_LOG}" 2>&1 </dev/null &
+  else
+    nohup bash "${script_path}" "__${action}_detached" >>"${DETACHED_LOG}" 2>&1 </dev/null &
+  fi
+
+  log "Scheduled detached '${action}'. Log: ${DETACHED_LOG}"
+  log "Reconnect after a few seconds, then check: ${script_path} status"
+  disconnect_current_shell
+}
+
+run_detached_payload() {
+  local action archive
+  action="$1"
+  log "[$(date)] detached ${action} started"
+  sleep 2
+
+  case "${action}" in
+  stop)
+    stop_app
+    ;;
+  restart)
+    stop_app || true
+    sleep 3
+    start_app
+    ;;
+  install | update)
+    archive="$(download_package)"
+    remove_old_user_unit
+    install_files "${archive}"
+    log "Installed files in ${APP_DIR}"
+    sleep 3
+    start_app
+    ;;
+  uninstall)
+    stop_service_if_present
+    remove_old_user_unit
+    rm -rf "${APP_DIR}"
+    log "Removed ${APP_DIR}"
+    ;;
+  *)
+    die "Unknown detached action: ${action}"
+    ;;
+  esac
+
+  log "[$(date)] detached ${action} finished"
+}
+
 status_app() {
   if pgrep -f "${APP_DIR}/bin/${APP_NAME}" >/dev/null 2>&1; then
     log "${APP_NAME}: running"
@@ -269,16 +369,19 @@ main() {
 
   case "${1:-help}" in
   install | update)
-    install_app
+    confirm_disruptive_action "${1}"
+    run_detached_action "${1}"
     ;;
   start)
     start_app
     ;;
   stop)
-    stop_app
+    confirm_disruptive_action stop
+    run_detached_action stop
     ;;
   restart)
-    restart_app
+    confirm_disruptive_action restart
+    run_detached_action restart
     ;;
   status)
     status_app
@@ -287,10 +390,26 @@ main() {
     show_bind_url
     ;;
   uninstall)
-    uninstall_app
+    confirm_disruptive_action uninstall
+    run_detached_action uninstall
     ;;
   attach)
     attach_app
+    ;;
+  __stop_detached)
+    run_detached_payload stop
+    ;;
+  __restart_detached)
+    run_detached_payload restart
+    ;;
+  __install_detached)
+    run_detached_payload install
+    ;;
+  __update_detached)
+    run_detached_payload update
+    ;;
+  __uninstall_detached)
+    run_detached_payload uninstall
     ;;
   help | -h | --help)
     usage

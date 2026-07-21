@@ -5,7 +5,7 @@ Host MacBookAir-M2-24G
     User zhaohuanan
     IdentityFile ~/.ssh/id_rsa  # 替换为你的私钥路径（可选）
     ServerAliveInterval 60  # 保持连接的心跳包时间间隔（可选）
-Host Sunny_Alioth_Login
+Host Alioth_Login
     HostName 100.66.1.5
     User hnzhao
     IdentityFile ~/.ssh/id_rsa  # 替换为你的私钥路径（可选）

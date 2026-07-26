@@ -189,6 +189,22 @@ export TMUX_TMPDIR=$HOME/.tmux_tmp_dir/$HOST
 # 我的可执行文件
 export PATH=${HOME}/.my_shell_envs/bin:$PATH
 
+# user-local CLI installers
+if [ -f "${HOME}/.local/bin/env" ]; then
+    . "${HOME}/.local/bin/env"
+fi
+
+# agent coding CLIs
+for _mse_cli_bin in "${HOME}/.kimi-code/bin" "${HOME}/.opencode/bin"; do
+    if [ -d "${_mse_cli_bin}" ]; then
+        case ":$PATH:" in
+            *":${_mse_cli_bin}:"*) ;;
+            *) export PATH="${_mse_cli_bin}:$PATH" ;;
+        esac
+    fi
+done
+unset _mse_cli_bin
+
 # repo-managed Rust toolchain
 if [ -x "${HOME}/.cargo/bin/cargo" ]; then
     case ":$PATH:" in
@@ -1403,9 +1419,3 @@ _mse_proxy_auto_init
 
 
 # micromamba activate base 2>/dev/null
-
-# kimi-code
-export PATH="/Users/zhaohuanan/.kimi-code/bin:$PATH"
-
-# opencode
-export PATH=/Users/zhaohuanan/.opencode/bin:$PATH

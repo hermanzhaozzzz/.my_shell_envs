@@ -1066,7 +1066,13 @@ _func_proxy_test() {
         for url in "${urls[@]}"; do
             short="${url#*|}"
             url="${url%%|*}"
-            code=$("$(_mse_proxy_proxychains_bin)" -f "${runtime_conf}" curl -I -s -o /dev/null -w '%{http_code}' --max-time 8 "${url}" 2>/dev/null)
+            # Avoid nesting the environment proxy inside ProxyChains.
+            code=$(env \
+                -u http_proxy -u https_proxy -u all_proxy \
+                -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY \
+                "$(_mse_proxy_proxychains_bin)" -f "${runtime_conf}" \
+                curl -I -s -o /dev/null -w '%{http_code}' \
+                --max-time 8 "${url}" 2>/dev/null)
             if [[ "${code}" != "000" && -n "${code}" ]]; then
                 printf '  \033[1;32m%-15s\033[0m %s (HTTP %s)\n' "OK" "${short}" "${code}"
             else

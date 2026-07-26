@@ -5,6 +5,18 @@ Host MacBookAir-M2-24G
     User zhaohuanan
     IdentityFile ~/.ssh/id_rsa  # 替换为你的私钥路径（可选）
     ServerAliveInterval 60  # 保持连接的心跳包时间间隔（可选）
+Host MacBookPro-2019-16G
+    HostName 100.66.1.6
+    Port 22
+    User zhaohuanan
+    IdentityFile ~/.ssh/id_rsa  # 替换为你的私钥路径（可选）
+    ServerAliveInterval 60  # 保持连接的心跳包时间间隔（可选）
+Host MacMini-M2-16G
+    HostName 100.66.1.3
+    Port 22
+    User zhaohuanan
+    IdentityFile ~/.ssh/id_rsa  # 替换为你的私钥路径（可选）
+    ServerAliveInterval 60  # 保持连接的心跳包时间间隔（可选）
 Host Alioth_Login
     HostName 100.66.1.5
     User hnzhao

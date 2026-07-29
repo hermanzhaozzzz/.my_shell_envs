@@ -374,9 +374,6 @@ dependencies:
   - platformdirs=4.3.6=pyhd8ed1ab_1
   - playwright=1.51.0=py_0
   - pluggy=1.5.0=pyhd8ed1ab_1
-  - poetry=2.2.1=pyha804496_0
-  - poetry-core=2.2.1=pyhd8ed1ab_0
-  - poetry-plugin-export=1.8.0=pyhd8ed1ab_0
   - polars=1.31.0=default_h1650462_0
   - polars-default=1.31.0=py39hfac2b71_0
   - prometheus_client=0.21.1=pyhd8ed1ab_0

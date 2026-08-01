@@ -194,17 +194,6 @@ if [ -f "${HOME}/.local/bin/env" ]; then
     . "${HOME}/.local/bin/env"
 fi
 
-# agent coding CLIs
-for _mse_cli_bin in "${HOME}/.kimi-code/bin" "${HOME}/.opencode/bin"; do
-    if [ -d "${_mse_cli_bin}" ]; then
-        case ":$PATH:" in
-            *":${_mse_cli_bin}:"*) ;;
-            *) export PATH="${_mse_cli_bin}:$PATH" ;;
-        esac
-    fi
-done
-unset _mse_cli_bin
-
 # repo-managed Rust toolchain
 if [ -x "${HOME}/.cargo/bin/cargo" ]; then
     case ":$PATH:" in
@@ -1036,7 +1025,6 @@ _func_proxy_test() {
             "https://www.baidu.com|baidu.com"
             "https://api.openai.com|openai"
             "https://api.anthropic.com|claude"
-            "https://z.ai|z.ai"
         )
     else
         urls=(
@@ -1044,7 +1032,6 @@ _func_proxy_test() {
             "https://www.google.com.hk|google.com.hk"
             "https://api.openai.com|openai"
             "https://api.anthropic.com|claude"
-            "https://z.ai|z.ai"
         )
     fi
 

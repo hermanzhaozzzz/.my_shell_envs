@@ -143,6 +143,28 @@ test_complete_clashctl_cache_allows_offline_install() {
         || fail_test "a complete local clashctl cache must not require bootstrap network"
 }
 
+test_dirty_external_repo_is_preserved_without_pull() {
+    load_mse
+    local fixture=""
+    fixture="$(mktemp -d "${TMPDIR:-/tmp}/mse-dirty-nvim.XXXXXX")" || return 1
+    export DIRTY_REPO_FIXTURE="$fixture"
+    trap 'rm -rf "$DIRTY_REPO_FIXTURE"' EXIT
+    mkdir -p "$fixture/home/.config/nvim/.git"
+    HOME="$fixture/home"
+    local git_calls="$fixture/git.calls"
+    git() {
+        printf '%s\n' "$*" >>"$git_calls"
+        case "$*" in
+            *" status --porcelain") printf '%s\n' ' M lazy-lock.json'; return 0 ;;
+            *) return 99 ;;
+        esac
+    }
+    step_nvim >/dev/null || fail_test "dirty external nvim config should be preserved, not fail deployment"
+    if /usr/bin/grep -Eq ' fetch| pull' "$git_calls"; then
+        fail_test "dirty external nvim config must not be fetched or pulled"
+    fi
+}
+
 run_test "interactive Enter defaults clashctl to enabled" test_interactive_enter_enables_clashctl
 run_test "interactive n skips clashctl" test_interactive_n_skips_clashctl
 run_test "fast deploy enables clashctl" test_fast_enables_clashctl
@@ -156,4 +178,5 @@ run_test "ready clashctl bootstraps remaining deploy" test_ready_clashctl_bootst
 run_test "offline cold start stops before network setup" test_offline_cold_start_stops_before_network_setup
 run_test "offline first install stops before downloads" test_offline_first_install_stops_before_clashctl_download
 run_test "complete clashctl cache installs offline" test_complete_clashctl_cache_allows_offline_install
+run_test "dirty external repo is preserved" test_dirty_external_repo_is_preserved_without_pull
 finish_tests

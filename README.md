@@ -122,6 +122,8 @@ git-bash ./mse update
 
 更新仓库时，`--https` / `--ssh` 会把 GitHub origin 转换为对应协议后再 fetch；它们不是只影响后续 clone 的显示选项。无法安全转换协议的非 GitHub origin 会直接报错，不会悄悄退回另一种协议。
 
+MSE 主仓库必须是干净工作树才能 update。Vim、Neovim、Wudao 这些由可选 step 管理的独立 Git 仓库如果含有本地修改，deploy 会明确警告、保留修改并跳过该独立仓库的 pull；不会替你 stash、回滚或覆盖。
+
 ### `.mse-install.env`
 
 仓库根目录下的 `.mse-install.env` 会记录最近一次成功执行的部署参数和 step 开关，例如：

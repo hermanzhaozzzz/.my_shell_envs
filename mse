@@ -1619,13 +1619,43 @@ step_pip() {
     log_ok "pip config linked: $(fmt_path "$HOME/.pip/pip.conf")"
 }
 
+external_repo_has_local_changes() {
+    local repo_path="$1"
+    local repo_status=""
+
+    repo_status="$(git -C "$repo_path" status --porcelain 2>/dev/null)" || return 2
+    [ -n "$repo_status" ]
+}
+
+update_external_repo_if_clean() {
+    local repo_path="$1"
+    local display_name="$2"
+    local dirty_status=0
+
+    external_repo_has_local_changes "$repo_path"
+    dirty_status=$?
+    case "$dirty_status" in
+        0)
+            log_warn "$display_name has local changes; preserve them and skip its remote update"
+            return 0
+            ;;
+        1)
+            git -C "$repo_path" fetch || return 1
+            git -C "$repo_path" pull --ff-only || return 1
+            ;;
+        *)
+            log_warn "could not inspect local changes in $display_name"
+            return 1
+            ;;
+    esac
+}
+
 step_vim() {
     log_info "prepare vim config"
 
     if [ -d "$HOME/.vim/.git" ]; then
         log_info "existing vim config found, updating"
-        git -C "$HOME/.vim" fetch || return 1
-        git -C "$HOME/.vim" pull --ff-only || return 1
+        update_external_repo_if_clean "$HOME/.vim" "vim config" || return 1
     else
         log_info "vim config not found, cloning"
         backup_existing_path "$HOME/.vim"
@@ -1643,8 +1673,7 @@ step_nvim() {
 
     if [ -d "$HOME/.config/nvim/.git" ]; then
         log_info "existing nvim config found, updating"
-        git -C "$HOME/.config/nvim" fetch || return 1
-        git -C "$HOME/.config/nvim" pull --ff-only || return 1
+        update_external_repo_if_clean "$HOME/.config/nvim" "nvim config" || return 1
     else
         log_info "nvim config not found, cloning"
         mkdir -p "$HOME/.config" || return 1
@@ -1895,8 +1924,7 @@ step_wd() {
 
     if [ -d "$dict_root/.git" ]; then
         log_info "existing Wudao-dict found, updating"
-        git -C "$dict_root" fetch || return 1
-        git -C "$dict_root" pull --ff-only || return 1
+        update_external_repo_if_clean "$dict_root" "Wudao-dict" || return 1
     else
         log_info "Wudao-dict not found, cloning"
         backup_existing_path "$dict_root"

@@ -217,6 +217,8 @@ When you run `./mse update`:
 
 For repository updates, `--https` and `--ssh` convert a GitHub origin to the requested transport before fetching. A non-GitHub origin that cannot be converted safely fails explicitly instead of silently using another transport.
 
+The MSE repository itself must have a clean worktree before update. If an independent Vim, Neovim, or Wudao repository managed by an optional step has local changes, deploy warns, preserves those changes, and skips that repository's pull; it does not stash, reset, or overwrite them.
+
 `~/.my_shell_envs/.mse-install.env` is a plain text file and you can edit it by hand. Example:
 
 ```shell

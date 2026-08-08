@@ -1155,13 +1155,14 @@ _func_proxy_off() {
     local proxy_mode=""
     local clashctl_rc=0
     local tunnel_rc=0
+    local used_clashctl_backend=0
 
     mode="$(_mse_proxy_mode)"
     proxy_mode="$(_mse_proxy_mode_setting)"
 
     if _mse_proxy_requires_clashctl_backend; then
+        used_clashctl_backend=1
         if _mse_clashctl_available; then
-            _mse_proxy_alias_log "proxy.off: linux backend -> clashctl off -e"
             clashctl off -e >/dev/null 2>&1 || clashctl_rc=$?
         else
             clashctl_rc=1
@@ -1180,8 +1181,23 @@ _func_proxy_off() {
         _mse_proxy_stop_all_tunnels || tunnel_rc=$?
     fi
 
-    (( clashctl_rc != 0 )) && return "${clashctl_rc}"
-    return "${tunnel_rc}"
+    if (( clashctl_rc != 0 )); then
+        _mse_proxy_alias_log "proxy.off: terminal proxy environment cleared, but clashctl reported an error"
+        return "${clashctl_rc}"
+    fi
+    if (( tunnel_rc != 0 )); then
+        _mse_proxy_alias_log "proxy.off: terminal proxy environment cleared, but managed tunnel cleanup failed"
+        return "${tunnel_rc}"
+    fi
+
+    if [[ "${mode}" == "compute" ]]; then
+        _mse_proxy_alias_log "proxy.off: terminal proxy disabled; managed autossh tunnels stopped"
+    elif (( used_clashctl_backend == 1 )); then
+        _mse_proxy_alias_log "proxy.off: terminal proxy disabled; mihomo remains running"
+    else
+        _mse_proxy_alias_log "proxy.off: terminal proxy disabled; external proxy client unchanged"
+    fi
+    return 0
 }
 
 _func_proxy_status() {

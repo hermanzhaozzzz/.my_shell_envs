@@ -52,6 +52,21 @@ test_direct_linux_requires_runtime() {
     assert_contains "$output" "runtime.yaml is missing" "missing runtime should be actionable"
 }
 
+test_direct_linux_proxy_off_explains_service_state() {
+    make_proxy_fixture
+    trap 'rm -rf "$TEST_TMP"' EXIT
+    write_runtime $'port: 7890\nsocks-port: 7891'
+    load_proxy_helpers
+    export http_proxy=http://127.0.0.1:7890
+    export all_proxy=socks5h://127.0.0.1:7891
+    local output=""
+    output="$(_func_proxy_off)" || fail_test "direct Linux proxy.off should succeed"
+    assert_contains "$output" "terminal proxy disabled; mihomo remains running" \
+        "proxy.off must distinguish shell cleanup from service shutdown"
+    assert_file_contains "${TEST_TMP}/clashctl.calls" "off -e" \
+        "direct Linux proxy.off must use clashctl env-only shutdown"
+}
+
 test_login_hostname_stays_direct_in_slurm_context() {
     make_proxy_fixture
     trap 'rm -rf "$TEST_TMP"' EXIT
@@ -224,6 +239,7 @@ test_proxy_off_cleans_managed_state_and_legacy_tunnel() {
 run_test "compute clash mode consumes runtime without calling clashctl" test_compute_requires_runtime_without_calling_clashctl
 run_test "compute clash mode has no manual port fallback" test_compute_rejects_missing_runtime_without_port_fallback
 run_test "direct Linux requires clashctl runtime" test_direct_linux_requires_runtime
+run_test "direct Linux proxy.off explains service state" test_direct_linux_proxy_off_explains_service_state
 run_test "login hostname stays direct in Slurm context" test_login_hostname_stays_direct_in_slurm_context
 run_test "direct-egress keeps its independent port" test_direct_egress_keeps_its_independent_port
 run_test "direct-egress is compute-only" test_direct_egress_is_compute_only

@@ -99,9 +99,27 @@ test_deleting_active_subscription_stops_service_and_clears_runtime() {
     [ ! -e "$CLASH_CONFIG_TEMP" ] || fail_test "active temporary config must be removed"
 }
 
+test_free_proxy_ports_are_a_successful_detection() {
+    setup_command_fixture
+    BIN_YQ=fake_port_yq
+    fake_port_yq() { printf '7890|7890|7891\n'; }
+    _is_port_used() { return 1; }
+    service_is_active() { return 1; }
+    _detect_proxy_port || fail_test "free configured ports must not prevent service startup"
+}
+
+test_service_only_off_succeeds_without_proxy_environment() {
+    setup_command_fixture
+    off_service_only() { return 0; }
+    unset http_proxy
+    clashoff --service-only || fail_test "successful service stop must return zero when proxy env is unset"
+}
+
 run_test "top-level add adds and uses a subscription" test_top_level_add_adds_and_uses_subscription
 run_test "top-level subscription aliases dispatch correctly" test_top_level_subscription_aliases
 run_test "help documents top-level subscription commands" test_help_documents_top_level_add_and_del
 run_test "default subscription UA requests modern Mihomo profiles" test_default_subscription_ua_requests_modern_mihomo_profiles
 run_test "deleting the active subscription clears its runtime" test_deleting_active_subscription_stops_service_and_clears_runtime
+run_test "free proxy ports allow service startup" test_free_proxy_ports_are_a_successful_detection
+run_test "service-only stop returns success without proxy env" test_service_only_off_succeeds_without_proxy_environment
 finish_tests

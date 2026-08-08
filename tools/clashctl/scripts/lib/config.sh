@@ -49,6 +49,7 @@ _detect_proxy_port() {
   done
 
   [ "$count" -gt 0 ] && _merge_config
+  return 0
 }
 
 _detect_ext_addr() {

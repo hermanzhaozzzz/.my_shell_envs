@@ -7,7 +7,8 @@ clashoff() {
         ;;
     -s | --service-only)
         off_service_only || return
-        [ -n "$http_proxy" ] && _failcat "警告：当前终端代理未关闭"
+        [ -n "${http_proxy:-}" ] && _failcat "警告：当前终端代理未关闭"
+        return 0
         ;;
     -h | --help)
         off_help

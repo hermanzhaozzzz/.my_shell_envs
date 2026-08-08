@@ -131,6 +131,7 @@ MSE_USE_ZPROFILE_TEMPLATE='false'
 MSE_STEP_NVIM='true'
 MSE_STEP_SQTOP='true'
 MSE_STEP_CODE_NOTIFY='true'
+MSE_STEP_CLASHCTL='true'
 MSE_STEP_CLUSTER_PROXY_TOOLS='true'
 ```
 
@@ -195,7 +196,7 @@ export MSE_PROXY_PORT=<proxy-http-port>
 - `MSE_ZSH_PLUGINS`：整体覆盖默认插件列表
 - `MSE_MAMBA_AUTO_ACTIVATE_BASE=true|false`：是否在新 shell 中自动 `micromamba activate base`
 - `MSE_SLURM_NODE_PROXY_AUTO_ENABLE=true|false`：是否在 Slurm 计算节点加载 `zshrc` 时自动尝试启用代理
-- `MSE_PROXY_MODE=clash|direct-egress`：代理工作模式；默认 `clash`，国外可切到 `direct-egress`
+- `MSE_PROXY_MODE=clash|direct-egress`：代理工作模式；默认 `clash`。`direct-egress` 只用于 Slurm compute 节点，原生 Linux direct/login 节点强制由仓库内 `clashctl` 管理
 - `MSE_PROXY_PORT=<port>`：代理 HTTP 端口；原生 Linux + `clashctl` 会自动从 `runtime.yaml` 读取，手动 export 时优先级最高
 - `MSE_PROXY_HOST=<host>`：默认 `127.0.0.1`
 - `MSE_PROXY_DIRECT_HOSTS="<host1> <host2>"`：额外按 login/direct 处理的主机名
@@ -216,7 +217,7 @@ export MSE_MAMBA_AUTO_ACTIVATE_BASE=false
 # 计算节点登录后不自动开代理
 export MSE_SLURM_NODE_PROXY_AUTO_ENABLE=false
 
-# 代理模式：国内一般用 clash，国外可以改成 direct-egress
+# 代理模式：原生 Linux login/direct 固定使用 clashctl；direct-egress 仅供 Slurm compute 节点
 export MSE_PROXY_MODE=clash
 
 # login 节点上的代理 HTTP 端口；如果 zshrc 能读取 clashctl runtime.yaml，可省略
@@ -301,21 +302,32 @@ Linux 上可选启用 `sqtop` step。它会通过 `cargo install sqtop` 安装�
 
 仓库只负责把请求接到 login 节点上的 Clash。`baidu`、`google`、`gpt`、`claude` 这些请求最后怎么走，全部由 Clash 的规则决定；这个仓库不负责流量分流。
 
-Linux / WSL 上，`cluster_proxy_tools` 会把仓库里的 `tools/clash/clash` 接到 `bin/clash`。macOS 不会链接这个二进制，默认假设你已经自己装好了 Clash。
-
-Linux 上如果需要直接安装和管理 Clash，可以使用这个 fork：
+原生 Linux 上，`mse deploy --fast` 会执行 `clashctl` step。控制脚本、Web UI 和基础资源放在仓库的 `tools/clashctl` 中；`mihomo`、`yq`、`subconverter` 会按当前 CPU 架构安装到仓库的 `bin` 中：
 
 ```shell
-git clone --branch master --depth 1 https://gh-proxy.org/https://github.com/hermanzhaozzzz/clash-for-linux-install.git
-cd clash-for-linux-install
-bash install.sh
+~/.my_shell_envs/bin/mihomo
+~/.my_shell_envs/bin/yq
+~/.my_shell_envs/bin/subconverter/subconverter
 ```
 
-安装完成后，`zsh/zshrc` 会在原生 Linux 环境中自动尝试加载 `clashctl`。默认位置是 `/appsnew/home/hnzhao/clashctl`；如果安装到了其它目录，在 `~/.zprofile` 里设置：
+订阅、token、生成的 `runtime.yaml`、日志和下载缓存同样留在仓库目录内，但被 Git 忽略：
 
 ```shell
-export CLASHCTL_HOME=/path/to/clashctl
+~/.my_shell_envs/tools/clashctl/state
+~/.my_shell_envs/tools/clashctl/cache
 ```
+
+deploy 不读取或兼容 `$HOME/clashctl` 等旧安装路径，也不会覆盖已经生成的 state。
+
+首次部署完成后添加订阅：
+
+```shell
+exec zsh
+clashctl sub add --use '<subscription-url>'
+proxy.on
+```
+
+macOS 不安装或控制 `clashctl`。本仓库只根据 `MSE_PROXY_HOST`、`MSE_PROXY_PORT` 和 `MSE_PROXY_SOCKS_PORT` 设置当前 shell 的代理变量，Clash、Surge 等客户端继续由系统侧管理。Windows 和 WSL 同样使用外部代理客户端提供的端口。
 
 `clashctl` 的 HTTP 端口必须和 `MSE_PROXY_PORT` 一致，Slurm compute 节点反代才会接到正确的 login 节点端口。原生 Linux 上，`zsh/zshrc` 会优先从 `clashctl` 的 `runtime.yaml` 自动读取 HTTP 端口和 SOCKS 端口；如果你在 `~/.zprofile` 里显式 export `MSE_PROXY_PORT` / `MSE_PROXY_SOCKS_PORT`，则以环境变量为准。
 
@@ -341,11 +353,11 @@ clashctl ui       # 查看 Web 面板地址
 - compute 节点：`proxy.on` / `proxy.off` 仍然负责 autossh 隧道，不直接控制 Clash 服务
 - `proxy.status` 保留仓库状态信息，并在 direct/login 节点附带 `clashctl status`
 
-`clashctl` 只负责在 Linux login/direct 节点上管理 Clash 本身；`proxy.on` / `proxy.off` / `proxy.status` 负责把当前 shell 或 compute 节点的流量接到这个 Clash 端口。
+`clashctl` 只负责在原生 Linux login/direct 节点上管理 Clash 本身；`proxy.on` / `proxy.off` / `proxy.status` 负责把当前 shell 或 compute 节点的流量接到这个 Clash 端口。Slurm compute 节点不会执行 `clashctl on/off`，仍然只管理到 login 节点的 autossh 隧道。
 
-如果 `proxy.on` 提示 `clashctl proxy port is <port>, but MSE_PROXY_PORT is <other-port>`，优先在 `~/.zprofile` 里把 `MSE_PROXY_PORT` 改成 `clashctl` 正在监听的 HTTP 端口，或者修改 `clashctl` 的 `mixin.yaml` 让它监听你想使用的端口。WSL 和 macOS 不会自动加载 `clashctl`。
+如果 `proxy.on` 提示 `clashctl proxy port is <port>, but MSE_PROXY_PORT is <other-port>`，优先在 `~/.zprofile` 里把 `MSE_PROXY_PORT` 改成 `clashctl` 正在监听的 HTTP 端口，或者修改 `clashctl` 的 `mixin.yaml` 让它监听你想使用的端口。Windows、WSL 和 macOS 不会自动加载 `clashctl`。
 
-如果当前机器没有可读的 `clashctl runtime.yaml`，或者你想强制覆盖端口，就在 `~/.zprofile` 里写：
+如果你想强制覆盖 `clashctl` 的端口探测结果，就在 `~/.zprofile` 里写；这只改变端口，不会替换 Linux 上必须使用的 `clashctl` 后端：
 
 ```shell
 export MSE_PROXY_PORT=<clash-http-port>
@@ -357,7 +369,7 @@ export MSE_PROXY_PORT=<clash-http-port>
 # login 节点：先看状态
 proxy.status
 
-# login 节点：按需手动开启代理；如果 clashctl 可用，会走 clashctl on
+# login 节点：按需手动开启代理；原生 Linux 强制走仓库内 clashctl on
 proxy.on
 
 # login 节点：测国内外站点
@@ -461,7 +473,7 @@ proxy.exec claude
 ### 常用变量
 
 ```shell
-# 代理模式：clash 或 direct-egress
+# 代理模式：clash（Linux direct/login 由 clashctl 管理）或 compute-only direct-egress
 export MSE_PROXY_MODE=clash
 
 # login / compute 共用的 HTTP 代理端口；clashctl 可用时可省略

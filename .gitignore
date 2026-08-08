@@ -11,6 +11,8 @@
 /tools/proxychains-ng/prefix/
 /tools/proxychains-ng/config.mak
 /tools/proxychains-ng/src/version.h
+/tools/clashctl/cache/
+/tools/clashctl/state/
 /tools/jgi-query/
 /tools/nvim/plugin/
 

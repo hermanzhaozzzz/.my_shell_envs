@@ -1,0 +1,69 @@
+port: 7890
+socks-port: 7891
+
+external-controller: "0.0.0.0:9090"
+external-ui: dist
+external-ui-url: https://github.com/Zephyruso/zashboard/releases/latest/download/dist.zip
+secret:
+
+allow-lan: false # 若开启务必设置身份验证以防暴露公网后被滥用
+authentication:
+  # - "username:password"
+
+# prepend  前置插入：插入到原列表开头，适用于 rules、proxies、proxy-groups
+# append   后置追加：追加到原列表末尾，适用于 rules、proxies、proxy-groups
+# override 整体替换：按 name 匹配并替换整个项目，适用于 proxies、proxy-groups
+# inject   节点注入：向指定 proxy-group 的 proxies 列表注入节点，仅适用于 proxy-groups
+
+# 示例：https://github.com/nelvko/clash-for-linux-install/discussions/562
+rules:
+  prepend:
+    - DOMAIN,api64.ipify.org,DIRECT # 用于 clashui 获取真实公网 IP
+    # - DOMAIN-KEYWORD,github,proxy   # 用于 clashupgrade 升级内核
+  append:
+
+proxies:
+  prepend:
+  append:
+  override:
+
+proxy-groups:
+  prepend:
+  append:
+  override:
+  inject:
+
+# tun 配置
+tun:
+  enable: false
+  stack: system
+  auto-route: true
+  auto-redir: true # clash
+  auto-redirect: true # mihomo
+  auto-detect-interface: true
+  dns-hijack:
+    - any:53
+    - tcp://any:53
+  strict-route: true
+  route-exclude-address:
+    - 1.1.1.1/32 # 用于 clashui 获取真实内网 IP
+  exclude-src-port: # 排除源端口，避免无法访问容器内服务 https://github.com/nelvko/clash-for-linux-install/issues/100#issuecomment-2995667368
+    # - 80
+
+# DNS 配置
+dns:
+  enable: true
+  listen: 0.0.0.0:1053
+  enhanced-mode: fake-ip
+  default-nameserver:
+    - 223.5.5.5
+    - 119.29.29.29
+  # 避免在启用 Tun + dns-hijack 时将代理节点域名解析为 fake-ip。
+  proxy-server-nameserver:
+    - 223.5.5.5
+    - 119.29.29.29
+    - 1.1.1.1
+    - 8.8.8.8
+  nameserver:
+    - 114.114.114.114
+    - 8.8.8.8

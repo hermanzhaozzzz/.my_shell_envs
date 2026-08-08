@@ -28,7 +28,6 @@ REPO_BIN_SQTOP_PATH="$BIN_PATH/sqtop"
 REPO_BIN_AUTOSSH_PATH="$BIN_PATH/autossh"
 REPO_BIN_PROXYCHAINS4_PATH="$BIN_PATH/proxychains4"
 REPO_BIN_PROXYCHAINS_PATH="$BIN_PATH/proxychains"
-REPO_BIN_CLASH_PATH="$BIN_PATH/clash"
 CONDA_ENVS="$REPO_PATH/conda_local_env_settings"
 METADATA_FILE="$REPO_PATH/.mse-install.env"
 REPO_BIN_MSE_PATH="$BIN_PATH/mse"
@@ -36,7 +35,7 @@ ZPROFILE_TEMPLATE_PATH="$REPO_PATH/zsh/zprofile_hermanzhaozzzz_demo"
 DEFAULT_REPO_URL="https://github.com/hermanzhaozzzz/.my_shell_envs.git"
 DEFAULT_REPO_SSH_URL="git@github.com:hermanzhaozzzz/.my_shell_envs.git"
 DEFAULT_BRANCH="main"
-AVAILABLE_STEPS="micromamba condarc pip vim nvim jcat wd sqtop powershell code_notify cluster_proxy_tools"
+AVAILABLE_STEPS="micromamba condarc pip vim nvim jcat wd sqtop powershell code_notify clashctl cluster_proxy_tools"
 OH_MY_ZSH_PATH="$HOME/.oh-my-zsh"
 OH_MY_ZSH_INSTALL_URL="https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh"
 RUSTUP_INSTALL_URL="https://sh.rustup.rs"
@@ -52,7 +51,6 @@ PROXYCHAINS_SOURCE_DIR="$REPO_PATH/tools/proxychains-ng"
 PROXYCHAINS_PREFIX_DIR="$REPO_PATH/tools/proxychains-ng/prefix"
 PROXYCHAINS_BIN_PATH="$PROXYCHAINS_PREFIX_DIR/bin/proxychains4"
 PROXYCHAINS_LIB_PATH="$PROXYCHAINS_PREFIX_DIR/lib/libproxychains4.so"
-CLASH_REPO_PATH="$REPO_PATH/tools/clash/clash"
 
 git_method="https"
 deploy_mode="fast"
@@ -352,6 +350,7 @@ describe_step() {
         sqtop) echo "install sqtop for Slurm queue monitoring" ;;
         powershell) echo "set the PowerShell profile on Windows" ;;
         code_notify) echo "install code-notify and configure macOS terminal alerts" ;;
+        clashctl) echo "install the vendored clashctl control plane on native Linux" ;;
         cluster_proxy_tools) echo "build autossh/proxychains and prepare cluster proxy tooling" ;;
         *) echo "custom step" ;;
     esac
@@ -390,6 +389,9 @@ step_supported_on_platform() {
             ;;
         code_notify)
             [ "$platform_family" = "MacOS" ]
+            ;;
+        clashctl)
+            [ "$platform" = "Linux" ] && ! grep -qi microsoft /proc/version 2>/dev/null
             ;;
         *)
             return 0
@@ -681,10 +683,13 @@ print_deploy_warnings() {
             print_path_item "$REPO_BIN_PROXYCHAINS4_PATH"
             print_path_item "$REPO_BIN_PROXYCHAINS_PATH"
             print_path_item "$PROXYCHAINS_CONFIG_PATH"
-            print_path_item "$CLASH_REPO_PATH"
-            if [ "$platform" = "Linux" ]; then
-                print_path_item "$REPO_BIN_CLASH_PATH"
-            fi
+        fi
+        if step_selected "clashctl"; then
+            print_path_item "$REPO_PATH/tools/clashctl/state"
+            print_path_item "$REPO_PATH/tools/clashctl/cache"
+            print_path_item "$BIN_PATH/mihomo"
+            print_path_item "$BIN_PATH/yq"
+            print_path_item "$BIN_PATH/subconverter"
         fi
         print_list_item "default shell for the current user (via chsh)"
     fi
@@ -1073,10 +1078,6 @@ sync_optional_bin_entries() {
         remove_managed_bin_entry "$REPO_BIN_AUTOSSH_PATH"
         remove_managed_bin_entry "$REPO_BIN_PROXYCHAINS4_PATH"
         remove_managed_bin_entry "$REPO_BIN_PROXYCHAINS_PATH"
-        remove_managed_bin_entry "$REPO_BIN_CLASH_PATH"
-    fi
-    if [ "$platform" = "Windows" ] || [ "$platform_family" = "MacOS" ]; then
-        remove_managed_bin_entry "$REPO_BIN_CLASH_PATH"
     fi
 }
 
@@ -1693,18 +1694,30 @@ step_cluster_proxy_tools() {
     force_link "$AUTOSSH_BIN_PATH" "$REPO_BIN_AUTOSSH_PATH"
     force_link "$PROXYCHAINS_BIN_PATH" "$REPO_BIN_PROXYCHAINS4_PATH"
     force_link "$REPO_BIN_PROXYCHAINS4_PATH" "$REPO_BIN_PROXYCHAINS_PATH"
-    if [ "$platform" = "Linux" ] && [ -x "$CLASH_REPO_PATH" ]; then
-        force_link "$CLASH_REPO_PATH" "$REPO_BIN_CLASH_PATH"
-        log_ok "clash linked at $(fmt_path "$REPO_BIN_CLASH_PATH")"
-    elif [ "$platform_family" = "MacOS" ]; then
-        log_info "skip repo-managed clash link on macOS"
-    elif [ ! -x "$CLASH_REPO_PATH" ]; then
-        log_warn "skip clash link because $(fmt_path "$CLASH_REPO_PATH") was not found"
-    fi
-
     log_ok "autossh ready at $(fmt_path "$REPO_BIN_AUTOSSH_PATH")"
     log_ok "proxychains4 linked at $(fmt_path "$REPO_BIN_PROXYCHAINS4_PATH")"
     log_ok "proxychains compatibility link ready at $(fmt_path "$REPO_BIN_PROXYCHAINS_PATH")"
+}
+
+step_clashctl() {
+    local deploy_script="$REPO_PATH/tools/clashctl/mse-deploy.sh"
+    local installed_home=""
+    local deploy_output=""
+
+    if [ "$platform" != "Linux" ] || grep -qi microsoft /proc/version 2>/dev/null; then
+        log_warn "clashctl is only managed on native Linux"
+        return 0
+    fi
+
+    [ -x "$deploy_script" ] || fail "clashctl deploy script not found at $deploy_script"
+
+    log_info "install vendored clashctl control plane"
+    deploy_output="$("$deploy_script")" || fail "clashctl deployment failed"
+    printf '%s\n' "$deploy_output"
+    installed_home="$(printf '%s\n' "$deploy_output" | sed -n 's/^CLASHCTL_HOME=//p' | tail -n 1)"
+    [ -n "$installed_home" ] || fail "clashctl deploy did not report its install path"
+    log_ok "clashctl ready at $(fmt_path "$installed_home")"
+    log_info "mutable clashctl state remains inside the repository tree and is ignored by Git"
 }
 
 step_wd() {
@@ -1869,6 +1882,7 @@ command_deploy() {
     run_step "sqtop" step_sqtop
     run_step "powershell" step_powershell
     run_step "code_notify" step_code_notify
+    run_step "clashctl" step_clashctl
     run_step "cluster_proxy_tools" step_cluster_proxy_tools
 
     if [ "$use_zprofile_template" -eq 1 ]; then

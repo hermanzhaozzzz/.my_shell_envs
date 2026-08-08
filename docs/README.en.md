@@ -402,7 +402,9 @@ Proxy commands are provided by the repo `zsh/zshrc`. Keep machine-specific proxy
 export MSE_PROXY_PORT=<proxy-http-port>
 ```
 
-Proxy ports are no longer controlled by `.mse-install.env`. They come from explicit environment variables, or from `clashctl` `runtime.yaml` when `clashctl` is available on native Linux.
+Proxy ports are no longer controlled by `.mse-install.env`. On native Linux, direct/login `proxy.*` commands require the repository `clashctl` backend and read its `runtime.yaml` (an explicit port variable may override the detected port). The native Linux `clashctl` deploy step uses `~/.my_shell_envs/tools/clashctl`, installs executables in `~/.my_shell_envs/bin`, and keeps mutable runtime data in Git-ignored `tools/clashctl/state` and `tools/clashctl/cache` directories. Legacy `$HOME/clashctl` installs are not loaded.
+
+macOS, Windows, and WSL do not install or control `clashctl`; they only point `proxy.*` at the ports exposed by Clash, Surge, or another external client. Slurm compute nodes remain the exception on Linux: they use autossh tunnels and do not execute `clashctl on/off`.
 
 On Slurm compute nodes, `zshrc` tries upstream hosts in this order: `MSE_PROXY_UPSTREAM_HOST`, `SLURM_SUBMIT_HOST`, reverse lookup from `SSH_CONNECTION` / `SSH_CLIENT`, then `MSE_PROXY_DIRECT_HOSTS`. Host lookup is capped by `MSE_PROXY_HOST_LOOKUP_TIMEOUT`; autossh process lookup reads `/proc` directly and is capped by `MSE_PROXY_PROCESS_LOOKUP_TIMEOUT`; the autossh connection is capped by `MSE_PROXY_SSH_CONNECT_TIMEOUT` with non-interactive SSH. A bad upstream or a slow process table should fail quickly instead of blocking shell startup. Set `MSE_PROXY_DEBUG=1` before running `proxy.on` if you need to inspect upstream detection.
 

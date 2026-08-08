@@ -206,7 +206,7 @@ fi
 # Proxy helpers
 # ------------------------------------------------------------------->>>>>>>>>>
 if [[ "${_OS}" == "Linux" ]]; then
-    export CLASHCTL_HOME="${CLASHCTL_HOME:-/appsnew/home/hnzhao/clashctl}"
+    export CLASHCTL_HOME="${HOME}/.my_shell_envs/tools/clashctl"
     if [[ -f "${CLASHCTL_HOME}/scripts/cmd/clashctl.sh" ]]; then
         source "${CLASHCTL_HOME}/scripts/cmd/clashctl.sh"
     fi
@@ -350,18 +350,6 @@ _mse_proxy_validate_clashctl_proxy_port() {
 _mse_proxy_sync_clashctl_ports 2>/dev/null || true
 export MSE_PROXY_SOCKS_PORT="${MSE_PROXY_SOCKS_PORT:-${MSE_PROXY_PORT}}"
 
-_mse_proxy_start_clashctl_service() {
-    [[ "$(_mse_proxy_mode_setting)" == "clash" ]] || return 1
-    _mse_clashctl_available || return 1
-    _mse_proxy_validate_clashctl_proxy_port || return
-
-    if ! _mse_proxy_is_quiet; then
-        echo "proxy.on: starting Clash via clashctl"
-    fi
-    clashctl on -s || return
-    _mse_proxy_sync_clashctl_ports 2>/dev/null || true
-}
-
 _mse_proxy_default_no_proxy() {
     printf '%s\n' "localhost,127.0.0.1,::1"
 }
@@ -371,7 +359,11 @@ _mse_proxy_require_port() {
         return 0
     fi
     echo "proxy: MSE_PROXY_PORT is not set"
-    echo "proxy: set it in ~/.zprofile, or install/load clashctl so zshrc can read its runtime.yaml"
+    if [[ "${_OS}" == "Linux" ]]; then
+        echo "proxy: run mse deploy with the clashctl step, or set MSE_PROXY_PORT in ~/.zprofile"
+    else
+        echo "proxy: set the HTTP port exposed by Clash/Surge in ~/.zprofile"
+    fi
     return 1
 }
 
@@ -456,10 +448,20 @@ _mse_proxy_run_with_timeout() {
     fi
 }
 
-_mse_proxy_can_alias_clashctl() {
-    [[ "$(_mse_proxy_mode_setting)" == "clash" ]] || return 1
-    _mse_clashctl_available || return 1
+_mse_proxy_uses_clashctl_backend() {
+    _mse_proxy_requires_clashctl_backend
+}
+
+_mse_proxy_requires_clashctl_backend() {
+    [[ "${_OS}" == "Linux" ]] || return 1
     ! _mse_proxy_is_compute_node
+}
+
+_mse_proxy_require_clashctl_backend() {
+    _mse_proxy_requires_clashctl_backend || return 0
+    _mse_clashctl_available && return 0
+    echo "proxy: native Linux direct/login nodes require the repository clashctl backend; run mse deploy with the clashctl step"
+    return 1
 }
 
 _mse_proxy_alias_log() {
@@ -881,18 +883,21 @@ _func_proxy_on() {
             echo "proxy mode: ${proxy_mode}"
             echo "proxy node role: direct"
         fi
-        if [[ "${proxy_mode}" == "direct-egress" ]]; then
+        if [[ "${proxy_mode}" == "direct-egress" && "${_OS}" != "Linux" ]]; then
             echo "proxy.on: direct-egress mode is mainly for compute nodes borrowing the login node network"
             return 1
         fi
-        if _mse_proxy_can_alias_clashctl; then
+        if _mse_proxy_uses_clashctl_backend; then
+            if [[ "${proxy_mode}" == "direct-egress" ]]; then
+                echo "proxy.on: native Linux direct/login nodes require clashctl; direct-egress is only for Slurm compute nodes"
+                return 1
+            fi
+            _mse_proxy_require_clashctl_backend || return 1
             _mse_proxy_validate_clashctl_proxy_port || return
-            _mse_proxy_alias_log "proxy.on: alias clashctl on"
+            _mse_proxy_alias_log "proxy.on: linux backend -> clashctl on"
             clashctl on || return
             _mse_proxy_sync_clashctl_ports 2>/dev/null || true
             _mse_proxy_validate_clashctl_proxy_port || return
-        elif ! _mse_proxy_required_ports_open; then
-            _mse_proxy_start_clashctl_service || true
         fi
         _mse_proxy_require_port || return 1
         if ! _mse_proxy_required_ports_open; then
@@ -906,13 +911,21 @@ _func_proxy_on() {
 _func_proxy_off() {
     local mode=""
     local proxy_mode=""
+    local clashctl_rc=0
 
     mode="$(_mse_proxy_mode)"
     proxy_mode="$(_mse_proxy_mode_setting)"
 
-    if [[ "${mode}" != "compute" && "${proxy_mode}" == "clash" && _mse_clashctl_available ]]; then
-        _mse_proxy_alias_log "proxy.off: alias clashctl off -e"
-        clashctl off -e >/dev/null 2>&1 || true
+    if _mse_proxy_requires_clashctl_backend; then
+        if _mse_clashctl_available; then
+            _mse_proxy_alias_log "proxy.off: linux backend -> clashctl off -e"
+            clashctl off -e >/dev/null 2>&1 || clashctl_rc=$?
+        else
+            clashctl_rc=1
+            if ! _mse_proxy_is_quiet; then
+                echo "proxy.off: clashctl backend is unavailable; run mse deploy with the clashctl step"
+            fi
+        fi
     fi
 
     _mse_proxy_disable_env
@@ -925,6 +938,8 @@ _func_proxy_off() {
         fi
         _mse_proxy_stop_all_tunnels
     fi
+
+    return "${clashctl_rc}"
 }
 
 _func_proxy_status() {
@@ -946,25 +961,25 @@ _func_proxy_status() {
     echo "autossh: $(_mse_proxy_autossh_bin || echo '<missing>')"
     echo "proxychains: $(_mse_proxy_proxychains_bin || echo '<missing>')"
     echo "proxychains conf: ${runtime_conf}"
-    if [[ "$(_mse_proxy_mode_setting)" == "clash" ]]; then
+    if _mse_proxy_requires_clashctl_backend; then
+        echo "proxy backend: clashctl (required)"
         if _mse_clashctl_available; then
             echo "clashctl: available"
-            if [[ "${mode}" == "compute" ]]; then
-                echo "proxy alias on: compute tunnel via upstream proxy"
-                echo "proxy alias off: clear env + stop compute tunnel"
-            else
-                echo "proxy alias on: clashctl on + mse env sync"
-                echo "proxy alias off: clashctl off -e + mse env cleanup"
-            fi
+            echo "proxy alias on: clashctl on + mse env sync"
+            echo "proxy alias off: clashctl off -e + mse env cleanup"
             echo "clashctl proxy port: $(_mse_clashctl_proxy_port 2>/dev/null || echo '<unknown>')"
             echo "clashctl socks port: $(_mse_clashctl_socks_port 2>/dev/null || echo '<unknown>')"
-            if [[ "${mode}" != "compute" ]]; then
-                echo "== clashctl status =="
-                clashctl status 2>/dev/null || true
-            fi
+            echo "== clashctl status =="
+            clashctl status 2>/dev/null || true
         else
-            echo "clashctl: <unavailable>"
+            echo "clashctl: <unavailable> (required; run mse deploy with the clashctl step)"
         fi
+    elif [[ "$(_mse_proxy_mode_setting)" == "clash" && "${_OS}" != "Linux" ]]; then
+        echo "proxy backend: external client"
+    elif [[ "$(_mse_proxy_mode_setting)" == "clash" ]]; then
+        echo "proxy backend: autossh -> upstream Clash"
+        echo "proxy alias on: compute tunnel via upstream proxy"
+        echo "proxy alias off: clear env + stop compute tunnel"
     fi
 
     if _mse_proxy_is_compute_node; then
@@ -1015,6 +1030,7 @@ _func_proxy_test() {
         echo "proxy.test: curl not found"
         return 1
     }
+    _mse_proxy_require_clashctl_backend || return 1
     _mse_proxy_require_port || return 1
     runtime_conf="$(_mse_proxy_runtime_proxychains_conf)"
     proxy_mode="$(_mse_proxy_mode_setting)"
@@ -1076,6 +1092,7 @@ _func_proxy_exec() {
     local proxychains_bin=""
     local runtime_conf=""
 
+    _mse_proxy_require_clashctl_backend || return 1
     proxychains_bin="$(_mse_proxy_proxychains_bin)"
     _mse_proxy_require_port || return 1
     runtime_conf="$(_mse_proxy_runtime_proxychains_conf)"
@@ -1138,7 +1155,11 @@ _mse_proxy_auto_init() {
     fi
 
     if [[ -z "${MSE_PROXY_PORT:-}" ]]; then
-        echo -e '\tproxy: \033[1;33moff\033[0m | MSE_PROXY_PORT=<unset> | install/load \033[1;35mclashctl\033[0m or set it in \033[1;35m~/.zprofile\033[0m'
+        if [[ "${_OS}" == "Linux" ]]; then
+            echo -e '\tproxy: \033[1;33moff\033[0m | MSE_PROXY_PORT=<unset> | run \033[1;35mmse deploy\033[0m or set it in \033[1;35m~/.zprofile\033[0m'
+        else
+            echo -e '\tproxy: \033[1;33moff\033[0m | set Clash/Surge HTTP port as \033[1;35mMSE_PROXY_PORT\033[0m in \033[1;35m~/.zprofile\033[0m'
+        fi
         return 0
     fi
 

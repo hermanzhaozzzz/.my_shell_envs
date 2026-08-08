@@ -7,7 +7,7 @@ make_proxy_fixture() {
     export HOME="${TEST_TMP}/home"
     export MSE_REPO_ROOT="${TEST_TMP}/repo"
     export CLASHCTL_BIN_DIR="${MSE_REPO_ROOT}/bin"
-    export PATH="/usr/bin:/bin"
+    export PATH="${TEST_TMP}/commands:/usr/bin:/bin"
     export _OS="Linux"
     export MSE_PROXY_MODE="clash"
     export MSE_PROXY_HOST="127.0.0.1"
@@ -19,6 +19,7 @@ make_proxy_fixture() {
 
     mkdir -p \
         "${HOME}" \
+        "${TEST_TMP}/commands" \
         "${MSE_REPO_ROOT}/bin/subconverter" \
         "${MSE_REPO_ROOT}/tools/clashctl/scripts/cmd" \
         "${MSE_REPO_ROOT}/tools/clashctl/state"
@@ -33,6 +34,9 @@ make_proxy_fixture() {
     print -r -- 'CLASHCTL_KERNEL=mihomo' > "${MSE_REPO_ROOT}/tools/clashctl/state/env"
     print -r -- 'typeset -g CLASHCTL_KERNEL=mihomo' > "${MSE_REPO_ROOT}/tools/clashctl/scripts/cmd/clashctl.sh"
     print -r -- 'clashctl() { print -r -- "$*" >> "${TEST_TMP}/clashctl.calls"; }' >> "${MSE_REPO_ROOT}/tools/clashctl/scripts/cmd/clashctl.sh"
+    print -r -- '#!/bin/sh' > "${TEST_TMP}/commands/hostname"
+    print -r -- 'printf "%s\n" "${MSE_TEST_HOSTNAME:-test-host}"' >> "${TEST_TMP}/commands/hostname"
+    chmod +x "${TEST_TMP}/commands/hostname"
 }
 
 write_runtime() {

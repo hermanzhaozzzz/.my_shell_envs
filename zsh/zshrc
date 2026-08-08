@@ -846,16 +846,16 @@ _mse_proxy_git_ssh_proxy_command() {
     local socks_port="$(_mse_proxy_socks_port)"
     local nc_help=""
 
-    if command -v ncat >/dev/null 2>&1; then
-        printf 'ncat --proxy 127.0.0.1:%s --proxy-type socks5 %%h %%p\n' "${socks_port}"
-        return 0
-    fi
     if command -v nc >/dev/null 2>&1; then
         nc_help="$(nc -h 2>&1 || true)"
         if [[ "${nc_help}" == *"-X "* && "${nc_help}" == *"-x "* ]]; then
             printf 'nc -x 127.0.0.1:%s -X 5 %%h %%p\n' "${socks_port}"
             return 0
         fi
+    fi
+    if command -v ncat >/dev/null 2>&1; then
+        printf 'ncat --proxy 127.0.0.1:%s --proxy-type socks5 %%h %%p\n' "${socks_port}"
+        return 0
     fi
     return 1
 }

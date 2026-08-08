@@ -52,6 +52,17 @@ test_direct_linux_requires_runtime() {
     assert_contains "$output" "runtime.yaml is missing" "missing runtime should be actionable"
 }
 
+test_login_hostname_stays_direct_in_slurm_context() {
+    make_proxy_fixture
+    trap 'rm -rf "$TEST_TMP"' EXIT
+    export MSE_TEST_HOSTNAME=login05
+    export SLURM_JOB_ID=123
+    load_proxy_helpers
+    if _mse_proxy_is_compute_node; then
+        fail_test "login hosts must remain direct even when Slurm variables are present"
+    fi
+}
+
 test_direct_egress_keeps_its_independent_port() {
     make_proxy_fixture
     trap 'rm -rf "$TEST_TMP"' EXIT
@@ -94,6 +105,22 @@ test_openbsd_nc_is_supported() {
         'nc -x 127.0.0.1:7891 -X 5 %h %p' \
         "$(_mse_proxy_git_ssh_proxy_command)" \
         "OpenBSD nc should provide the Git SSH SOCKS command"
+}
+
+test_ncat_fallback_is_supported() {
+    make_proxy_fixture
+    trap 'rm -rf "$TEST_TMP"' EXIT
+    export SLURM_JOB_ID=123
+    write_runtime $'port: 7890\nsocks-port: 7891'
+    print -r -- '#!/bin/sh' > "${TEST_TMP}/commands/nc"
+    print -r -- 'echo "usage: nc without SOCKS options" >&2' >> "${TEST_TMP}/commands/nc"
+    print -r -- '#!/bin/sh' > "${TEST_TMP}/commands/ncat"
+    chmod +x "${TEST_TMP}/commands/nc" "${TEST_TMP}/commands/ncat"
+    load_proxy_helpers
+    assert_eq \
+        'ncat --proxy 127.0.0.1:7891 --proxy-type socks5 %h %p' \
+        "$(_mse_proxy_git_ssh_proxy_command)" \
+        "ncat should remain the fallback when nc lacks SOCKS support"
 }
 
 test_git_ssh_command_is_restored() {
@@ -197,9 +224,11 @@ test_proxy_off_cleans_managed_state_and_legacy_tunnel() {
 run_test "compute clash mode consumes runtime without calling clashctl" test_compute_requires_runtime_without_calling_clashctl
 run_test "compute clash mode has no manual port fallback" test_compute_rejects_missing_runtime_without_port_fallback
 run_test "direct Linux requires clashctl runtime" test_direct_linux_requires_runtime
+run_test "login hostname stays direct in Slurm context" test_login_hostname_stays_direct_in_slurm_context
 run_test "direct-egress keeps its independent port" test_direct_egress_keeps_its_independent_port
 run_test "direct-egress is compute-only" test_direct_egress_is_compute_only
 run_test "OpenBSD nc supports Slurm Git SSH" test_openbsd_nc_is_supported
+run_test "ncat remains the Slurm Git SSH fallback" test_ncat_fallback_is_supported
 run_test "proxy.off restores user Git SSH command" test_git_ssh_command_is_restored
 run_test "managed scan finds old ports only" test_managed_scan_finds_old_ports_but_not_unrelated_autossh
 run_test "stale tunnel state is removed" test_stale_tunnel_state_is_removed

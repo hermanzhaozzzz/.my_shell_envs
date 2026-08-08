@@ -32,6 +32,9 @@ test_start_active_stop_pidfile_lifecycle() {
     local pid=""
     pid="$(service_pid_read)" || return 1
     service_is_active || fail_test "pidfile process should be active"
+    case " $(jobs -p) " in
+        *" $pid "*) fail_test "nohup service must not remain in the interactive shell job table" ;;
+    esac
     service_stop >/dev/null 2>&1
     wait "$pid" 2>/dev/null || true
     service_is_active && fail_test "service should be inactive after stop"
@@ -96,9 +99,24 @@ test_running_process_without_ports_is_not_ready() {
     assert_contains "$output" "代理端口未就绪" "fake readiness should explain the port failure"
 }
 
+test_restart_replaces_the_managed_process() {
+    setup_service_fixture
+    trap 'service_stop >/dev/null 2>&1 || true; rm -rf "$SERVICE_TMP"' EXIT
+    write_long_running_kernel
+    service_start || return 1
+    local old_pid new_pid
+    old_pid="$(service_pid_read)" || return 1
+    service_restart || fail_test "managed service restart must succeed"
+    new_pid="$(service_pid_read)" || return 1
+    [ "$new_pid" != "$old_pid" ] || fail_test "restart must replace the old managed process"
+    service_pid_matches "$old_pid" && fail_test "old managed process must be gone after restart"
+    service_pid_matches "$new_pid" || fail_test "new managed process must be active after restart"
+}
+
 run_test "nohup service uses a precise pidfile lifecycle" test_start_active_stop_pidfile_lifecycle
 run_test "stale pidfile is rejected and cleaned" test_stale_pidfile_is_cleaned
 run_test "unrelated same-name process is not killed" test_unrelated_process_is_not_killed
 run_test "active check works without signal permission" test_active_check_does_not_require_signal_permission
 run_test "running process without ports is rejected" test_running_process_without_ports_is_not_ready
+run_test "restart replaces the managed process" test_restart_replaces_the_managed_process
 finish_tests

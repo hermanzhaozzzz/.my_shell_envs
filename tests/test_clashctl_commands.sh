@@ -115,6 +115,86 @@ test_service_only_off_succeeds_without_proxy_environment() {
     clashoff --service-only || fail_test "successful service stop must return zero when proxy env is unset"
 }
 
+test_failed_subscription_switch_restores_previous_runtime() {
+    setup_command_fixture
+    local fixture=""
+    fixture="$(mktemp -d "${TMPDIR:-/tmp}/mse-command-switch.XXXXXX")" || return 1
+    export COMMAND_SWITCH_FIXTURE="$fixture"
+    trap 'rm -rf "$COMMAND_SWITCH_FIXTURE"' EXIT
+
+    CLASH_RESOURCES_DIR="$fixture"
+    CLASH_PROFILES_META="$fixture/profiles.yaml"
+    CLASH_PROFILES_LOG="$fixture/profiles.log"
+    CLASH_CONFIG_BASE="$fixture/config.yaml"
+    CLASH_CONFIG_RUNTIME="$fixture/runtime.yaml"
+    BIN_YQ=fake_switch_yq
+    local fixture_profile="$fixture/2.yaml"
+    printf 'use: 1\n' >"$CLASH_PROFILES_META"
+    printf 'old-base\n' >"$CLASH_CONFIG_BASE"
+    printf 'old-runtime\n' >"$CLASH_CONFIG_RUNTIME"
+    printf 'new-profile\n' >"$fixture_profile"
+
+    fake_switch_yq() { return 0; }
+    _get_path_by_id() { printf '%s\n' "$fixture_profile"; }
+    _get_url_by_id() { printf '%s\n' 'https://example.test/new'; }
+    service_is_active() { return 0; }
+    service_stop() { return 0; }
+    service_start() { return 0; }
+    service_sudo_stop() { return 0; }
+    service_sudo_start() { return 0; }
+    clashctl_wait_proxy_ports() { return 0; }
+    tunstatus() { return 1; }
+    _is_tun_enabled() { return 1; }
+    _merge_config_restart() {
+        printf 'broken-runtime\n' >"$CLASH_CONFIG_RUNTIME"
+        return 1
+    }
+    _logging_sub() { :; }
+    _okcat() { :; }
+    _errorcat() { return 1; }
+
+    if _sub_use 2 >/dev/null 2>&1; then
+        fail_test "a failed runtime restart must reject the subscription switch"
+        return 1
+    fi
+    assert_file_contains "$CLASH_CONFIG_BASE" "old-base" "failed switch must restore the previous base config"
+    assert_file_contains "$CLASH_CONFIG_RUNTIME" "old-runtime" "failed switch must restore the previous runtime"
+    assert_file_contains "$CLASH_PROFILES_META" "use: 1" "failed switch must preserve the previous active subscription"
+}
+
+test_active_subscription_update_restores_profile_on_switch_failure() {
+    setup_command_fixture
+    local fixture=""
+    fixture="$(mktemp -d "${TMPDIR:-/tmp}/mse-command-update.XXXXXX")" || return 1
+    export COMMAND_UPDATE_FIXTURE="$fixture"
+    trap 'rm -rf "$COMMAND_UPDATE_FIXTURE"' EXIT
+
+    CLASH_RESOURCES_DIR="$fixture"
+    CLASH_PROFILES_META="$fixture/profiles.yaml"
+    CLASH_PROFILES_LOG="$fixture/profiles.log"
+    CLASH_CONFIG_TEMP="$fixture/temp.yaml"
+    BIN_YQ=fake_update_yq
+    local fixture_profile="$fixture/1.yaml"
+    printf 'use: 1\n' >"$CLASH_PROFILES_META"
+    printf 'old-profile\n' >"$fixture_profile"
+
+    fake_update_yq() { printf '1\n'; }
+    _get_path_by_id() { printf '%s\n' "$fixture_profile"; }
+    _get_url_by_id() { printf '%s\n' 'https://example.test/sub'; }
+    _download_config() { printf 'new-profile\n' >"$CLASH_CONFIG_TEMP"; }
+    _valid_config() { return 0; }
+    _sub_use() { return 1; }
+    _logging_sub() { :; }
+    _okcat() { :; }
+    _errorcat() { return 1; }
+
+    if _sub_update 1 >/dev/null 2>&1; then
+        fail_test "an active update must fail when the new runtime cannot be activated"
+        return 1
+    fi
+    assert_file_contains "$fixture_profile" "old-profile" "failed active update must restore the previous profile"
+}
+
 run_test "top-level add adds and uses a subscription" test_top_level_add_adds_and_uses_subscription
 run_test "top-level subscription aliases dispatch correctly" test_top_level_subscription_aliases
 run_test "help documents top-level subscription commands" test_help_documents_top_level_add_and_del
@@ -122,4 +202,6 @@ run_test "default subscription UA requests modern Mihomo profiles" test_default_
 run_test "deleting the active subscription clears its runtime" test_deleting_active_subscription_stops_service_and_clears_runtime
 run_test "free proxy ports allow service startup" test_free_proxy_ports_are_a_successful_detection
 run_test "service-only stop returns success without proxy env" test_service_only_off_succeeds_without_proxy_environment
+run_test "failed subscription switch restores old runtime" test_failed_subscription_switch_restores_previous_runtime
+run_test "failed active update restores old profile" test_active_subscription_update_restores_profile_on_switch_failure
 finish_tests

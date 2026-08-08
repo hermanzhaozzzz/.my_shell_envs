@@ -136,8 +136,11 @@ service_start() {
         local pid=""
         service_is_active && return 0
         rm -f "$service_pid_path"
-        nohup "$BIN_KERNEL" -d "$CLASH_RESOURCES_DIR" -f "$CLASH_CONFIG_RUNTIME" </dev/null >"$service_log_path" 2>&1 &
-        pid=$!
+        pid=$(
+            nohup "$BIN_KERNEL" -d "$CLASH_RESOURCES_DIR" -f "$CLASH_CONFIG_RUNTIME" </dev/null >"$service_log_path" 2>&1 &
+            printf '%s\n' "$!"
+        )
+        case "$pid" in "" | *[!0-9]*) return 1 ;; esac
         service_write_pid "$pid" || {
             service_terminate_started_pid "$pid" >/dev/null 2>&1 || true
             return 1
@@ -264,7 +267,8 @@ service_restart() {
         sv restart "$CLASHCTL_KERNEL"
         ;;
     nohup | *)
-        service_stop >/dev/null 2>&1
+        service_stop >/dev/null 2>&1 || return 1
+        service_is_active >/dev/null 2>&1 && return 1
         sleep 0.1
         service_start
         ;;

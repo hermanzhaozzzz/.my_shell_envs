@@ -215,6 +215,8 @@ When you run `./mse update`:
 - these persisted settings are stored in `~/.my_shell_envs/.mse-install.env`
 - after every successful `mse deploy` or `mse update`, this file is rewritten to match the actual settings used in that run
 
+For repository updates, `--https` and `--ssh` convert a GitHub origin to the requested transport before fetching. A non-GitHub origin that cannot be converted safely fails explicitly instead of silently using another transport.
+
 `~/.my_shell_envs/.mse-install.env` is a plain text file and you can edit it by hand. Example:
 
 ```shell
@@ -397,6 +399,8 @@ export MSE_PROXY_PROCESS_LOOKUP_TIMEOUT=2
 Proxy commands are provided by the repo `zsh/zshrc`. On native Linux in `clash` mode, do not configure `MSE_PROXY_PORT` or `MSE_PROXY_SOCKS_PORT`: both values come exclusively from the repository clashctl `runtime.yaml`, and any environment values are overwritten. A missing or incomplete runtime is an error. Interactive deploy presents `clashctl` as `[Y/n]`, enabled by default; an explicit `n` completes the other deploy steps but leaves Linux `clash` mode unavailable. The native Linux clashctl step installs executables in the repository `bin` and keeps mutable data in Git-ignored `tools/clashctl/state` and `tools/clashctl/cache`. Legacy `$HOME/clashctl` installs are not loaded.
 
 `clashctl add '<subscription-url>'` adds and immediately activates a subscription; when the same URL already exists, it safely updates that profile. `clashctl del <id>` may delete the active subscription: it stops Mihomo and removes the generated runtime first, so no stale proxy remains ready. Subscription downloads default to the `clash-verge/v2.3.1` User-Agent so providers can return modern Mihomo protocols such as AnyTLS. Deploy persists this value in `tools/clashctl/state/env`; set `MSE_CLASHCTL_SUB_UA` during deployment only when a provider requires another client identity.
+
+On native Linux, deploy installs clashctl before network-dependent Git and Rust setup. If a valid runtime already exists, deploy enables it before refreshing clashctl itself and uses it for the remaining steps; a complete local archive cache also permits an offline reinstall. On a true first install with no runtime, no complete cache, and no direct external access, interactive deploy pauses before any download and asks for temporary network access in the current terminal; non-interactive deploy stops immediately. After installation, a second check gives the repository `bin/clashctl add '<subscription-url>'` recovery command when no subscription or external network is available. Neither check silently falls back to a different Linux proxy implementation.
 
 macOS, Windows, and WSL do not install or control `clashctl`; they only point `proxy.*` at the ports exposed by Clash, Surge, or another external client. Linux Slurm compute nodes read the shared clashctl runtime and forward those exact ports to the login node with an MSE-managed autossh tunnel; they never execute `clashctl on/off`. The separate compute-only `direct-egress` mode still takes an explicit local SOCKS port because it does not use Clash.
 

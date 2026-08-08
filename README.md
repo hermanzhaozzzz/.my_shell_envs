@@ -120,6 +120,8 @@ git-bash ./mse update
 
 `./mse update` 会先更新仓库，再按你上一次保存的配置重新执行部署。它不会再次要求你修改默认 shell。
 
+更新仓库时，`--https` / `--ssh` 会把 GitHub origin 转换为对应协议后再 fetch；它们不是只影响后续 clone 的显示选项。无法安全转换协议的非 GitHub origin 会直接报错，不会悄悄退回另一种协议。
+
 ### `.mse-install.env`
 
 仓库根目录下的 `.mse-install.env` 会记录最近一次成功执行的部署参数和 step 开关，例如：
@@ -313,6 +315,8 @@ Linux 上可选启用 `sqtop` step。它会通过 `cargo install sqtop` 安装�
 ```
 
 deploy 不读取或兼容 `$HOME/clashctl` 等旧安装路径，也不会覆盖已经生成的 state。
+
+Linux deploy 会先完成 clashctl，再执行需要 GitHub/Rust 网络的公共安装。已有有效 runtime 时，deploy 会先自动启用它，再更新 clashctl 程序并把代理用于后续步骤；本地安装归档完整时也可以离线重装。真正的首次部署既没有 runtime、没有完整归档、又无法直连外网时，交互模式会在任何下载之前暂停，提示你临时打开当前终端可用的外网；非交互模式会立即停止。clashctl 安装完成后，如果仍无订阅且无法访问外网，交互模式会再提示你在另一终端执行仓库 `bin/clashctl add '<subscription-url>'`。这两道预检都不会悄悄回退到其它 Linux 代理实现。
 
 首次部署完成后添加订阅：
 
@@ -585,7 +589,7 @@ export MSE_SLURM_NODE_PROXY_AUTO_ENABLE=false
 
 ### compute 节点上的 git
 
-compute 节点 DNS 无法解析外网域名（如 `ssh.github.com`），SSH 不走 `http_proxy`。`proxy.on` 会在 compute 节点自动设置 `GIT_SSH_COMMAND`，通过 SOCKS5 代理路由 git SSH 流量，`git push` / `git pull` 可以直接使用。它优先使用 `ncat`，没有 `ncat` 时会检测并使用支持 `-X 5 -x` 的 OpenBSD `nc`。
+compute 节点 DNS 无法解析外网域名（如 `ssh.github.com`），SSH 不走 `http_proxy`。`proxy.on` 会在 compute 节点自动设置 `GIT_SSH_COMMAND`，通过 SOCKS5 代理路由 git SSH 流量，`git push` / `git pull` 可以直接使用。它优先使用支持 `-X 5 -x` 的 OpenBSD `nc`，不可用时再使用 `ncat`。
 
 如果你还想把这套 SSH 代理能力扩展到不止 `git` 的其它 SSH 命令，可以在自己的 `~/.ssh/config` 里额外放一个 Host 段，例如：
 

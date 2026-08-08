@@ -65,6 +65,7 @@ persisted_deploy_mode="fast"
 persisted_use_zprofile_template=0
 persisted_selected_steps=""
 persisted_default_branch="$DEFAULT_BRANCH"
+update_git_method=""
 
 print_root_usage() {
     cat <<'EOF'
@@ -632,13 +633,15 @@ MSE_DEPLOY_MODE='$deploy_mode'
 MSE_DEFAULT_BRANCH='$current_branch'
 MSE_USE_ZPROFILE_TEMPLATE='$(bool_string "$use_zprofile_template")'
 EOF
+    [ -s "$METADATA_FILE" ] || fail "failed to write deploy preferences: $METADATA_FILE"
 
     for step in $AVAILABLE_STEPS; do
         enabled=0
         if step_selected "$step"; then
             enabled=1
         fi
-        printf "%s='%s'\n" "$(step_env_key "$step")" "$(bool_string "$enabled")" >> "$METADATA_FILE"
+        printf "%s='%s'\n" "$(step_env_key "$step")" "$(bool_string "$enabled")" >> "$METADATA_FILE" \
+            || fail "failed to append deploy preference for step: $step"
     done
 
     log_ok "saved deploy preferences: $(fmt_path "$METADATA_FILE")"
@@ -924,7 +927,7 @@ ensure_repo_cargo_tool_installed() {
     fi
 
     [ -x "$cargo_tool_bin" ] || fail "${display_name} was not installed at $cargo_tool_bin"
-    force_link "$cargo_tool_bin" "$repo_bin_path"
+    force_link "$cargo_tool_bin" "$repo_bin_path" || fail "failed to link ${display_name} into the repository bin directory"
     log_ok "repo bin entry created: $(fmt_path "$repo_bin_path") -> $(fmt_path "$cargo_tool_bin")"
 }
 
@@ -1063,7 +1066,7 @@ run_step() {
 
     if step_selected "$step"; then
         print_section "step $(fmt_step "$step")"
-        "$function_name"
+        "$function_name" || fail "step failed: $step"
         log_ok "step completed: $step"
     else
         log_warn "skip step: $step"
@@ -1157,7 +1160,6 @@ parse_deploy_args() {
 
 parse_update_args() {
     local opt_name
-    local update_git_method=""
     local update_deploy_mode=""
     local update_use_zprofile_template=0
     local update_list_steps=0
@@ -1239,12 +1241,7 @@ parse_update_args() {
 }
 
 update_from_git() {
-    if [ -n "$(git -C "$REPO_PATH" status --porcelain)" ]; then
-        fail "git working tree is not clean. Please commit, stash, or remove local changes before running './mse update'."
-    fi
-
-    git -C "$REPO_PATH" fetch || fail "git fetch failed"
-    git -C "$REPO_PATH" pull --rebase || fail "git pull --rebase failed"
+    update_source_from_git
 
     install_global_wrapper
 
@@ -1252,6 +1249,55 @@ update_from_git() {
     MSE_INTERNAL_SKIP_DEFAULT_SHELL_CHANGE=1 \
     MSE_INTERNAL_SELECTED_STEPS="$persisted_selected_steps" \
     exec "$REPO_PATH/mse" deploy "${UPDATE_DEPLOY_ARGS[@]}"
+}
+
+resolve_update_fetch_url() {
+    local method="$1"
+    local origin_url=""
+    local repo_slug=""
+
+    origin_url="$(git -C "$REPO_PATH" remote get-url origin 2>/dev/null)" || return 1
+    case "$method:$origin_url" in
+        https:git@github.com:*)
+            repo_slug="${origin_url#git@github.com:}"
+            printf 'https://github.com/%s\n' "$repo_slug"
+            ;;
+        https:ssh://git@github.com/*)
+            repo_slug="${origin_url#ssh://git@github.com/}"
+            printf 'https://github.com/%s\n' "$repo_slug"
+            ;;
+        https:https://*)
+            printf '%s\n' "$origin_url"
+            ;;
+        ssh:https://github.com/*)
+            repo_slug="${origin_url#https://github.com/}"
+            printf 'git@github.com:%s\n' "$repo_slug"
+            ;;
+        ssh:git@*|ssh:ssh://*)
+            printf '%s\n' "$origin_url"
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
+update_source_from_git() {
+    local fetch_url=""
+    local current_branch=""
+
+    if [ -n "$(git -C "$REPO_PATH" status --porcelain)" ]; then
+        fail "git working tree is not clean. Please commit, stash, or remove local changes before running './mse update'."
+    fi
+
+    fetch_url="$(resolve_update_fetch_url "$update_git_method")" \
+        || fail "cannot convert origin URL to the requested git method: $update_git_method"
+    current_branch="$(git -C "$REPO_PATH" branch --show-current 2>/dev/null)"
+    [ -n "$current_branch" ] || current_branch="$persisted_default_branch"
+
+    log_info "update fetch method: $update_git_method"
+    git -C "$REPO_PATH" fetch "$fetch_url" "$current_branch" || fail "git fetch failed via $update_git_method"
+    git -C "$REPO_PATH" rebase FETCH_HEAD || fail "git rebase onto fetched $current_branch failed"
 }
 
 apply_zprofile_template() {
@@ -1342,7 +1388,7 @@ ensure_zshrc_linked() {
     fi
 
     print_section "ensure zshrc is linked"
-    backup_and_link "$REPO_PATH/zsh/zshrc" "$HOME/.zshrc"
+    backup_and_link "$REPO_PATH/zsh/zshrc" "$HOME/.zshrc" || fail "failed to link $HOME/.zshrc"
     log_info "repo zshrc: $(fmt_path "$REPO_PATH/zsh/zshrc")"
     log_ok "$(fmt_path "$HOME/.zshrc") linked successfully"
 }
@@ -1427,15 +1473,15 @@ ensure_non_windows_zsh_core() {
         return 0
     fi
 
-    ensure_zsh_installed
-    ensure_oh_my_zsh_installed
-    ensure_zsh_plugins_installed
-    step_rust
-    ensure_eza_installed
-    ensure_bat_installed
-    ensure_ripgrep_installed
-    ensure_zshrc_linked
-    ensure_default_shell_is_zsh
+    ensure_zsh_installed || fail "failed to prepare zsh"
+    ensure_oh_my_zsh_installed || fail "failed to prepare Oh My Zsh"
+    ensure_zsh_plugins_installed || fail "failed to prepare zsh plugins"
+    step_rust || fail "failed to prepare Rust"
+    ensure_eza_installed || fail "failed to prepare eza"
+    ensure_bat_installed || fail "failed to prepare bat"
+    ensure_ripgrep_installed || fail "failed to prepare ripgrep"
+    ensure_zshrc_linked || fail "failed to prepare zshrc"
+    ensure_default_shell_is_zsh || fail "failed to prepare the default shell"
 }
 
 step_rust() {
@@ -1529,7 +1575,7 @@ step_micromamba() {
     fi
 
     if [ ! -d "$REPO_PATH/conda/micromamba-pycharm/.git" ]; then
-        git clone "${url_root}jonashaag/micromamba-pycharm.git" "$REPO_PATH/conda/micromamba-pycharm"
+        git clone "${url_root}jonashaag/micromamba-pycharm.git" "$REPO_PATH/conda/micromamba-pycharm" || return 1
     else
         log_ok "micromamba-pycharm exists at $(fmt_path "$REPO_PATH/conda/micromamba-pycharm")"
     fi
@@ -1561,14 +1607,14 @@ step_micromamba() {
 
 step_condarc() {
     log_info "link condarc"
-    backup_and_link "$REPO_PATH/conda/condarc" "$HOME/.condarc"
+    backup_and_link "$REPO_PATH/conda/condarc" "$HOME/.condarc" || return 1
     log_ok "condarc linked: $(fmt_path "$HOME/.condarc")"
 }
 
 step_pip() {
     log_info "link pip config"
-    mkdir -p "$HOME/.pip"
-    backup_and_link "$REPO_PATH/pip/pip.conf" "$HOME/.pip/pip.conf"
+    mkdir -p "$HOME/.pip" || return 1
+    backup_and_link "$REPO_PATH/pip/pip.conf" "$HOME/.pip/pip.conf" || return 1
     log_info "repo pip config: $(fmt_path "$REPO_PATH/pip/pip.conf")"
     log_ok "pip config linked: $(fmt_path "$HOME/.pip/pip.conf")"
 }
@@ -1578,14 +1624,14 @@ step_vim() {
 
     if [ -d "$HOME/.vim/.git" ]; then
         log_info "existing vim config found, updating"
-        git -C "$HOME/.vim" fetch
-        git -C "$HOME/.vim" pull
+        git -C "$HOME/.vim" fetch || return 1
+        git -C "$HOME/.vim" pull --ff-only || return 1
     else
         log_info "vim config not found, cloning"
         backup_existing_path "$HOME/.vim"
         backup_existing_path "$HOME/.vimrc"
-        git clone "${url_root}hermanzhaozzzz/vim-for-coding.git" "$HOME/.vim"
-        ln -s "$HOME/.vim/vimrc" "$HOME/.vimrc"
+        git clone "${url_root}hermanzhaozzzz/vim-for-coding.git" "$HOME/.vim" || return 1
+        ln -s "$HOME/.vim/vimrc" "$HOME/.vimrc" || return 1
         log_info "vim config cloned to $(fmt_path "$HOME/.vim")"
     fi
 
@@ -1597,16 +1643,16 @@ step_nvim() {
 
     if [ -d "$HOME/.config/nvim/.git" ]; then
         log_info "existing nvim config found, updating"
-        git -C "$HOME/.config/nvim" fetch
-        git -C "$HOME/.config/nvim" pull
+        git -C "$HOME/.config/nvim" fetch || return 1
+        git -C "$HOME/.config/nvim" pull --ff-only || return 1
     else
         log_info "nvim config not found, cloning"
-        mkdir -p "$HOME/.config"
+        mkdir -p "$HOME/.config" || return 1
         /bin/rm -rf "$HOME/.cache/nvim" 2>/dev/null
         /bin/rm -rf "$HOME/.local/share/nvim" 2>/dev/null
         /bin/rm -rf "$HOME/.local/state/nvim" 2>/dev/null
         backup_existing_path "$HOME/.config/nvim"
-        git clone "${url_root}hermanzhaozzzz/MyLazyVim.git" "$HOME/.config/nvim"
+        git clone "${url_root}hermanzhaozzzz/MyLazyVim.git" "$HOME/.config/nvim" || return 1
         log_info "nvim config cloned to $(fmt_path "$HOME/.config/nvim")"
     fi
 
@@ -1632,7 +1678,7 @@ step_jcat() {
         log_ok "jcat binary already exists"
     fi
 
-    force_link "$REPO_PATH/tools/jcat/jcat" "$BIN_PATH/jcat"
+    force_link "$REPO_PATH/tools/jcat/jcat" "$BIN_PATH/jcat" || return 1
     log_ok "jcat ready at $(fmt_path "$BIN_PATH/jcat")"
 }
 
@@ -1703,9 +1749,9 @@ step_cluster_proxy_tools() {
 
     [ -x "$PROXYCHAINS_BIN_PATH" ] || fail "proxychains-ng binary was not installed at $PROXYCHAINS_BIN_PATH"
 
-    force_link "$AUTOSSH_BIN_PATH" "$REPO_BIN_AUTOSSH_PATH"
-    force_link "$PROXYCHAINS_BIN_PATH" "$REPO_BIN_PROXYCHAINS4_PATH"
-    force_link "$REPO_BIN_PROXYCHAINS4_PATH" "$REPO_BIN_PROXYCHAINS_PATH"
+    force_link "$AUTOSSH_BIN_PATH" "$REPO_BIN_AUTOSSH_PATH" || return 1
+    force_link "$PROXYCHAINS_BIN_PATH" "$REPO_BIN_PROXYCHAINS4_PATH" || return 1
+    force_link "$REPO_BIN_PROXYCHAINS4_PATH" "$REPO_BIN_PROXYCHAINS_PATH" || return 1
     log_ok "autossh ready at $(fmt_path "$REPO_BIN_AUTOSSH_PATH")"
     log_ok "proxychains4 linked at $(fmt_path "$REPO_BIN_PROXYCHAINS4_PATH")"
     log_ok "proxychains compatibility link ready at $(fmt_path "$REPO_BIN_PROXYCHAINS_PATH")"
@@ -1732,6 +1778,114 @@ step_clashctl() {
     log_info "mutable clashctl state remains inside the repository tree and is ignored by Git"
 }
 
+load_repo_clashctl_control_plane() {
+    local control_script="$REPO_PATH/tools/clashctl/scripts/cmd/clashctl.sh"
+
+    [ -r "$control_script" ] || return 1
+    export CLASHCTL_HOME="$REPO_PATH/tools/clashctl"
+    # shellcheck disable=SC1090
+    . "$control_script"
+}
+
+deployment_network_ready() {
+    command -v curl >/dev/null 2>&1 || return 1
+    curl -fsSI --max-time 5 https://github.com/ >/dev/null 2>&1
+}
+
+clashctl_install_archives_ready() {
+    local archive_dir="$REPO_PATH/tools/clashctl/cache"
+    local prefix=""
+    local candidate=""
+    local found=0
+
+    [ -f "$REPO_PATH/tools/clashctl/archives/dist.zip" ] || return 1
+    for prefix in mihomo yq subconverter; do
+        found=0
+        for candidate in "$archive_dir"/"$prefix"*; do
+            [ -f "$candidate" ] || continue
+            found=1
+            break
+        done
+        [ "$found" -eq 1 ] || return 1
+    done
+}
+
+preflight_linux_clashctl_install() {
+    local answer=""
+
+    [ "$platform" = "Linux" ] || return 0
+    step_selected "clashctl" || return 0
+
+    # An existing runtime can supply the network needed to refresh its own
+    # binaries. A complete local archive cache needs no bootstrap network.
+    if load_repo_clashctl_control_plane \
+        && clashctl_require_runtime_ready >/dev/null 2>&1; then
+        log_info "existing clashctl runtime found; enabling it before deployment downloads"
+        clashctl on || fail "existing clashctl runtime could not be enabled"
+        return 0
+    fi
+    clashctl_install_archives_ready && return 0
+    deployment_network_ready && return 0
+
+    print_section "clashctl installation network required"
+    log_warn "this first install has neither a ready clashctl runtime nor a complete local archive cache"
+    print_list_item "temporarily enable direct external access or a system VPN/proxy for this terminal"
+    print_list_item "MSE will verify GitHub access before starting any downloads"
+
+    can_prompt_user || fail "clashctl cannot be installed offline; enable temporary external access, then rerun mse deploy"
+    while ! deployment_network_ready; do
+        printf '%s press Enter after temporary network access is available, or [q] to abort: ' "$(badge "$COLOR_BLUE" "WAIT")"
+        IFS= read -r answer || fail "failed to read clashctl install confirmation"
+        case "$answer" in
+            q|Q|quit|QUIT)
+                fail "deployment stopped before clashctl installation"
+                ;;
+        esac
+    done
+    log_ok "temporary external access is ready; starting clashctl installation"
+}
+
+bootstrap_linux_clashctl_proxy() {
+    local answer=""
+    local wrapper_path="$BIN_PATH/clashctl"
+
+    [ "$platform" = "Linux" ] || return 0
+    step_selected "clashctl" || return 0
+    load_repo_clashctl_control_plane || fail "failed to load the repository clashctl control plane"
+
+    if clashctl_require_runtime_ready >/dev/null 2>&1; then
+        log_info "clashctl runtime found; enabling it for the remaining deploy steps"
+        clashctl on || fail "clashctl runtime exists but could not be enabled"
+        log_ok "clashctl is supplying network access for deployment"
+        return 0
+    fi
+
+    if deployment_network_ready; then
+        log_warn "clashctl is installed but has no active subscription yet"
+        log_warn "after deploy, run: clashctl add '<subscription-url>' && proxy.on"
+        return 0
+    fi
+
+    print_section "clashctl network bootstrap required"
+    log_warn "external network is unavailable and clashctl has no ready runtime"
+    print_list_item "open another terminal and run: $wrapper_path add '<subscription-url>'"
+    print_list_item "return here after the subscription is active"
+
+    can_prompt_user || fail "deployment paused before network-dependent setup; configure clashctl, then rerun mse deploy"
+    while ! clashctl_require_runtime_ready >/dev/null 2>&1; do
+        printf '%s press Enter after clashctl is ready, or [q] to abort: ' "$(badge "$COLOR_BLUE" "WAIT")"
+        IFS= read -r answer || fail "failed to read clashctl bootstrap confirmation"
+        case "$answer" in
+            q|Q|quit|QUIT)
+                fail "deployment stopped before network-dependent setup"
+                ;;
+        esac
+    done
+
+    clashctl on || fail "clashctl was configured but could not be enabled"
+    log_ok "clashctl is supplying network access for deployment"
+}
+
 step_wd() {
     local dict_root="$HOME/.Wudao-dict"
     local wd_root="$dict_root/wudao-dict"
@@ -1741,18 +1895,18 @@ step_wd() {
 
     if [ -d "$dict_root/.git" ]; then
         log_info "existing Wudao-dict found, updating"
-        git -C "$dict_root" fetch
-        git -C "$dict_root" pull
+        git -C "$dict_root" fetch || return 1
+        git -C "$dict_root" pull --ff-only || return 1
     else
         log_info "Wudao-dict not found, cloning"
         backup_existing_path "$dict_root"
-        git clone "${url_root}hermanzhaozzzz/Wudao-dict.git" "$dict_root"
+        git clone "${url_root}hermanzhaozzzz/Wudao-dict.git" "$dict_root" || return 1
         install_python_packages_if_available bs4 lxml
     fi
 
-    mkdir -p "$wd_root/usr"
-    chmod -R 777 "$wd_root/usr"
-    mkdir -p "$BIN_PATH"
+    mkdir -p "$wd_root/usr" || return 1
+    chmod -R 777 "$wd_root/usr" || return 1
+    mkdir -p "$BIN_PATH" || return 1
 
     if [ -L "$wd_script" ]; then
         /bin/rm -f "$wd_script" || fail "failed to replace symlink at $wd_script"
@@ -1767,7 +1921,7 @@ cd "$wd_root" || exit 1
 ./wdd "\$@"
 cd "\$save_path" || exit 1
 EOF
-    chmod +x "$wd_script"
+    chmod +x "$wd_script" || return 1
     log_ok "wd ready at $(fmt_path "$wd_script")"
 }
 
@@ -1840,7 +1994,7 @@ step_powershell() {
 command_deploy() {
     parse_deploy_args "$@"
 
-    mkdir -p "$BIN_PATH"
+    mkdir -p "$BIN_PATH" || fail "failed to create repository bin directory: $BIN_PATH"
 
     case "$git_method" in
         https)
@@ -1862,7 +2016,7 @@ command_deploy() {
         exit 0
     fi
 
-    install_global_wrapper
+    install_global_wrapper || fail "failed to install the mse command wrapper"
 
     print_section "deployment context"
     print_kv "git" "$git_method"
@@ -1880,9 +2034,15 @@ command_deploy() {
 
     print_selected_steps
     print_deploy_warnings
-    sync_optional_bin_entries
 
-    ensure_non_windows_zsh_core
+    # Native Linux needs its proxy control plane before Git/Rust network setup.
+    if step_selected "clashctl"; then
+        preflight_linux_clashctl_install
+        run_step "clashctl" step_clashctl
+        bootstrap_linux_clashctl_proxy
+    fi
+
+    ensure_non_windows_zsh_core || fail "base shell deployment failed"
 
     run_step "micromamba" step_micromamba
     run_step "condarc" step_condarc
@@ -1894,13 +2054,14 @@ command_deploy() {
     run_step "sqtop" step_sqtop
     run_step "powershell" step_powershell
     run_step "code_notify" step_code_notify
-    run_step "clashctl" step_clashctl
     run_step "cluster_proxy_tools" step_cluster_proxy_tools
 
     if [ "$use_zprofile_template" -eq 1 ]; then
         apply_zprofile_template
     fi
 
+    # Remove entries for disabled steps only after every selected step succeeds.
+    sync_optional_bin_entries
     persist_deploy_settings
 
     print_section "deployment complete"

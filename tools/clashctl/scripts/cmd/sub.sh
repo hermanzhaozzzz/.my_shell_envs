@@ -180,6 +180,52 @@ _sub_list() {
     "$BIN_YQ" "$CLASH_PROFILES_META"
 }
 
+_sub_snapshot_file() {
+    local source_path=$1
+    local snapshot_dir=$2
+    local snapshot_name=$3
+
+    if [ -e "$source_path" ]; then
+        cp -p "$source_path" "$snapshot_dir/$snapshot_name" || return 1
+    else
+        : >"$snapshot_dir/$snapshot_name.absent" || return 1
+    fi
+}
+
+_sub_restore_file() {
+    local target_path=$1
+    local snapshot_dir=$2
+    local snapshot_name=$3
+
+    /bin/rm -f "$target_path"
+    [ -e "$snapshot_dir/$snapshot_name.absent" ] && return 0
+    cp -p "$snapshot_dir/$snapshot_name" "$target_path"
+}
+
+_sub_restore_switch() {
+    local snapshot_dir=$1
+    local was_service_active=$2
+    local was_tun_active=$3
+
+    if _is_tun_enabled >/dev/null 2>&1; then
+        service_sudo_stop >/dev/null 2>&1 || true
+    else
+        service_stop >/dev/null 2>&1 || true
+    fi
+
+    _sub_restore_file "$CLASH_CONFIG_BASE" "$snapshot_dir" config.yaml || return 1
+    _sub_restore_file "$CLASH_CONFIG_RUNTIME" "$snapshot_dir" runtime.yaml || return 1
+    _sub_restore_file "$CLASH_PROFILES_META" "$snapshot_dir" profiles.yaml || return 1
+
+    [ "$was_service_active" = true ] || return 0
+    if [ "$was_tun_active" = true ]; then
+        service_sudo_start >/dev/null 2>&1 || return 1
+    else
+        service_start >/dev/null 2>&1 || return 1
+    fi
+    clashctl_wait_proxy_ports 50
+}
+
 _sub_use() {
     "$BIN_YQ" -e '.profiles // [] | length == 0' "$CLASH_PROFILES_META" >/dev/null 2>&1 && {
         _errorcat "当前无可用订阅，请先添加订阅"
@@ -194,13 +240,40 @@ _sub_use() {
         [ -z "$id" ] && { _errorcat "订阅 id 不能为空"; return 1; }
     }
 
-    local profile_path url
+    local profile_path url snapshot_dir
+    local was_service_active=false
+    local was_tun_active=false
     profile_path=$(_get_path_by_id "$id") || _errorcat "订阅 id 不存在，请检查" || return
     url=$(_get_url_by_id "$id")
 
-    cat "$profile_path" >"$CLASH_CONFIG_BASE"
-    _merge_config_restart
-    PROFILE_ID=$id "$BIN_YQ" -i '.use = (env(PROFILE_ID) | tonumber)' "$CLASH_PROFILES_META"
+    snapshot_dir=$(mktemp -d "${CLASH_RESOURCES_DIR}/.switch.XXXXXX") || {
+        _errorcat "无法创建订阅切换快照"
+        return 1
+    }
+    _sub_snapshot_file "$CLASH_CONFIG_BASE" "$snapshot_dir" config.yaml \
+        && _sub_snapshot_file "$CLASH_CONFIG_RUNTIME" "$snapshot_dir" runtime.yaml \
+        && _sub_snapshot_file "$CLASH_PROFILES_META" "$snapshot_dir" profiles.yaml || {
+            /bin/rm -rf "$snapshot_dir"
+            _errorcat "无法保存当前订阅状态"
+            return 1
+        }
+
+    service_is_active >/dev/null 2>&1 && was_service_active=true
+    tunstatus >/dev/null 2>&1 && was_tun_active=true
+
+    if ! cat "$profile_path" >"$CLASH_CONFIG_BASE" \
+        || ! _merge_config_restart \
+        || ! service_is_active >/dev/null 2>&1 \
+        || ! clashctl_wait_proxy_ports 50 \
+        || ! PROFILE_ID=$id "$BIN_YQ" -i '.use = (env(PROFILE_ID) | tonumber)' "$CLASH_PROFILES_META"; then
+        _sub_restore_switch "$snapshot_dir" "$was_service_active" "$was_tun_active" \
+            || _errorcat "订阅切换失败，且旧运行状态未能自动恢复"
+        /bin/rm -rf "$snapshot_dir"
+        _errorcat "订阅切换失败，已恢复旧配置"
+        return 1
+    fi
+
+    /bin/rm -rf "$snapshot_dir"
     _logging_sub "🔥 订阅已切换为：[$id] $url"
     _okcat '🔥' '订阅已生效'
 }
@@ -214,7 +287,7 @@ _sub_update() {
             crontab -l 2>/dev/null | grep -Fqs "$CLASHCTL_CRON_TAG" || {
                 {
                     crontab -l 2>/dev/null | grep -Fv "$CLASHCTL_CRON_TAG"
-                    printf '0 0 */2 * * %s sub update %s\n' "$(which clashctl)" "$CLASHCTL_CRON_TAG"
+                    printf '0 0 */2 * * "%s" sub update %s\n' "${BIN_BASE_DIR}/clashctl" "$CLASHCTL_CRON_TAG"
                 } | crontab -
             }
             _okcat "已设置定时更新订阅"
@@ -229,7 +302,7 @@ _sub_update() {
     local id=$1
     [ -z "$id" ] && id=$("$BIN_YQ" '.use // 1 | tostring' "$CLASH_PROFILES_META")
 
-    local url profile_path use
+    local url profile_path use profile_backup
     url=$(_get_url_by_id "$id") || _errorcat "订阅 id 不存在，请检查" || return
     profile_path=$(_get_path_by_id "$id")
     _okcat "✈️ " "更新订阅：[$id] $url"
@@ -249,10 +322,30 @@ _sub_update() {
         return 1
     }
 
-    _logging_sub "✅ 订阅更新成功：[$id] $url"
-    cat "$CLASH_CONFIG_TEMP" >"$profile_path"
     use=$("$BIN_YQ" '.use // "" | tostring' "$CLASH_PROFILES_META")
-    [ "$use" = "$id" ] && _sub_use "$use" && return
+    if [ "$use" = "$id" ]; then
+        profile_backup=$(mktemp "${CLASH_RESOURCES_DIR}/.profile.${id}.XXXXXX") || return 1
+        cp -p "$profile_path" "$profile_backup" || {
+            /bin/rm -f "$profile_backup"
+            return 1
+        }
+        cat "$CLASH_CONFIG_TEMP" >"$profile_path" || {
+            /bin/rm -f "$profile_backup"
+            return 1
+        }
+        if ! _sub_use "$use"; then
+            cp -p "$profile_backup" "$profile_path" || _errorcat "旧订阅文件恢复失败"
+            /bin/rm -f "$profile_backup"
+            _logging_sub "❌ 订阅更新后切换失败：[$id] $url"
+            return 1
+        fi
+        /bin/rm -f "$profile_backup"
+        _logging_sub "✅ 订阅更新成功：[$id] $url"
+        return 0
+    fi
+
+    cat "$CLASH_CONFIG_TEMP" >"$profile_path" || return 1
+    _logging_sub "✅ 订阅更新成功：[$id] $url"
     _okcat '订阅已更新'
 }
 

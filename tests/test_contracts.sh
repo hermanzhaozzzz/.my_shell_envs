@@ -20,6 +20,25 @@ test_windows_proxy_todo_is_explicit() {
         'TODO: replace this bootstrap-only global Git mutation with unified proxy.* ownership tracking.'
 }
 
+test_deploy_orders_bootstrap_and_cleanup_safely() {
+    local clash_line core_line cleanup_line persist_line
+    clash_line="$(grep -n 'run_step "clashctl" step_clashctl' "$REPO_ROOT/mse" | tail -1 | cut -d: -f1)"
+    core_line="$(grep -n '^[[:space:]]*ensure_non_windows_zsh_core ||' "$REPO_ROOT/mse" | tail -1 | cut -d: -f1)"
+    cleanup_line="$(grep -n '^[[:space:]]*sync_optional_bin_entries$' "$REPO_ROOT/mse" | tail -1 | cut -d: -f1)"
+    persist_line="$(grep -n '^[[:space:]]*persist_deploy_settings$' "$REPO_ROOT/mse" | tail -1 | cut -d: -f1)"
+    [ "$clash_line" -lt "$core_line" ] || fail_test "clashctl must deploy before network-dependent shell setup"
+    [ "$cleanup_line" -lt "$persist_line" ] || fail_test "managed bin cleanup must finish before metadata is committed"
+    [ "$cleanup_line" -gt "$core_line" ] || fail_test "managed bin cleanup must wait until deploy work succeeds"
+}
+
+test_clashctl_has_a_cron_safe_repo_wrapper() {
+    [ -x "$REPO_ROOT/tools/clashctl/clashctl" ] || fail_test "repo clashctl wrapper must be executable"
+    assert_file_contains "$REPO_ROOT/tools/clashctl/mse-deploy.sh" 'ln -s "${CLASHCTL_SRC}/clashctl" "${CLASHCTL_BIN_DIR}/clashctl"'
+    assert_file_contains "$REPO_ROOT/tools/clashctl/scripts/cmd/sub.sh" '"${BIN_BASE_DIR}/clashctl" "$CLASHCTL_CRON_TAG"'
+}
+
 run_test "proxy.test documentation matches implementation" test_proxy_test_docs_match_code
 run_test "Windows unified proxy work remains marked TODO" test_windows_proxy_todo_is_explicit
+run_test "deploy bootstrap and cleanup ordering is safe" test_deploy_orders_bootstrap_and_cleanup_safely
+run_test "clashctl has a cron-safe repo wrapper" test_clashctl_has_a_cron_safe_repo_wrapper
 finish_tests

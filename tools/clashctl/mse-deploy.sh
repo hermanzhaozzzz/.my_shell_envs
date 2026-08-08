@@ -36,6 +36,9 @@ mkdir -p \
     "${CLASHCTL_STATE_DIR}/profiles" \
     "${CLASHCTL_CACHE_DIR}"
 
+rm -f "${CLASHCTL_BIN_DIR}/clashctl"
+ln -s "${CLASHCTL_SRC}/clashctl" "${CLASHCTL_BIN_DIR}/clashctl"
+
 # Program files already live in the repository. Deploy only initializes state.
 install -m 644 "${CLASHCTL_SRC}/resources/Country.mmdb" "${CLASHCTL_STATE_DIR}/Country.mmdb"
 install -m 644 "${CLASHCTL_SRC}/resources/geosite.dat" "${CLASHCTL_STATE_DIR}/geosite.dat"
@@ -49,7 +52,25 @@ install -m 644 "${CLASHCTL_SRC}/resources/geosite.dat" "${CLASHCTL_STATE_DIR}/ge
 printf 'CLASHCTL_KERNEL=%s\nINIT_TYPE=nohup\nCLASHCTL_SUB_UA=%s\n' \
     "${CLASHCTL_KERNEL}" "${CLASHCTL_SUB_UA}" > "${CLASHCTL_STATE_DIR}/env"
 
+restart_running_service=false
+if [ -x "${CLASHCTL_BIN_DIR}/${CLASHCTL_KERNEL}" ]; then
+    # shellcheck disable=SC1090
+    . "${CLASHCTL_CMD_DIR}/clashctl.sh"
+    service_is_active >/dev/null 2>&1 && restart_running_service=true
+fi
+
 prepare_zip
+
+if [ "${restart_running_service}" = true ]; then
+    service_restart >/dev/null 2>&1 || {
+        printf 'failed to restart the running clashctl service after binary deployment\n' >&2
+        exit 1
+    }
+    clashctl_wait_proxy_ports 50 || {
+        printf 'clashctl service restarted but proxy ports are not ready\n' >&2
+        exit 1
+    }
+fi
 
 printf 'CLASHCTL_HOME=%s\n' "${CLASHCTL_HOME}"
 printf 'clashctl binaries installed in %s; runtime data preserved in %s\n' \

@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+
+resolve_clashctl_script() {
+    local source_path="$1"
+    local source_dir=""
+
+    while [ -L "$source_path" ]; do
+        source_dir="$(CDPATH= cd -- "$(dirname "$source_path")" && pwd -P)" || return 1
+        source_path="$(readlink "$source_path")" || return 1
+        case "$source_path" in
+            /*) ;;
+            *) source_path="$source_dir/$source_path" ;;
+        esac
+    done
+
+    source_dir="$(CDPATH= cd -- "$(dirname "$source_path")" && pwd -P)" || return 1
+    printf '%s/%s\n' "$source_dir" "$(basename "$source_path")"
+}
+
+CLASHCTL_SCRIPT="$(resolve_clashctl_script "${BASH_SOURCE[0]}")" || exit 1
+export CLASHCTL_HOME="$(dirname "$CLASHCTL_SCRIPT")"
+
+# shellcheck disable=SC1091
+. "$CLASHCTL_HOME/scripts/cmd/clashctl.sh"
+clashctl "$@"

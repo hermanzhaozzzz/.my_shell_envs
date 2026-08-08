@@ -34,21 +34,26 @@ service_pid_matches_managed_config() {
     local pid="$1"
     local arg=""
     local cmdline=""
+    local kernel_match=false
     local resources_match=false
     local runtime_match=false
 
-    service_pid_matches "$pid" || return 1
     if [ -r "/proc/$pid/cmdline" ]; then
         while IFS= read -r -d '' arg; do
+            [ "$arg" = "$BIN_KERNEL" ] && kernel_match=true
             [ "$arg" = "$CLASH_RESOURCES_DIR" ] && resources_match=true
             [ "$arg" = "$CLASH_CONFIG_RUNTIME" ] && runtime_match=true
         done <"/proc/$pid/cmdline"
     else
+        service_pid_matches "$pid" || return 1
         cmdline=$(ps -p "$pid" -o args= 2>/dev/null) || return 1
+        kernel_match=true
         case " $cmdline " in *" $CLASH_RESOURCES_DIR "*) resources_match=true ;; esac
         case " $cmdline " in *" $CLASH_CONFIG_RUNTIME "*) runtime_match=true ;; esac
     fi
-    [ "$resources_match" = true ] && [ "$runtime_match" = true ]
+    [ "$kernel_match" = true ] \
+        && [ "$resources_match" = true ] \
+        && [ "$runtime_match" = true ]
 }
 
 service_find_managed_pid() {

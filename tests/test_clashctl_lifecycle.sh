@@ -120,6 +120,13 @@ test_existing_exact_process_is_adopted() {
     write_long_running_kernel
     "$BIN_KERNEL" -d "$CLASH_RESOURCES_DIR" -f "$CLASH_CONFIG_RUNTIME" &
     local existing_pid=$!
+    local attempts=30
+    while [ "$attempts" -gt 0 ] && ! service_pid_matches_managed_config "$existing_pid"; do
+        sleep 0.1
+        attempts=$((attempts - 1))
+    done
+    service_pid_matches_managed_config "$existing_pid" \
+        || fail_test "legacy fixture process did not reach a stable argv state"
     detect_service_manager
     rm -f "$service_pid_path"
     service_is_active || fail_test "an exact pre-pidfile MSE process must be adopted"

@@ -187,7 +187,8 @@ export TMUX_TMPDIR=$HOME/.tmux_tmp_dir/$HOST
 # PATH 环境变量
 # ------------------------------------------------------------------->>>>>>>>>>
 # 我的可执行文件
-export PATH=${HOME}/.my_shell_envs/bin:$PATH
+typeset -g MSE_REPO_ROOT="${MSE_REPO_ROOT:-${${(%):-%N}:A:h:h}}"
+export PATH="${MSE_REPO_ROOT}/bin:$PATH"
 
 # user-local CLI installers
 if [ -f "${HOME}/.local/bin/env" ]; then
@@ -206,7 +207,7 @@ fi
 # Proxy helpers
 # ------------------------------------------------------------------->>>>>>>>>>
 if [[ "${_OS}" == "Linux" ]]; then
-    export CLASHCTL_HOME="${HOME}/.my_shell_envs/tools/clashctl"
+    export CLASHCTL_HOME="${MSE_REPO_ROOT}/tools/clashctl"
     if [[ -f "${CLASHCTL_HOME}/scripts/cmd/clashctl.sh" ]]; then
         source "${CLASHCTL_HOME}/scripts/cmd/clashctl.sh"
     fi
@@ -214,8 +215,11 @@ fi
 
 export MSE_PROXY_MODE="${MSE_PROXY_MODE:-clash}"
 export MSE_PROXY_HOST="${MSE_PROXY_HOST:-127.0.0.1}"
+typeset -gi _MSE_PROXY_GIT_SSH_COMMAND_OWNED=0
+typeset -gi _MSE_PROXY_GIT_SSH_COMMAND_WAS_SET=0
+typeset -g _MSE_PROXY_GIT_SSH_COMMAND_PREVIOUS=""
 export MSE_PROXY_SOCKS_PORT="${MSE_PROXY_SOCKS_PORT:-}"
-export MSE_PROXYCHAINS_CONF="${MSE_PROXYCHAINS_CONF:-${HOME}/.my_shell_envs/tools/proxychains/proxychains.conf}"
+export MSE_PROXYCHAINS_CONF="${MSE_PROXYCHAINS_CONF:-${MSE_REPO_ROOT}/tools/proxychains/proxychains.conf}"
 export MSE_SLURM_NODE_PROXY_AUTO_ENABLE="${MSE_SLURM_NODE_PROXY_AUTO_ENABLE:-true}"
 export MSE_MAMBA_AUTO_ACTIVATE_BASE="${MSE_MAMBA_AUTO_ACTIVATE_BASE:-false}"
 export MSE_PROXY_HOST_LOOKUP_TIMEOUT="${MSE_PROXY_HOST_LOOKUP_TIMEOUT:-2}"
@@ -228,18 +232,87 @@ _mse_proxy_mode_setting() {
             printf '%s\n' "${MSE_PROXY_MODE}"
             ;;
         *)
-            printf '%s\n' "clash"
+            return 1
             ;;
     esac
 }
 
-_mse_clashctl_available() {
+_mse_proxy_require_mode() {
+    _mse_proxy_mode_setting >/dev/null 2>&1 && return 0
+    echo "proxy: unsupported MSE_PROXY_MODE=${MSE_PROXY_MODE}; expected clash or direct-egress"
+    return 1
+}
+
+_mse_proxy_requires_clashctl_runtime() {
+    [[ "${_OS}" == "Linux" ]] || return 1
+    [[ "$(_mse_proxy_mode_setting)" == "clash" ]]
+}
+
+_mse_clashctl_loaded() {
     [[ "${_OS}" == "Linux" ]] || return 1
     type clashctl >/dev/null 2>&1
 }
 
+_mse_clashctl_install_diagnostic() {
+    local bin_dir="${CLASHCTL_BIN_DIR:-${CLASHCTL_HOME:-}/../../bin}"
+    local kernel="${CLASHCTL_KERNEL:-}"
+
+    _mse_clashctl_loaded || {
+        echo "control function is not loaded from ${CLASHCTL_HOME:-<unset>}"
+        return 1
+    }
+    [[ -r "${CLASHCTL_HOME}/state/env" ]] || {
+        echo "state/env is missing; rerun mse deploy and enable clashctl"
+        return 1
+    }
+    case "${kernel}" in
+        mihomo|clash) ;;
+        *)
+            echo "CLASHCTL_KERNEL is not initialized in state/env"
+            return 1
+            ;;
+    esac
+    [[ -x "${bin_dir}/${kernel}" ]] || {
+        echo "kernel is missing or not executable: ${bin_dir}/${kernel}"
+        return 1
+    }
+    [[ -x "${bin_dir}/yq" ]] || {
+        echo "yq is missing or not executable: ${bin_dir}/yq"
+        return 1
+    }
+    [[ -x "${bin_dir}/subconverter/subconverter" ]] || {
+        echo "subconverter is missing or not executable: ${bin_dir}/subconverter/subconverter"
+        return 1
+    }
+}
+
+_mse_clashctl_available() {
+    _mse_clashctl_install_diagnostic >/dev/null 2>&1
+}
+
+_mse_clashctl_runtime_diagnostic() {
+    local runtime_config="${CLASH_CONFIG_RUNTIME:-${CLASHCTL_HOME:-}/state/runtime.yaml}"
+
+    [[ -s "${runtime_config}" ]] || {
+        echo "runtime.yaml is missing; add and select a subscription with clashctl sub add --use <url>"
+        return 1
+    }
+    _mse_clashctl_proxy_port >/dev/null 2>&1 || {
+        echo "runtime.yaml does not define a valid HTTP or mixed proxy port"
+        return 1
+    }
+    _mse_clashctl_socks_port >/dev/null 2>&1 || {
+        echo "runtime.yaml does not define a valid SOCKS or mixed proxy port"
+        return 1
+    }
+}
+
+_mse_clashctl_runtime_ready() {
+    _mse_clashctl_runtime_diagnostic >/dev/null 2>&1
+}
+
 _mse_clashctl_proxy_port() {
-    local runtime_config="${CLASH_CONFIG_RUNTIME:-${CLASHCTL_HOME:-}/resources/runtime.yaml}"
+    local runtime_config="${CLASH_CONFIG_RUNTIME:-${CLASHCTL_HOME:-}/state/runtime.yaml}"
     local port=""
 
     [[ -r "${runtime_config}" ]] || return 1
@@ -268,14 +341,14 @@ _mse_clashctl_proxy_port() {
 }
 
 _mse_clashctl_socks_port() {
-    local runtime_config="${CLASH_CONFIG_RUNTIME:-${CLASHCTL_HOME:-}/resources/runtime.yaml}"
+    local runtime_config="${CLASH_CONFIG_RUNTIME:-${CLASHCTL_HOME:-}/state/runtime.yaml}"
     local port=""
 
     [[ -r "${runtime_config}" ]] || return 1
     if [[ -n "${BIN_YQ:-}" && -x "${BIN_YQ}" ]]; then
-        port="$("${BIN_YQ}" '.["socks-port"] // .["mixed-port"] // .port // ""' "${runtime_config}" 2>/dev/null)"
+        port="$("${BIN_YQ}" '.["socks-port"] // .["mixed-port"] // ""' "${runtime_config}" 2>/dev/null)"
     elif command -v yq >/dev/null 2>&1; then
-        port="$(yq '.["socks-port"] // .["mixed-port"] // .port // ""' "${runtime_config}" 2>/dev/null)"
+        port="$(yq '.["socks-port"] // .["mixed-port"] // ""' "${runtime_config}" 2>/dev/null)"
     else
         port="$(awk -F: '
             /^(socks-port|mixed-port|port):/ {
@@ -287,7 +360,6 @@ _mse_clashctl_socks_port() {
             END {
                 if (values["socks-port"] != "") print values["socks-port"]
                 else if (values["mixed-port"] != "") print values["mixed-port"]
-                else if (values["port"] != "") print values["port"]
             }
         ' "${runtime_config}" 2>/dev/null)"
     fi
@@ -298,7 +370,7 @@ _mse_clashctl_socks_port() {
 }
 
 _mse_clashctl_auth() {
-    local runtime_config="${CLASH_CONFIG_RUNTIME:-${CLASHCTL_HOME:-}/resources/runtime.yaml}"
+    local runtime_config="${CLASH_CONFIG_RUNTIME:-${CLASHCTL_HOME:-}/state/runtime.yaml}"
     local auth=""
 
     [[ -r "${runtime_config}" ]] || return 1
@@ -319,36 +391,18 @@ _mse_proxy_sync_clashctl_ports() {
     local proxy_port=""
     local socks_port=""
 
-    [[ "$(_mse_proxy_mode_setting)" == "clash" ]] || return 1
-    _mse_clashctl_available || return 1
+    _mse_proxy_requires_clashctl_runtime || return 1
+    unset MSE_PROXY_PORT MSE_PROXY_SOCKS_PORT
+    _mse_clashctl_runtime_ready || return 1
 
     proxy_port="$(_mse_clashctl_proxy_port 2>/dev/null || true)"
     socks_port="$(_mse_clashctl_socks_port 2>/dev/null || true)"
-    if [[ -z "${MSE_PROXY_PORT:-}" && -n "${proxy_port}" ]]; then
-        export MSE_PROXY_PORT="${proxy_port}"
-    fi
-    if [[ -z "${MSE_PROXY_SOCKS_PORT:-}" && -n "${socks_port}" ]]; then
-        export MSE_PROXY_SOCKS_PORT="${socks_port}"
-    fi
-    [[ -n "${proxy_port}" || -n "${socks_port}" ]]
-}
-
-_mse_proxy_validate_clashctl_proxy_port() {
-    local clashctl_port=""
-
-    [[ "$(_mse_proxy_mode_setting)" == "clash" ]] || return 0
-    _mse_clashctl_available || return 0
-
-    clashctl_port="$(_mse_clashctl_proxy_port 2>/dev/null || true)"
-    if [[ -n "${clashctl_port}" && -n "${MSE_PROXY_PORT:-}" && "${clashctl_port}" != "${MSE_PROXY_PORT}" ]]; then
-        echo "proxy.on: clashctl proxy port is ${clashctl_port}, but MSE_PROXY_PORT is ${MSE_PROXY_PORT}"
-        echo "proxy.on: set MSE_PROXY_PORT=${clashctl_port} in ~/.zprofile, or change clashctl mixin.yaml to ${MSE_PROXY_PORT}"
-        return 1
-    fi
+    [[ -n "${proxy_port}" && -n "${socks_port}" ]] || return 1
+    export MSE_PROXY_PORT="${proxy_port}"
+    export MSE_PROXY_SOCKS_PORT="${socks_port}"
 }
 
 _mse_proxy_sync_clashctl_ports 2>/dev/null || true
-export MSE_PROXY_SOCKS_PORT="${MSE_PROXY_SOCKS_PORT:-${MSE_PROXY_PORT}}"
 
 _mse_proxy_default_no_proxy() {
     printf '%s\n' "localhost,127.0.0.1,::1"
@@ -359,8 +413,8 @@ _mse_proxy_require_port() {
         return 0
     fi
     echo "proxy: MSE_PROXY_PORT is not set"
-    if [[ "${_OS}" == "Linux" ]]; then
-        echo "proxy: run mse deploy with the clashctl step, or set MSE_PROXY_PORT in ~/.zprofile"
+    if _mse_proxy_requires_clashctl_runtime; then
+        echo "proxy: Linux clash mode requires valid HTTP and SOCKS ports in clashctl runtime.yaml"
     else
         echo "proxy: set the HTTP port exposed by Clash/Surge in ~/.zprofile"
     fi
@@ -368,11 +422,17 @@ _mse_proxy_require_port() {
 }
 
 _mse_proxy_socks_port() {
+    local socks_port=""
+
     if [[ "$(_mse_proxy_mode_setting)" == "direct-egress" ]]; then
-        printf '%s\n' "${MSE_PROXY_PORT}"
+        socks_port="${MSE_PROXY_PORT:-}"
+    elif _mse_proxy_requires_clashctl_runtime; then
+        socks_port="${MSE_PROXY_SOCKS_PORT:-}"
     else
-        printf '%s\n' "${MSE_PROXY_SOCKS_PORT:-${MSE_PROXY_PORT}}"
+        socks_port="${MSE_PROXY_SOCKS_PORT:-${MSE_PROXY_PORT:-}}"
     fi
+    [[ -n "${socks_port}" ]] || return 1
+    printf '%s\n' "${socks_port}"
 }
 
 _mse_proxy_auth_prefix() {
@@ -453,14 +513,31 @@ _mse_proxy_uses_clashctl_backend() {
 }
 
 _mse_proxy_requires_clashctl_backend() {
-    [[ "${_OS}" == "Linux" ]] || return 1
+    _mse_proxy_requires_clashctl_runtime || return 1
     ! _mse_proxy_is_compute_node
 }
 
 _mse_proxy_require_clashctl_backend() {
+    local diagnostic=""
+
     _mse_proxy_requires_clashctl_backend || return 0
-    _mse_clashctl_available && return 0
-    echo "proxy: native Linux direct/login nodes require the repository clashctl backend; run mse deploy with the clashctl step"
+    if diagnostic="$(_mse_clashctl_install_diagnostic 2>&1)"; then
+        return 0
+    fi
+    echo "proxy: native Linux direct/login nodes require a ready repository clashctl backend"
+    echo "proxy: ${diagnostic}"
+    return 1
+}
+
+_mse_proxy_require_clashctl_runtime() {
+    local diagnostic=""
+
+    _mse_proxy_requires_clashctl_runtime || return 0
+    if diagnostic="$(_mse_clashctl_runtime_diagnostic 2>&1)"; then
+        return 0
+    fi
+    echo "proxy: clashctl runtime is not ready"
+    echo "proxy: ${diagnostic}"
     return 1
 }
 
@@ -611,7 +688,90 @@ _mse_proxy_tunnel_pattern() {
     if [[ "$(_mse_proxy_mode_setting)" == "direct-egress" ]]; then
         printf 'autossh .* -D 127.0.0.1:%s.* %s' "${MSE_PROXY_PORT}" "${upstream_host}"
     else
-        printf 'autossh .*127.0.0.1:%s:127.0.0.1:%s.* %s' "${MSE_PROXY_PORT}" "${MSE_PROXY_PORT}" "${upstream_host}"
+        printf 'autossh .* -L 127.0.0.1:%s:127.0.0.1:%s.* %s' "${MSE_PROXY_PORT}" "${MSE_PROXY_PORT}" "${upstream_host}"
+    fi
+}
+
+_mse_proxy_tunnel_node_key() {
+    local node_name="${HOST:-}"
+
+    [[ -n "${node_name}" ]] || node_name="$(hostname -s 2>/dev/null || hostname 2>/dev/null || true)"
+    [[ -n "${node_name}" ]] || node_name="unknown"
+    printf '%s\n' "${node_name//[^A-Za-z0-9_.-]/_}"
+}
+
+_mse_proxy_tunnel_marker() {
+    printf 'mse-proxy-%s\n' "$(_mse_proxy_tunnel_node_key)"
+}
+
+_mse_proxy_tunnel_state_dir() {
+    printf '%s\n' "${CLASHCTL_HOME:-${MSE_REPO_ROOT}/tools/clashctl}/state/proxy-tunnels"
+}
+
+_mse_proxy_tunnel_pid_file() {
+    printf '%s/%s.pid\n' "$(_mse_proxy_tunnel_state_dir)" "$(_mse_proxy_tunnel_node_key)"
+}
+
+_mse_proxy_tunnel_command_file() {
+    printf '%s/%s.command\n' "$(_mse_proxy_tunnel_state_dir)" "$(_mse_proxy_tunnel_node_key)"
+}
+
+_mse_proxy_process_cmdline() {
+    local pid="$1"
+    local proc_root="${MSE_PROXY_PROC_ROOT:-/proc}"
+
+    [[ "${pid}" == <-> && -r "${proc_root}/${pid}/cmdline" ]] || return 1
+    tr '\0' ' ' < "${proc_root}/${pid}/cmdline" 2>/dev/null
+}
+
+_mse_proxy_clear_tunnel_state() {
+    command rm -f "$(_mse_proxy_tunnel_pid_file)" "$(_mse_proxy_tunnel_command_file)"
+}
+
+_mse_proxy_state_tunnel_pid() {
+    local pid_file="$(_mse_proxy_tunnel_pid_file)"
+    local command_file="$(_mse_proxy_tunnel_command_file)"
+    local pid=""
+    local saved_command=""
+    local current_command=""
+
+    if [[ ! -r "${pid_file}" || ! -r "${command_file}" ]]; then
+        _mse_proxy_clear_tunnel_state
+        return 1
+    fi
+    IFS= read -r pid < "${pid_file}" 2>/dev/null || pid=""
+    IFS= read -r saved_command < "${command_file}" 2>/dev/null || saved_command=""
+    current_command="$(_mse_proxy_process_cmdline "${pid}" 2>/dev/null || true)"
+    if [[ "${pid}" == <-> \
+        && -n "${saved_command}" \
+        && "${current_command}" == "${saved_command}" \
+        && "${current_command}" == *"HostKeyAlias=$(_mse_proxy_tunnel_marker)"* ]]; then
+        printf '%s\n' "${pid}"
+        return 0
+    fi
+    _mse_proxy_clear_tunnel_state
+    return 1
+}
+
+_mse_proxy_record_tunnel_state() {
+    local pid="$1"
+    local state_dir="$(_mse_proxy_tunnel_state_dir)"
+    local pid_file="$(_mse_proxy_tunnel_pid_file)"
+    local command_file="$(_mse_proxy_tunnel_command_file)"
+    local pid_temp="${pid_file}.tmp.$$"
+    local command_temp="${command_file}.tmp.$$"
+    local current_command=""
+
+    current_command="$(_mse_proxy_process_cmdline "${pid}" 2>/dev/null || true)"
+    [[ -n "${current_command}" && "${current_command}" == *"HostKeyAlias=$(_mse_proxy_tunnel_marker)"* ]] || return 1
+    mkdir -p "${state_dir}" || return 1
+    if ! printf '%s\n' "${pid}" > "${pid_temp}" \
+        || ! printf '%s\n' "${current_command}" > "${command_temp}" \
+        || ! command mv -f "${command_temp}" "${command_file}" \
+        || ! command mv -f "${pid_temp}" "${pid_file}"; then
+        command rm -f "${pid_temp}" "${command_temp}"
+        _mse_proxy_clear_tunnel_state
+        return 1
     fi
 }
 
@@ -619,12 +779,13 @@ _mse_proxy_find_autossh_pids_by_proc() {
     local pattern="$1"
     local timeout_seconds=""
     local start_seconds="${SECONDS:-0}"
+    local proc_root="${MSE_PROXY_PROC_ROOT:-/proc}"
     local proc_dir=""
     local comm=""
     local cmdline=""
 
     timeout_seconds="$(_mse_proxy_timeout_seconds "${MSE_PROXY_PROCESS_LOOKUP_TIMEOUT}" 2)"
-    for proc_dir in /proc/[0-9]*; do
+    for proc_dir in "${proc_root}"/[0-9]*(N); do
         if (( SECONDS - start_seconds >= timeout_seconds )); then
             _mse_proxy_debug_log "autossh process scan timed out after ${timeout_seconds}s"
             return 0
@@ -645,24 +806,64 @@ _mse_proxy_find_autossh_pids_by_proc() {
 
 _mse_proxy_tunnel_pid() {
     local upstream_host="$1"
-    _mse_proxy_find_autossh_pids_by_proc "$(_mse_proxy_tunnel_pattern "${upstream_host}")" 2>/dev/null | head -n 1
+    local pattern="$(_mse_proxy_tunnel_pattern "${upstream_host}")"
+    local pid=""
+    local command_line=""
+
+    pid="$(_mse_proxy_state_tunnel_pid 2>/dev/null || true)"
+    if [[ -n "${pid}" ]]; then
+        command_line="$(_mse_proxy_process_cmdline "${pid}" 2>/dev/null || true)"
+        if [[ "${command_line}" =~ "${pattern}" ]]; then
+            printf '%s\n' "${pid}"
+            return 0
+        fi
+    fi
+    for pid in ${(@f)$(_mse_proxy_find_autossh_pids_by_proc "HostKeyAlias=$(_mse_proxy_tunnel_marker)" 2>/dev/null)}; do
+        command_line="$(_mse_proxy_process_cmdline "${pid}" 2>/dev/null || true)"
+        if [[ "${command_line}" =~ "${pattern}" ]]; then
+            printf '%s\n' "${pid}"
+            return 0
+        fi
+    done
+    return 1
 }
 
 _mse_proxy_all_tunnel_pids() {
-    local proxy_mode=""
+    local state_pid=""
+    local marker="HostKeyAlias=$(_mse_proxy_tunnel_marker)"
+    local legacy_pattern='autossh -M 0 -f -N .*ExitOnForwardFailure=yes.*ServerAliveInterval=30.*ServerAliveCountMax=3.*BatchMode=yes.*ConnectionAttempts=1.*NumberOfPasswordPrompts=0.*StrictHostKeyChecking=no.* (-L 127[.]0[.]0[.]1:[0-9]+:127[.]0[.]0[.]1:[0-9]+|-D 127[.]0[.]0[.]1:[0-9]+)'
 
-    proxy_mode="$(_mse_proxy_mode_setting)"
-    if [[ "${proxy_mode}" == "direct-egress" ]]; then
-        _mse_proxy_find_autossh_pids_by_proc "autossh .* -D 127.0.0.1:${MSE_PROXY_PORT}" 2>/dev/null
-    else
-        _mse_proxy_find_autossh_pids_by_proc "autossh .*127.0.0.1:${MSE_PROXY_PORT}:127.0.0.1:${MSE_PROXY_PORT}" 2>/dev/null
+    state_pid="$(_mse_proxy_state_tunnel_pid 2>/dev/null || true)"
+    {
+        [[ -n "${state_pid}" ]] && printf '%s\n' "${state_pid}"
+        _mse_proxy_find_autossh_pids_by_proc "${marker}" 2>/dev/null
+        # Remove tunnels created by pre-state MSE versions using their full option signature.
+        _mse_proxy_find_autossh_pids_by_proc "${legacy_pattern}" 2>/dev/null
+    } | awk '!seen[$0]++'
+}
+
+_mse_proxy_git_ssh_proxy_command() {
+    local socks_port="$(_mse_proxy_socks_port)"
+    local nc_help=""
+
+    if command -v ncat >/dev/null 2>&1; then
+        printf 'ncat --proxy 127.0.0.1:%s --proxy-type socks5 %%h %%p\n' "${socks_port}"
+        return 0
     fi
+    if command -v nc >/dev/null 2>&1; then
+        nc_help="$(nc -h 2>&1 || true)"
+        if [[ "${nc_help}" == *"-X "* && "${nc_help}" == *"-x "* ]]; then
+            printf 'nc -x 127.0.0.1:%s -X 5 %%h %%p\n' "${socks_port}"
+            return 0
+        fi
+    fi
+    return 1
 }
 
 _mse_proxy_enable_env() {
     local http_url="$(_mse_proxy_http_url)"
     local socks_remote_dns_url="$(_mse_proxy_socks_remote_dns_url)"
-    local socks_port="$(_mse_proxy_socks_port)"
+    local git_proxy_command=""
 
     export https_proxy="${http_url}"
     export http_proxy="${http_url}"
@@ -674,12 +875,20 @@ _mse_proxy_enable_env() {
     export no_proxy="${MSE_PROXY_NO_PROXY:-$(_mse_proxy_default_no_proxy)}"
     export NO_PROXY="${no_proxy}"
 
-    # On compute nodes, SSH can't resolve external hostnames (e.g. ssh.github.com).
-    # Route git SSH through the SOCKS5 proxy via ncat.
-    if _mse_proxy_is_compute_node && command -v ncat >/dev/null 2>&1; then
-        export GIT_SSH_COMMAND="ssh -o ProxyCommand='ncat --proxy 127.0.0.1:${socks_port} --proxy-type socks5 %h %p'"
-        if ! _mse_proxy_is_quiet; then
-            echo -e '\texport \033[1;35mGIT_SSH_COMMAND\033[0m=ssh via SOCKS5 proxy'
+    # SSH ignores HTTP proxy variables, so compute-node Git needs a SOCKS ProxyCommand.
+    if _mse_proxy_is_compute_node; then
+        if git_proxy_command="$(_mse_proxy_git_ssh_proxy_command)"; then
+            if (( ! _MSE_PROXY_GIT_SSH_COMMAND_OWNED )); then
+                _MSE_PROXY_GIT_SSH_COMMAND_WAS_SET=${+GIT_SSH_COMMAND}
+                _MSE_PROXY_GIT_SSH_COMMAND_PREVIOUS="${GIT_SSH_COMMAND:-}"
+            fi
+            export GIT_SSH_COMMAND="ssh -o ProxyCommand='${git_proxy_command}'"
+            _MSE_PROXY_GIT_SSH_COMMAND_OWNED=1
+            if ! _mse_proxy_is_quiet; then
+                echo -e '\texport \033[1;35mGIT_SSH_COMMAND\033[0m=ssh via SOCKS5 proxy'
+            fi
+        elif ! _mse_proxy_is_quiet; then
+            echo "proxy.on: Git SSH proxy unavailable; install ncat or an nc with SOCKS5 -X/-x support"
         fi
     fi
 
@@ -699,7 +908,16 @@ _mse_proxy_disable_env() {
     unset HTTPS_PROXY
     unset HTTP_PROXY
     unset ALL_PROXY
-    unset GIT_SSH_COMMAND
+    if (( _MSE_PROXY_GIT_SSH_COMMAND_OWNED )); then
+        if (( _MSE_PROXY_GIT_SSH_COMMAND_WAS_SET )); then
+            export GIT_SSH_COMMAND="${_MSE_PROXY_GIT_SSH_COMMAND_PREVIOUS}"
+        else
+            unset GIT_SSH_COMMAND
+        fi
+        _MSE_PROXY_GIT_SSH_COMMAND_OWNED=0
+        _MSE_PROXY_GIT_SSH_COMMAND_WAS_SET=0
+        _MSE_PROXY_GIT_SSH_COMMAND_PREVIOUS=""
+    fi
     unset no_proxy
     unset NO_PROXY
 }
@@ -725,6 +943,7 @@ _mse_proxy_start_tunnel() {
     local upstream_host="$1"
     local autossh_bin=""
     local existing_pid=""
+    local started_pid=""
     local proxy_mode=""
     local forward_args=()
 
@@ -738,24 +957,27 @@ _mse_proxy_start_tunnel() {
     existing_pid="$(_mse_proxy_tunnel_pid "${upstream_host}")"
     if [[ -n "${existing_pid}" ]]; then
         if _mse_proxy_required_ports_open && _mse_proxy_probe_local_proxy; then
+            _mse_proxy_stop_all_tunnels "${existing_pid}" || {
+                echo "proxy.on: failed to remove stale MSE tunnels"
+                return 1
+            }
+            _mse_proxy_record_tunnel_state "${existing_pid}" >/dev/null 2>&1 || true
             if ! _mse_proxy_is_quiet; then
                 echo "proxy tunnel already running via ${upstream_host} (pid=${existing_pid})"
             fi
             return 0
         fi
         echo "proxy.on: existing tunnel via ${upstream_host} is unhealthy, restarting"
-        kill "${existing_pid}" >/dev/null 2>&1 || true
-        sleep 1
     fi
 
+    # A compute node owns at most one MSE tunnel. Remove stale and pre-state tunnels first.
+    _mse_proxy_stop_all_tunnels || {
+        echo "proxy.on: failed to remove stale MSE tunnels"
+        return 1
+    }
+
     if _mse_proxy_required_ports_open; then
-        if _mse_proxy_probe_local_proxy; then
-            if ! _mse_proxy_is_quiet; then
-                echo "proxy.on: required local proxy ports are already listening, reusing existing proxy"
-            fi
-            return 0
-        fi
-        echo "proxy.on: required local proxy ports are listening but proxy probe failed"
+        echo "proxy.on: required local proxy ports are occupied by an unmanaged process"
         return 1
     fi
 
@@ -778,6 +1000,8 @@ _mse_proxy_start_tunnel() {
         -o ConnectionAttempts=1 \
         -o NumberOfPasswordPrompts=0 \
         -o StrictHostKeyChecking=no \
+        -o UserKnownHostsFile=/dev/null \
+        -o "HostKeyAlias=$(_mse_proxy_tunnel_marker)" \
         "${forward_args[@]}" \
         "${upstream_host}" || {
             echo "proxy.on: failed to start autossh tunnel via ${upstream_host}"
@@ -785,6 +1009,12 @@ _mse_proxy_start_tunnel() {
         }
 
     sleep 1
+    started_pid="$(_mse_proxy_tunnel_pid "${upstream_host}" 2>/dev/null || true)"
+    if [[ -z "${started_pid}" ]] || ! _mse_proxy_record_tunnel_state "${started_pid}"; then
+        echo "proxy.on: tunnel started but its managed process could not be identified"
+        _mse_proxy_stop_all_tunnels
+        return 1
+    fi
     if ! _mse_proxy_required_ports_open; then
         echo "proxy.on: tunnel start returned but required local proxy ports are still unavailable"
         _mse_proxy_stop_tunnel "${upstream_host}"
@@ -802,28 +1032,38 @@ _mse_proxy_start_tunnel() {
 }
 
 _mse_proxy_stop_tunnel() {
-    local upstream_host="$1"
-    local pids=""
-
-    pids="$(_mse_proxy_find_autossh_pids_by_proc "$(_mse_proxy_tunnel_pattern "${upstream_host}")" 2>/dev/null | tr '\n' ' ')"
-    [[ -n "${pids}" ]] || return 0
-    kill ${=pids} >/dev/null 2>&1 || true
-    sleep 1
-    pids="$(_mse_proxy_find_autossh_pids_by_proc "$(_mse_proxy_tunnel_pattern "${upstream_host}")" 2>/dev/null | tr '\n' ' ')"
-    [[ -n "${pids}" ]] || return 0
-    kill -9 ${=pids} >/dev/null 2>&1 || true
+    _mse_proxy_stop_all_tunnels
 }
 
 _mse_proxy_stop_all_tunnels() {
+    local keep_pid="${1:-}"
     local pids=""
+    local pid=""
+    local remaining=""
+    local stop_rc=0
 
-    pids="$(_mse_proxy_all_tunnel_pids 2>/dev/null | tr '\n' ' ')"
-    [[ -n "${pids}" ]] || return 0
-    kill ${=pids} >/dev/null 2>&1 || true
-    sleep 1
-    pids="$(_mse_proxy_all_tunnel_pids 2>/dev/null | tr '\n' ' ')"
-    [[ -n "${pids}" ]] || return 0
-    kill -9 ${=pids} >/dev/null 2>&1 || true
+    for pid in ${(@f)$(_mse_proxy_all_tunnel_pids 2>/dev/null)}; do
+        [[ -n "${pid}" && "${pid}" != "${keep_pid}" ]] && pids+="${pid} "
+    done
+    if [[ -n "${pids}" ]]; then
+        kill ${=pids} >/dev/null 2>&1 || true
+        sleep 1
+        for pid in ${(@f)$(_mse_proxy_all_tunnel_pids 2>/dev/null)}; do
+            [[ -n "${pid}" && "${pid}" != "${keep_pid}" ]] && remaining+="${pid} "
+        done
+        if [[ -n "${remaining}" ]]; then
+            kill -9 ${=remaining} >/dev/null 2>&1 || true
+            sleep 1
+            remaining="$(_mse_proxy_all_tunnel_pids 2>/dev/null | while IFS= read -r pid; do
+                [[ -n "${pid}" && "${pid}" != "${keep_pid}" ]] && printf '%s ' "${pid}"
+            done)"
+            [[ -z "${remaining}" ]] || stop_rc=1
+        fi
+    fi
+    if [[ -z "${keep_pid}" ]]; then
+        _mse_proxy_clear_tunnel_state
+    fi
+    return "${stop_rc}"
 }
 
 _mse_proxy_mode() {
@@ -843,10 +1083,15 @@ _func_proxy_on() {
     local proxy_mode=""
     typeset -a upstream_candidates=()
 
+    _mse_proxy_require_mode || return 1
     mode="$(_mse_proxy_mode)"
     proxy_mode="$(_mse_proxy_mode_setting)"
 
     if [[ "${mode}" == "compute" ]]; then
+        if [[ "${proxy_mode}" == "clash" ]]; then
+            _mse_proxy_require_clashctl_runtime || return 1
+            _mse_proxy_sync_clashctl_ports || return 1
+        fi
         _mse_proxy_require_port || return 1
         upstream_candidates=("${(@f)$(_mse_proxy_upstream_candidates 2>/dev/null)}")
         [[ ${#upstream_candidates[@]} -gt 0 ]] || {
@@ -883,25 +1128,22 @@ _func_proxy_on() {
             echo "proxy mode: ${proxy_mode}"
             echo "proxy node role: direct"
         fi
-        if [[ "${proxy_mode}" == "direct-egress" && "${_OS}" != "Linux" ]]; then
-            echo "proxy.on: direct-egress mode is mainly for compute nodes borrowing the login node network"
+        if [[ "${proxy_mode}" == "direct-egress" ]]; then
+            echo "proxy.on: direct-egress is only supported on Slurm compute nodes"
             return 1
         fi
         if _mse_proxy_uses_clashctl_backend; then
-            if [[ "${proxy_mode}" == "direct-egress" ]]; then
-                echo "proxy.on: native Linux direct/login nodes require clashctl; direct-egress is only for Slurm compute nodes"
-                return 1
-            fi
             _mse_proxy_require_clashctl_backend || return 1
-            _mse_proxy_validate_clashctl_proxy_port || return
+            _mse_proxy_require_clashctl_runtime || return 1
+            _mse_proxy_sync_clashctl_ports || return 1
             _mse_proxy_alias_log "proxy.on: linux backend -> clashctl on"
             clashctl on || return
-            _mse_proxy_sync_clashctl_ports 2>/dev/null || true
-            _mse_proxy_validate_clashctl_proxy_port || return
+            _mse_proxy_sync_clashctl_ports || return 1
         fi
         _mse_proxy_require_port || return 1
         if ! _mse_proxy_required_ports_open; then
-            echo "proxy.on: warning: required local proxy ports are not all listening yet"
+            echo "proxy.on: required local proxy ports are not all listening"
+            return 1
         fi
     fi
 
@@ -912,6 +1154,7 @@ _func_proxy_off() {
     local mode=""
     local proxy_mode=""
     local clashctl_rc=0
+    local tunnel_rc=0
 
     mode="$(_mse_proxy_mode)"
     proxy_mode="$(_mse_proxy_mode_setting)"
@@ -929,17 +1172,16 @@ _func_proxy_off() {
     fi
 
     _mse_proxy_disable_env
-    git config --global --unset https.proxy 2>/dev/null
-    git config --global --unset http.proxy 2>/dev/null
 
     if [[ "${mode}" == "compute" ]]; then
         if ! _mse_proxy_is_quiet; then
             echo "proxy.off: stopping autossh tunnels for compute node"
         fi
-        _mse_proxy_stop_all_tunnels
+        _mse_proxy_stop_all_tunnels || tunnel_rc=$?
     fi
 
-    return "${clashctl_rc}"
+    (( clashctl_rc != 0 )) && return "${clashctl_rc}"
+    return "${tunnel_rc}"
 }
 
 _func_proxy_status() {
@@ -949,6 +1191,10 @@ _func_proxy_status() {
     local proxy_mode=""
     local runtime_conf=""
 
+    _mse_proxy_require_mode || return 1
+    if _mse_proxy_requires_clashctl_runtime; then
+        _mse_proxy_sync_clashctl_ports >/dev/null 2>&1 || true
+    fi
     mode="$(_mse_proxy_mode)"
     proxy_mode="$(_mse_proxy_mode_setting)"
     runtime_conf="$(_mse_proxy_runtime_proxychains_conf 2>/dev/null || echo '<unavailable: MSE_PROXY_PORT unset>')"
@@ -963,21 +1209,31 @@ _func_proxy_status() {
     echo "proxychains conf: ${runtime_conf}"
     if _mse_proxy_requires_clashctl_backend; then
         echo "proxy backend: clashctl (required)"
-        if _mse_clashctl_available; then
-            echo "clashctl: available"
+        if _mse_clashctl_runtime_ready; then
+            echo "clashctl: ready"
             echo "proxy alias on: clashctl on + mse env sync"
             echo "proxy alias off: clashctl off -e + mse env cleanup"
             echo "clashctl proxy port: $(_mse_clashctl_proxy_port 2>/dev/null || echo '<unknown>')"
             echo "clashctl socks port: $(_mse_clashctl_socks_port 2>/dev/null || echo '<unknown>')"
             echo "== clashctl status =="
             clashctl status 2>/dev/null || true
+        elif _mse_clashctl_available; then
+            echo "clashctl: installed, runtime not ready"
+            echo "clashctl issue: $(_mse_clashctl_runtime_diagnostic 2>&1 || true)"
         else
-            echo "clashctl: <unavailable> (required; run mse deploy with the clashctl step)"
+            echo "clashctl: not ready"
+            echo "clashctl issue: $(_mse_clashctl_install_diagnostic 2>&1 || true)"
         fi
     elif [[ "$(_mse_proxy_mode_setting)" == "clash" && "${_OS}" != "Linux" ]]; then
         echo "proxy backend: external client"
     elif [[ "$(_mse_proxy_mode_setting)" == "clash" ]]; then
         echo "proxy backend: autossh -> upstream Clash"
+        if _mse_clashctl_runtime_ready; then
+            echo "clashctl runtime: ready (shared ports only)"
+        else
+            echo "clashctl runtime: unavailable"
+            echo "clashctl runtime issue: $(_mse_clashctl_runtime_diagnostic 2>&1 || true)"
+        fi
         echo "proxy alias on: compute tunnel via upstream proxy"
         echo "proxy alias off: clear env + stop compute tunnel"
     fi
@@ -1030,7 +1286,11 @@ _func_proxy_test() {
         echo "proxy.test: curl not found"
         return 1
     }
-    _mse_proxy_require_clashctl_backend || return 1
+    _mse_proxy_require_mode || return 1
+    _mse_proxy_require_clashctl_runtime || return 1
+    if _mse_proxy_requires_clashctl_runtime; then
+        _mse_proxy_sync_clashctl_ports || return 1
+    fi
     _mse_proxy_require_port || return 1
     runtime_conf="$(_mse_proxy_runtime_proxychains_conf)"
     proxy_mode="$(_mse_proxy_mode_setting)"
@@ -1092,7 +1352,11 @@ _func_proxy_exec() {
     local proxychains_bin=""
     local runtime_conf=""
 
-    _mse_proxy_require_clashctl_backend || return 1
+    _mse_proxy_require_mode || return 1
+    _mse_proxy_require_clashctl_runtime || return 1
+    if _mse_proxy_requires_clashctl_runtime; then
+        _mse_proxy_sync_clashctl_ports || return 1
+    fi
     proxychains_bin="$(_mse_proxy_proxychains_bin)"
     _mse_proxy_require_port || return 1
     runtime_conf="$(_mse_proxy_runtime_proxychains_conf)"
@@ -1149,14 +1413,20 @@ _mse_proxy_auto_init() {
             ;;
     esac
 
+    if ! _mse_proxy_require_mode; then
+        return 0
+    fi
+
     if [[ -n "${http_proxy:-}" || -n "${https_proxy:-}" || -n "${all_proxy:-}" ]]; then
         _mse_proxy_print_shell_hint
         return 0
     fi
 
     if [[ -z "${MSE_PROXY_PORT:-}" ]]; then
-        if [[ "${_OS}" == "Linux" ]]; then
-            echo -e '\tproxy: \033[1;33moff\033[0m | MSE_PROXY_PORT=<unset> | run \033[1;35mmse deploy\033[0m or set it in \033[1;35m~/.zprofile\033[0m'
+        if _mse_proxy_requires_clashctl_runtime; then
+            echo -e '\tproxy: \033[1;33moff\033[0m | clashctl runtime ports unavailable | run \033[1;35mmse deploy\033[0m and configure a subscription'
+        elif [[ "$(_mse_proxy_mode_setting)" == "direct-egress" ]]; then
+            echo -e '\tproxy: \033[1;33moff\033[0m | set the direct-egress SOCKS port as \033[1;35mMSE_PROXY_PORT\033[0m in \033[1;35m~/.zprofile\033[0m'
         else
             echo -e '\tproxy: \033[1;33moff\033[0m | set Clash/Surge HTTP port as \033[1;35mMSE_PROXY_PORT\033[0m in \033[1;35m~/.zprofile\033[0m'
         fi

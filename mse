@@ -17,7 +17,7 @@ resolve_script_path() {
     printf '%s/%s\n' "$source_dir" "$(basename "$source_path")"
 }
 
-SCRIPT_PATH="$(resolve_script_path "$0")"
+SCRIPT_PATH="$(resolve_script_path "${MSE_SCRIPT_PATH_OVERRIDE:-$0}")"
 SCRIPT_DIR="$(CDPATH= cd -- "$(dirname "$SCRIPT_PATH")" && pwd)"
 REPO_PATH="$SCRIPT_DIR"
 BIN_PATH="$REPO_PATH/bin"
@@ -1018,20 +1018,32 @@ choose_steps() {
     fi
 
     print_section "interactive step selection"
-    log_info "press y to enable a step, press Enter to skip it"
+    log_info "press y to enable a step, press Enter to use its default"
     for step in $AVAILABLE_STEPS; do
         if ! step_supported_on_platform "$step"; then
             continue
         fi
         step_no=$((step_no + 1))
-        printf '  %s %-2s %-12b %s [y/N]: ' "$(badge "$COLOR_BLUE" "STEP")" "$step_no" "$(fmt_step "$step")" "$(describe_step "$step")"
+        if [ "$step" = "clashctl" ]; then
+            printf '  %s %-2s %-12b %s [Y/n]: ' "$(badge "$COLOR_BLUE" "STEP")" "$step_no" "$(fmt_step "$step")" "$(describe_step "$step")"
+        else
+            printf '  %s %-2s %-12b %s [y/N]: ' "$(badge "$COLOR_BLUE" "STEP")" "$step_no" "$(fmt_step "$step")" "$(describe_step "$step")"
+        fi
         read answer
         case "$answer" in
             y|Y|yes|YES)
                 append_selected_step "$step"
                 log_ok "enabled step: $step"
                 ;;
-            ""|n|N|no|NO)
+            "")
+                if [ "$step" = "clashctl" ]; then
+                    append_selected_step "$step"
+                    log_ok "enabled step by default: $step"
+                else
+                    log_warn "skipped step: $step"
+                fi
+                ;;
+            n|N|no|NO)
                 log_warn "skipped step: $step"
                 ;;
             *)
@@ -1967,4 +1979,6 @@ main() {
     esac
 }
 
-main "$@"
+if [ "${MSE_TEST_SOURCE_ONLY:-0}" != "1" ]; then
+    main "$@"
+fi

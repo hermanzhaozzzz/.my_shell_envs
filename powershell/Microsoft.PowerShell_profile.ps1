@@ -181,6 +181,7 @@ function Ensure-ScoopPackage([string]$CommandName, [string]$PackageName, [string
 }
 
 function Set-GitProxyIfPossible {
+    # TODO: replace this bootstrap-only global Git mutation with unified proxy.* ownership tracking.
     if (-not $script:MseBootstrapMode) {
         return
     }
@@ -494,7 +495,6 @@ function ssh-copy-id([string]$userAtMachine, $args){
 
 # https://zhuanlan.zhihu.com/p/537991323
 # https://zhuanlan.zhihu.com/p/137251716
-
 
 
 

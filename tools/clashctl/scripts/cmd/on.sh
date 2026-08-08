@@ -19,6 +19,7 @@ clashon() {
 }
 
 on_env_only() {
+    clashctl_require_runtime_ready || return 1
     service_is_active >&/dev/null || {
         _failcat "$CLASHCTL_KERNEL 未运行，请使用 clashctl on 开启代理环境"
         return 1
@@ -28,14 +29,31 @@ on_env_only() {
 }
 
 on_service_only() {
-    service_is_active >&/dev/null && {
-        _okcat "$CLASHCTL_KERNEL 已运行"
-        return 0
+    clashctl_require_runtime_ready || return 1
+    _valid_config "$CLASH_CONFIG_RUNTIME" || {
+        _failcat "$CLASHCTL_KERNEL 配置校验失败"
+        return 1
     }
-    _detect_proxy_port
-    service_start
+    service_is_active >&/dev/null && {
+        clashctl_wait_proxy_ports 10 && {
+            _okcat "$CLASHCTL_KERNEL 已运行"
+            return 0
+        }
+        _failcat "$CLASHCTL_KERNEL 进程存在，但代理端口未就绪"
+        return 1
+    }
+    _detect_proxy_port || return 1
+    service_start || {
+        _failcat "$CLASHCTL_KERNEL 启动失败"
+        return 1
+    }
     service_is_active >&/dev/null || {
         _failcat "$CLASHCTL_KERNEL 启动失败"
+        return 1
+    }
+    clashctl_wait_proxy_ports 50 || {
+        _failcat "$CLASHCTL_KERNEL 已启动，但代理端口在 5 秒内未就绪"
+        service_stop >/dev/null 2>&1 || true
         return 1
     }
     _okcat "$CLASHCTL_KERNEL 已启动"

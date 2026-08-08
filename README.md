@@ -186,8 +186,6 @@ export MSE_ZSH_PLUGINS="git z zsh-syntax-highlighting zsh-autosuggestions"
 export MSE_MAMBA_AUTO_ACTIVATE_BASE=false
 export MSE_SLURM_NODE_PROXY_AUTO_ENABLE=false
 export MSE_PROXY_MODE=clash
-# 如果原生 Linux 已加载 clashctl，通常不需要手动设置 MSE_PROXY_PORT
-export MSE_PROXY_PORT=<proxy-http-port>
 ```
 
 变量说明：
@@ -197,7 +195,7 @@ export MSE_PROXY_PORT=<proxy-http-port>
 - `MSE_MAMBA_AUTO_ACTIVATE_BASE=true|false`：是否在新 shell 中自动 `micromamba activate base`
 - `MSE_SLURM_NODE_PROXY_AUTO_ENABLE=true|false`：是否在 Slurm 计算节点加载 `zshrc` 时自动尝试启用代理
 - `MSE_PROXY_MODE=clash|direct-egress`：代理工作模式；默认 `clash`。`direct-egress` 只用于 Slurm compute 节点，原生 Linux direct/login 节点强制由仓库内 `clashctl` 管理
-- `MSE_PROXY_PORT=<port>`：代理 HTTP 端口；原生 Linux + `clashctl` 会自动从 `runtime.yaml` 读取，手动 export 时优先级最高
+- `MSE_PROXY_PORT=<port>`：macOS、WSL、Windows 外部代理客户端的 HTTP 端口，或 compute-only `direct-egress` 的本地 SOCKS 端口；Linux `clash` 模式忽略环境值，只读 `runtime.yaml`
 - `MSE_PROXY_HOST=<host>`：默认 `127.0.0.1`
 - `MSE_PROXY_DIRECT_HOSTS="<host1> <host2>"`：额外按 login/direct 处理的主机名
 - `MSE_PROXY_UPSTREAM_HOST=<host>`：在计算节点无法自动推断上游 login 节点时手动指定
@@ -220,9 +218,6 @@ export MSE_SLURM_NODE_PROXY_AUTO_ENABLE=false
 # 代理模式：原生 Linux login/direct 固定使用 clashctl；direct-egress 仅供 Slurm compute 节点
 export MSE_PROXY_MODE=clash
 
-# login 节点上的代理 HTTP 端口；如果 zshrc 能读取 clashctl runtime.yaml，可省略
-export MSE_PROXY_PORT=<proxy-http-port>
-
 # 这些主机按 login/direct 处理
 export MSE_PROXY_DIRECT_HOSTS="c55b01n08"
 ```
@@ -233,7 +228,7 @@ export MSE_PROXY_DIRECT_HOSTS="c55b01n08"
 export MSE_PROXY_PORT=<clash-for-windows-http-port>
 ```
 
-当前仓库里，WSL 和其它平台统一通过 `MSE_PROXY_PORT` 控制代理端口。
+WSL、macOS 和 Windows 通过 `MSE_PROXY_PORT` 指向外部代理客户端；原生 Linux `clash` 模式不使用这个配置入口。
 
 ## 主要功能
 
@@ -290,7 +285,7 @@ Linux 上可选启用 `sqtop` step。它会通过 `cargo install sqtop` 安装�
 - `proxy.test`
 - `proxy.exec`
 
-`mse deploy --fast` 默认会启用这个 step。`mse deploy --interactive` 只决定是否安装这些工具，不再询问或保存代理端口。代理端口只来自两处：当前 shell / `~/.zprofile` 里的环境变量，或 `clashctl` 的 `runtime.yaml`。
+`mse deploy --fast` 默认会启用这个 step。原生 Linux 的 `mse deploy --interactive` 会以 `[Y/n]` 询问是否部署 `clashctl`，按 Enter 默认启用；明确选择 `n` 后仍可完成其它部署，但 Linux `clash` 模式的 `proxy.*` 会直接失败。interactive 不询问或保存代理端口；Linux `clash` 模式的 HTTP/SOCKS 端口唯一来自 `clashctl` 的 `runtime.yaml`。
 
 ### 中国用户
 
@@ -298,7 +293,7 @@ Linux 上可选启用 `sqtop` step。它会通过 `cargo install sqtop` 安装�
 
 - login 节点本身能联网
 - login 节点上已经打开 Clash
-- 你知道 Clash 正在监听哪个端口
+- `clashctl runtime.yaml` 中同时存在有效的 HTTP 和 SOCKS 端口
 
 仓库只负责把请求接到 login 节点上的 Clash。`baidu`、`google`、`gpt`、`claude` 这些请求最后怎么走，全部由 Clash 的规则决定；这个仓库不负责流量分流。
 
@@ -329,11 +324,7 @@ proxy.on
 
 macOS 不安装或控制 `clashctl`。本仓库只根据 `MSE_PROXY_HOST`、`MSE_PROXY_PORT` 和 `MSE_PROXY_SOCKS_PORT` 设置当前 shell 的代理变量，Clash、Surge 等客户端继续由系统侧管理。Windows 和 WSL 同样使用外部代理客户端提供的端口。
 
-`clashctl` 的 HTTP 端口必须和 `MSE_PROXY_PORT` 一致，Slurm compute 节点反代才会接到正确的 login 节点端口。原生 Linux 上，`zsh/zshrc` 会优先从 `clashctl` 的 `runtime.yaml` 自动读取 HTTP 端口和 SOCKS 端口；如果你在 `~/.zprofile` 里显式 export `MSE_PROXY_PORT` / `MSE_PROXY_SOCKS_PORT`，则以环境变量为准。
-
-```shell
-export MSE_PROXY_PORT=<clash-http-port>
-```
+原生 Linux `clash` 模式下，`zsh/zshrc` 会从 `clashctl` 的 `runtime.yaml` 分别读取 HTTP 和 SOCKS 端口，并无条件覆盖同名环境变量。runtime 缺失、端口不完整或不可读时，`proxy.*` 直接失败，不使用手工端口。Slurm compute 节点读取共享仓库里的同一份 runtime，只把本地对应端口转发到 login 节点，不执行 `clashctl on/off`。
 
 常用命令：
 
@@ -353,15 +344,11 @@ clashctl ui       # 查看 Web 面板地址
 - compute 节点：`proxy.on` / `proxy.off` 仍然负责 autossh 隧道，不直接控制 Clash 服务
 - `proxy.status` 保留仓库状态信息，并在 direct/login 节点附带 `clashctl status`
 
+MSE 不读写全局 Git 代理配置。compute 节点的 `proxy.on` 只在当前 shell 临时设置 `GIT_SSH_COMMAND`；`proxy.off` 会恢复原值，而不是无条件删除用户已有配置。
+
 `clashctl` 只负责在原生 Linux login/direct 节点上管理 Clash 本身；`proxy.on` / `proxy.off` / `proxy.status` 负责把当前 shell 或 compute 节点的流量接到这个 Clash 端口。Slurm compute 节点不会执行 `clashctl on/off`，仍然只管理到 login 节点的 autossh 隧道。
 
-如果 `proxy.on` 提示 `clashctl proxy port is <port>, but MSE_PROXY_PORT is <other-port>`，优先在 `~/.zprofile` 里把 `MSE_PROXY_PORT` 改成 `clashctl` 正在监听的 HTTP 端口，或者修改 `clashctl` 的 `mixin.yaml` 让它监听你想使用的端口。Windows、WSL 和 macOS 不会自动加载 `clashctl`。
-
-如果你想强制覆盖 `clashctl` 的端口探测结果，就在 `~/.zprofile` 里写；这只改变端口，不会替换 Linux 上必须使用的 `clashctl` 后端：
-
-```shell
-export MSE_PROXY_PORT=<clash-http-port>
-```
+不要在原生 Linux `clash` 模式下配置 `MSE_PROXY_PORT` 或 `MSE_PROXY_SOCKS_PORT`；需要改变端口时修改 clashctl 配置并重新生成 runtime。Windows、WSL 和 macOS 不会自动加载 `clashctl`，仍由外部客户端端口驱动。
 
 最短例子：
 
@@ -387,7 +374,7 @@ proxy.off
 proxy.test
 ```
 
-`proxy.test` 会依次测试 `baidu.com`、`google.com.hk`、`api.openai.com`、`api.anthropic.com`、`z.ai`，每个 URL 显示 OK 或 FAIL：
+`proxy.test` 会依次测试 `baidu.com`、`google.com.hk`、`api.openai.com`、`api.anthropic.com`，每个 URL 显示 OK 或 FAIL：
 
 ```text
 == curl via env proxy ==
@@ -395,7 +382,6 @@ proxy.test
   OK              google.com.hk (HTTP 200)
   OK              openai (HTTP 421)
   OK              claude (HTTP 403)
-  OK              z.ai (HTTP 307)
 ```
 
 流量路径是：
@@ -476,11 +462,7 @@ proxy.exec claude
 # 代理模式：clash（Linux direct/login 由 clashctl 管理）或 compute-only direct-egress
 export MSE_PROXY_MODE=clash
 
-# login / compute 共用的 HTTP 代理端口；clashctl 可用时可省略
-export MSE_PROXY_PORT=<proxy-http-port>
-
-# SOCKS 代理端口；clashctl 可用时会自动读取，不需要手动设置
-export MSE_PROXY_SOCKS_PORT=<clash-socks-port>
+# Linux clash 模式不配置端口；HTTP/SOCKS 都从 clashctl runtime.yaml 读取
 
 # 本地代理 host
 export MSE_PROXY_HOST=127.0.0.1
@@ -535,6 +517,8 @@ compute 节点上的 `proxy.on` 现在不再只看本地端口是否在监听，
 
 反查 `SSH_CONNECTION` / `SSH_CLIENT` 时会受 `MSE_PROXY_HOST_LOOKUP_TIMEOUT` 限制；查找旧 autossh 隧道时会直接读取 `/proc`，并受 `MSE_PROXY_PROCESS_LOOKUP_TIMEOUT` 限制；启动 autossh 隧道时会受 `MSE_PROXY_SSH_CONNECT_TIMEOUT` 限制，并使用非交互 SSH，避免 compute 节点登录时因为上游不可达、进程枚举异常或密码提示卡在 zsh 启动阶段。
 
+每个 compute 主机的 MSE 隧道 PID 和完整命令记录在仓库内 Git 忽略的 `tools/clashctl/state/proxy-tunnels`。`proxy.on` 启动前与 `proxy.off` 关闭时都会清理当前主机的 stale state、旧端口隧道和旧版 MSE 隧道；匹配不到 MSE 完整特征的其它 autossh/SSH 隧道不会被处理。
+
 如果这些候选都不对，建议在 `~/.zprofile` 里显式设置正确的 login 主机：
 
 ```shell
@@ -546,8 +530,8 @@ export MSE_PROXY_UPSTREAM_HOST=login05
 补充说明：
 
 - 代理端口不再由 `.mse-install.env` 接管
-- 原生 Linux + `clashctl` 会自动读取 HTTP 和 SOCKS 端口
-- `~/.zprofile` 里的 `MSE_PROXY_PORT` / `MSE_PROXY_SOCKS_PORT` 会覆盖自动读取结果
+- 原生 Linux `clash` 模式只读取 `clashctl runtime.yaml` 的 HTTP 和 SOCKS 端口；环境端口会被覆盖，runtime 不完整则失败
+- Slurm compute 的 `clash` 模式消费共享 runtime 并管理本机 MSE autossh 状态，不调用 `clashctl on/off`
 - WSL 如果走 Clash for Windows，就在 `~/.zprofile` 里把 `MSE_PROXY_PORT` 设成 Clash for Windows 的 HTTP 端口
 - Windows PowerShell profile 会读取 `MSE_PROXY_PORT`，未设置时使用 PowerShell profile 自己的默认值
 - `MSE_PROXY_DIRECT_HOSTS` 用空格分隔多个主机名
@@ -597,13 +581,20 @@ export MSE_SLURM_NODE_PROXY_AUTO_ENABLE=false
 
 ### compute 节点上的 git
 
-compute 节点 DNS 无法解析外网域名（如 `ssh.github.com`），SSH 不走 `http_proxy`。`proxy.on` 会在 compute 节点自动设置 `GIT_SSH_COMMAND`，通过 SOCKS5 代理路由 git SSH 流量，`git push` / `git pull` 可以直接使用。
+compute 节点 DNS 无法解析外网域名（如 `ssh.github.com`），SSH 不走 `http_proxy`。`proxy.on` 会在 compute 节点自动设置 `GIT_SSH_COMMAND`，通过 SOCKS5 代理路由 git SSH 流量，`git push` / `git pull` 可以直接使用。它优先使用 `ncat`，没有 `ncat` 时会检测并使用支持 `-X 5 -x` 的 OpenBSD `nc`。
 
 如果你还想把这套 SSH 代理能力扩展到不止 `git` 的其它 SSH 命令，可以在自己的 `~/.ssh/config` 里额外放一个 Host 段，例如：
 
 ```sshconfig
 Host github.com ssh.github.com
     ProxyCommand ncat --proxy 127.0.0.1:<clash-socks-port> --proxy-type socks5 %h %p
+```
+
+只有 OpenBSD `nc` 时，对应写法是：
+
+```sshconfig
+Host github.com ssh.github.com
+    ProxyCommand nc -x 127.0.0.1:<clash-socks-port> -X 5 %h %p
 ```
 
 这样 `ssh` 本身也会直接走 SOCKS5，而不是只靠 `GIT_SSH_COMMAND` 给 git 单独兜底。
@@ -615,6 +606,14 @@ Host github.com ssh.github.com
 - 换新节点后，要重新进入节点，再重新执行 `proxy.on`
 - Go 程序（如 `frp-panel`）绕过 libc 做 DNS，`proxychains` 无法拦截；compute 节点上需要用 IP 替代域名
 - 如果你希望“几乎所有程序都无脑可用”，那已经不是 shell 环境变量层面能彻底解决的问题，而是需要 TUN / 透明代理，或者集群管理员直接提供可用 DNS
+
+## 测试
+
+仓库自带的 shell 单元测试不需要真实订阅、Mihomo 服务或外网，会使用临时目录验证 deploy 选择、端口同步、Slurm 角色分流和 clashctl 生命周期：
+
+```shell
+./tests/run.sh
+```
 
 ## 贡献
 

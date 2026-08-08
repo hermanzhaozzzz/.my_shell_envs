@@ -389,24 +389,18 @@ export EDITOR="nvim"
 export PAGER="less"
 export MSE_MAMBA_AUTO_ACTIVATE_BASE=false
 export MSE_SLURM_NODE_PROXY_AUTO_ENABLE=false
-# Optional when zshrc can read clashctl runtime.yaml on native Linux.
-export MSE_PROXY_PORT=<proxy-http-port>
 # Optional on Slurm compute nodes.
 export MSE_PROXY_UPSTREAM_HOST=<login-host>
 export MSE_PROXY_PROCESS_LOOKUP_TIMEOUT=2
 ```
 
-Proxy commands are provided by the repo `zsh/zshrc`. Keep machine-specific proxy settings as variables in `~/.zprofile`, for example:
+Proxy commands are provided by the repo `zsh/zshrc`. On native Linux in `clash` mode, do not configure `MSE_PROXY_PORT` or `MSE_PROXY_SOCKS_PORT`: both values come exclusively from the repository clashctl `runtime.yaml`, and any environment values are overwritten. A missing or incomplete runtime is an error. Interactive deploy presents `clashctl` as `[Y/n]`, enabled by default; an explicit `n` completes the other deploy steps but leaves Linux `clash` mode unavailable. The native Linux clashctl step installs executables in the repository `bin` and keeps mutable data in Git-ignored `tools/clashctl/state` and `tools/clashctl/cache`. Legacy `$HOME/clashctl` installs are not loaded.
 
-```shell
-export MSE_PROXY_PORT=<proxy-http-port>
-```
-
-Proxy ports are no longer controlled by `.mse-install.env`. On native Linux, direct/login `proxy.*` commands require the repository `clashctl` backend and read its `runtime.yaml` (an explicit port variable may override the detected port). The native Linux `clashctl` deploy step uses `~/.my_shell_envs/tools/clashctl`, installs executables in `~/.my_shell_envs/bin`, and keeps mutable runtime data in Git-ignored `tools/clashctl/state` and `tools/clashctl/cache` directories. Legacy `$HOME/clashctl` installs are not loaded.
-
-macOS, Windows, and WSL do not install or control `clashctl`; they only point `proxy.*` at the ports exposed by Clash, Surge, or another external client. Slurm compute nodes remain the exception on Linux: they use autossh tunnels and do not execute `clashctl on/off`.
+macOS, Windows, and WSL do not install or control `clashctl`; they only point `proxy.*` at the ports exposed by Clash, Surge, or another external client. Linux Slurm compute nodes read the shared clashctl runtime and forward those exact ports to the login node with an MSE-managed autossh tunnel; they never execute `clashctl on/off`. The separate compute-only `direct-egress` mode still takes an explicit local SOCKS port because it does not use Clash.
 
 On Slurm compute nodes, `zshrc` tries upstream hosts in this order: `MSE_PROXY_UPSTREAM_HOST`, `SLURM_SUBMIT_HOST`, reverse lookup from `SSH_CONNECTION` / `SSH_CLIENT`, then `MSE_PROXY_DIRECT_HOSTS`. Host lookup is capped by `MSE_PROXY_HOST_LOOKUP_TIMEOUT`; autossh process lookup reads `/proc` directly and is capped by `MSE_PROXY_PROCESS_LOOKUP_TIMEOUT`; the autossh connection is capped by `MSE_PROXY_SSH_CONNECT_TIMEOUT` with non-interactive SSH. A bad upstream or a slow process table should fail quickly instead of blocking shell startup. Set `MSE_PROXY_DEBUG=1` before running `proxy.on` if you need to inspect upstream detection.
+
+MSE stores one host-specific tunnel PID and full command record under the Git-ignored `tools/clashctl/state/proxy-tunnels`. `proxy.on` and `proxy.off` remove stale state, old-port tunnels, and tunnels created by pre-state MSE versions while leaving autossh/SSH processes that do not match the complete MSE signature untouched.
 
 Some compute nodes can hang before reaching user dotfiles because the system login bash reads `/etc/profile` first. In interactive zsh, the repo wraps only bare `ssh -p 32985 cXXbYYnZZ` Slurm compute-node logins and runs remote `zsh -l` directly. SSH calls with an explicit remote command are left unchanged.
 
@@ -522,6 +516,14 @@ If you select `code_notify` during macOS deployment, MSE will:
 - turn notifications on
 
 You can skip this step in interactive mode. It is automatically ignored on Windows / Linux.
+
+## Tests
+
+The shell unit tests do not require a real subscription, Mihomo service, or external network. They use temporary directories to cover deploy selection, port synchronization, Slurm role routing, and the clashctl lifecycle:
+
+```shell
+./tests/run.sh
+```
 
 ## Contributing
 

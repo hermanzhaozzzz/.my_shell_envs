@@ -29,6 +29,82 @@ _is_root() {
     [ "$(id -u)" -eq 0 ]
 }
 
+clashctl_require_install_ready() {
+    [ -r "${CLASH_RESOURCES_DIR}/env" ] || {
+        _failcat "clashctl 尚未部署：${CLASH_RESOURCES_DIR}/env 不存在"
+        return 1
+    }
+    case "${CLASHCTL_KERNEL:-}" in
+    mihomo | clash) ;;
+    *)
+        _failcat "clashctl 尚未部署：state/env 中缺少有效的 CLASHCTL_KERNEL"
+        return 1
+        ;;
+    esac
+    [ -x "$BIN_KERNEL" ] || {
+        _failcat "clashctl 内核不存在或不可执行：$BIN_KERNEL"
+        return 1
+    }
+    [ -x "$BIN_YQ" ] || {
+        _failcat "clashctl yq 不存在或不可执行：$BIN_YQ"
+        return 1
+    }
+    [ -x "$BIN_SUBCONVERTER" ] || {
+        _failcat "clashctl subconverter 不存在或不可执行：$BIN_SUBCONVERTER"
+        return 1
+    }
+}
+
+clashctl_runtime_ports() {
+    local mixed_port http_port socks_port
+
+    [ -s "$CLASH_CONFIG_RUNTIME" ] || return 1
+    IFS='|' read -r mixed_port http_port socks_port < <(
+        "$BIN_YQ" '[.mixed-port // "", .port // "", .socks-port // ""] | join("|")' "$CLASH_CONFIG_RUNTIME" 2>/dev/null
+    ) || return 1
+    http_port=${http_port:-$mixed_port}
+    socks_port=${socks_port:-$mixed_port}
+    case "$http_port" in "" | *[!0-9]*) return 1 ;; esac
+    case "$socks_port" in "" | *[!0-9]*) return 1 ;; esac
+    printf '%s|%s\n' "$http_port" "$socks_port"
+}
+
+clashctl_require_runtime_ready() {
+    clashctl_require_install_ready || return 1
+    [ -s "$CLASH_CONFIG_RUNTIME" ] || {
+        _failcat "clashctl runtime.yaml 不存在，请先执行 clashctl sub add --use <url>"
+        return 1
+    }
+    clashctl_runtime_ports >/dev/null || {
+        _failcat "clashctl runtime.yaml 缺少有效的 HTTP/mixed 和 SOCKS/mixed 端口"
+        return 1
+    }
+}
+
+_clashctl_tcp_port_open() {
+    command bash -c 'exec 3<>"/dev/tcp/$1/$2"' _ "${1:-127.0.0.1}" "$2" >/dev/null 2>&1
+}
+
+clashctl_proxy_ports_ready() {
+    local http_port socks_port
+
+    IFS='|' read -r http_port socks_port < <(clashctl_runtime_ports) || return 1
+    _clashctl_tcp_port_open 127.0.0.1 "$http_port" || return 1
+    [ "$socks_port" = "$http_port" ] || _clashctl_tcp_port_open 127.0.0.1 "$socks_port"
+}
+
+clashctl_wait_proxy_ports() {
+    local attempts=${1:-50}
+
+    while [ "$attempts" -gt 0 ]; do
+        clashctl_proxy_ports_ready && return 0
+        service_is_active >/dev/null 2>&1 || return 1
+        sleep 0.1
+        attempts=$((attempts - 1))
+    done
+    return 1
+}
+
 _get_random_port() {
     local fail_count=0
     while [ "$fail_count" -lt 100 ]; do

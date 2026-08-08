@@ -4,6 +4,82 @@ service_manager=
 service_log_path=
 service_pid_path=
 
+service_pid_read() {
+    local pid=""
+
+    detect_service_manager
+    [ -r "$service_pid_path" ] || return 1
+    IFS= read -r pid <"$service_pid_path" || return 1
+    case "$pid" in "" | *[!0-9]*) return 1 ;; esac
+    printf '%s\n' "$pid"
+}
+
+service_pid_matches() {
+    local pid="$1"
+    local cmdline=""
+
+    case "$pid" in "" | *[!0-9]*) return 1 ;; esac
+    if [ -r "/proc/$pid/cmdline" ]; then
+        tr '\0' '\n' <"/proc/$pid/cmdline" 2>/dev/null | grep -Fqx -- "$BIN_KERNEL"
+        return $?
+    fi
+    cmdline=$(ps -p "$pid" -o args= 2>/dev/null) || return 1
+    case " $cmdline " in
+    *" $BIN_KERNEL "*) return 0 ;;
+    *) return 1 ;;
+    esac
+}
+
+service_write_pid() {
+    local pid="$1"
+    local temp_path="${service_pid_path}.$$"
+
+    printf '%s\n' "$pid" >"$temp_path" || return 1
+    mv -f "$temp_path" "$service_pid_path"
+}
+
+service_wait_active() {
+    local attempts=${1:-30}
+
+    while [ "$attempts" -gt 0 ]; do
+        service_is_active && return 0
+        sleep 0.1
+        attempts=$((attempts - 1))
+    done
+    return 1
+}
+
+service_wait_inactive() {
+    local pid="$1"
+    local attempts=${2:-30}
+
+    while [ "$attempts" -gt 0 ]; do
+        service_pid_matches "$pid" || return 0
+        sleep 0.1
+        attempts=$((attempts - 1))
+    done
+    return 1
+}
+
+service_terminate_started_pid() {
+    local pid="$1"
+    local use_sudo="${2:-false}"
+
+    service_pid_matches "$pid" || return 0
+    if [ "$use_sudo" = "true" ]; then
+        sudo kill -TERM "$pid" 2>/dev/null || true
+    else
+        kill -TERM "$pid" 2>/dev/null || true
+    fi
+    service_wait_inactive "$pid" 10 && return 0
+    if [ "$use_sudo" = "true" ]; then
+        sudo kill -KILL "$pid" 2>/dev/null || true
+    else
+        kill -KILL "$pid" 2>/dev/null || true
+    fi
+    service_wait_inactive "$pid" 10
+}
+
 detect_service_manager() {
     [ -n "$service_manager" ] && return 0
     [ -z "$INIT_TYPE" ] && INIT_TYPE=$(readlink /proc/1/exe 2>/dev/null || echo "nohup")
@@ -57,27 +133,77 @@ service_start() {
         sv up "$CLASHCTL_KERNEL"
         ;;
     nohup | *)
-        (
-            nohup "$BIN_KERNEL" -d "$CLASH_RESOURCES_DIR" -f "$CLASH_CONFIG_RUNTIME" </dev/null >"$service_log_path" 2>&1 &
-        )
+        local pid=""
+        service_is_active && return 0
+        rm -f "$service_pid_path"
+        nohup "$BIN_KERNEL" -d "$CLASH_RESOURCES_DIR" -f "$CLASH_CONFIG_RUNTIME" </dev/null >"$service_log_path" 2>&1 &
+        pid=$!
+        service_write_pid "$pid" || {
+            service_terminate_started_pid "$pid" >/dev/null 2>&1 || true
+            return 1
+        }
+        service_wait_active || {
+            service_terminate_started_pid "$pid" >/dev/null 2>&1 || true
+            rm -f "$service_pid_path"
+            return 1
+        }
         ;;
     esac
 }
 
 service_sudo_start() {
+    local owner="$(id -u):$(id -g)"
+
     _is_root && service_start && return 0
     detect_service_manager
-    (
-        sudo sh -c "nohup '$BIN_KERNEL' -d '$CLASH_RESOURCES_DIR' -f '$CLASH_CONFIG_RUNTIME' </dev/null > '$service_log_path' 2>&1 &"
+    sudo sh -c '
+        nohup "$1" -d "$2" -f "$3" </dev/null >"$4" 2>&1 &
+        child_pid=$!
+        temp_pid_path="$5.$$"
+        if ! printf "%s\n" "$child_pid" >"$temp_pid_path" || ! mv -f "$temp_pid_path" "$5"; then
+            rm -f "$temp_pid_path"
+            kill -TERM "$child_pid" 2>/dev/null || true
+            sleep 1
+            kill -KILL "$child_pid" 2>/dev/null || true
+            exit 1
+        fi
+    ' sh "$BIN_KERNEL" "$CLASH_RESOURCES_DIR" "$CLASH_CONFIG_RUNTIME" "$service_log_path" "$service_pid_path" || {
         stty opost 2>/dev/null
-    )
+        return 1
+    }
+    sudo chown "$owner" "$service_pid_path" 2>/dev/null || true
+    service_wait_active || {
+        local pid=""
+        pid=$(service_pid_read 2>/dev/null || true)
+        [ -n "$pid" ] && service_terminate_started_pid "$pid" true >/dev/null 2>&1 || true
+        rm -f "$service_pid_path"
+        stty opost 2>/dev/null
+        return 1
+    }
+    stty opost 2>/dev/null
 }
 
 service_sudo_stop() {
+    local pid=""
+
     _is_root && service_stop && return 0
-    sudo pkill -TERM -x "$CLASHCTL_KERNEL" 2>/dev/null
-    sleep 0.2
-    sudo pkill -KILL -x "$CLASHCTL_KERNEL" 2>/dev/null
+    pid=$(service_pid_read) || return 0
+    service_pid_matches "$pid" || {
+        rm -f "$service_pid_path"
+        return 0
+    }
+    sudo kill -TERM "$pid" 2>/dev/null || {
+        service_pid_matches "$pid" || {
+            rm -f "$service_pid_path"
+            return 0
+        }
+        return 1
+    }
+    service_wait_inactive "$pid" 30 || {
+        sudo kill -KILL "$pid" 2>/dev/null || return 1
+        service_wait_inactive "$pid" 10 || return 1
+    }
+    rm -f "$service_pid_path"
     stty opost 2>/dev/null
 }
 
@@ -97,9 +223,27 @@ service_stop() {
         sv down "$CLASHCTL_KERNEL"
         ;;
     nohup | *)
-        pkill -TERM -x "$CLASHCTL_KERNEL" 2>/dev/null
-        sleep 0.2
-        pkill -KILL -x "$CLASHCTL_KERNEL" 2>/dev/null
+        local pid=""
+        pid=$(service_pid_read) || {
+            rm -f "$service_pid_path"
+            return 0
+        }
+        service_pid_matches "$pid" || {
+            rm -f "$service_pid_path"
+            return 0
+        }
+        kill -TERM "$pid" 2>/dev/null || {
+            service_pid_matches "$pid" || {
+                rm -f "$service_pid_path"
+                return 0
+            }
+            return 1
+        }
+        service_wait_inactive "$pid" 30 || {
+            kill -KILL "$pid" 2>/dev/null || return 1
+            service_wait_inactive "$pid" 10 || return 1
+        }
+        rm -f "$service_pid_path"
         ;;
     esac
 }
@@ -143,7 +287,10 @@ service_status() {
         sv status "$CLASHCTL_KERNEL" "$@"
         ;;
     nohup | *)
-        pgrep -fa "$BIN_KERNEL"
+        local pid=""
+        pid=$(service_pid_read) || return 1
+        service_pid_matches "$pid" || return 1
+        ps -p "$pid" -o pid=,args=
         ;;
     esac
 }
@@ -164,7 +311,9 @@ service_is_active() {
         sv status "$CLASHCTL_KERNEL" 2>/dev/null | grep -qs '^run'
         ;;
     nohup | *)
-        pgrep -fa "$BIN_KERNEL" >/dev/null 2>&1
+        local pid=""
+        pid=$(service_pid_read) || return 1
+        service_pid_matches "$pid"
         ;;
     esac
 }

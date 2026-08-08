@@ -113,10 +113,40 @@ test_restart_replaces_the_managed_process() {
     service_pid_matches "$new_pid" || fail_test "new managed process must be active after restart"
 }
 
+test_existing_exact_process_is_adopted() {
+    [ -d /proc ] || return 0
+    setup_service_fixture
+    trap 'service_stop >/dev/null 2>&1 || true; rm -rf "$SERVICE_TMP"' EXIT
+    write_long_running_kernel
+    "$BIN_KERNEL" -d "$CLASH_RESOURCES_DIR" -f "$CLASH_CONFIG_RUNTIME" &
+    local existing_pid=$!
+    detect_service_manager
+    rm -f "$service_pid_path"
+    service_is_active || fail_test "an exact pre-pidfile MSE process must be adopted"
+    assert_file_contains "$service_pid_path" "$existing_pid" "adopted process must be recorded in the pidfile"
+    service_stop || fail_test "an adopted MSE process must be stoppable"
+    service_pid_matches "$existing_pid" && fail_test "adopted process must stop cleanly"
+}
+
+test_process_with_wrong_runtime_is_not_adopted() {
+    [ -d /proc ] || return 0
+    setup_service_fixture
+    trap 'command kill "${wrong_pid:-0}" >/dev/null 2>&1 || true; wait "${wrong_pid:-0}" 2>/dev/null || true; rm -rf "$SERVICE_TMP"' EXIT
+    write_long_running_kernel
+    "$BIN_KERNEL" -d "$CLASH_RESOURCES_DIR" -f "$SERVICE_TMP/other-runtime.yaml" &
+    wrong_pid=$!
+    detect_service_manager
+    rm -f "$service_pid_path"
+    service_is_active && fail_test "a process using another runtime must not be adopted"
+    command kill -0 "$wrong_pid" >/dev/null 2>&1 || fail_test "unmanaged process must remain alive"
+}
+
 run_test "nohup service uses a precise pidfile lifecycle" test_start_active_stop_pidfile_lifecycle
 run_test "stale pidfile is rejected and cleaned" test_stale_pidfile_is_cleaned
 run_test "unrelated same-name process is not killed" test_unrelated_process_is_not_killed
 run_test "active check works without signal permission" test_active_check_does_not_require_signal_permission
 run_test "running process without ports is rejected" test_running_process_without_ports_is_not_ready
 run_test "restart replaces the managed process" test_restart_replaces_the_managed_process
+run_test "exact legacy process is adopted" test_existing_exact_process_is_adopted
+run_test "wrong-runtime process is not adopted" test_process_with_wrong_runtime_is_not_adopted
 finish_tests

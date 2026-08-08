@@ -30,6 +30,69 @@ service_pid_matches() {
     esac
 }
 
+service_pid_matches_managed_config() {
+    local pid="$1"
+    local arg=""
+    local cmdline=""
+    local resources_match=false
+    local runtime_match=false
+
+    service_pid_matches "$pid" || return 1
+    if [ -r "/proc/$pid/cmdline" ]; then
+        while IFS= read -r -d '' arg; do
+            [ "$arg" = "$CLASH_RESOURCES_DIR" ] && resources_match=true
+            [ "$arg" = "$CLASH_CONFIG_RUNTIME" ] && runtime_match=true
+        done <"/proc/$pid/cmdline"
+    else
+        cmdline=$(ps -p "$pid" -o args= 2>/dev/null) || return 1
+        case " $cmdline " in *" $CLASH_RESOURCES_DIR "*) resources_match=true ;; esac
+        case " $cmdline " in *" $CLASH_CONFIG_RUNTIME "*) runtime_match=true ;; esac
+    fi
+    [ "$resources_match" = true ] && [ "$runtime_match" = true ]
+}
+
+service_find_managed_pid() {
+    local proc_dir=""
+    local pid=""
+    local found_pid=""
+
+    # clashctl is Linux-only. /proc keeps this migration exact and bounded;
+    # avoid fuzzy process-list parsing where argv boundaries are unavailable.
+    [ -d /proc ] || return 1
+    for proc_dir in /proc/[0-9]*; do
+        [ -d "$proc_dir" ] || continue
+        pid=${proc_dir##*/}
+        service_pid_matches_managed_config "$pid" || continue
+        # More than one exact MSE process is ambiguous. Refuse to adopt one
+        # arbitrarily, so callers cannot start a third instance or kill the
+        # wrong process.
+        [ -z "$found_pid" ] || return 2
+        found_pid=$pid
+    done
+    [ -n "$found_pid" ] || return 1
+    printf '%s\n' "$found_pid"
+}
+
+service_resolve_managed_pid() {
+    local pid=""
+    local find_status=0
+
+    detect_service_manager
+    pid=$(service_pid_read 2>/dev/null || true)
+    if [ -n "$pid" ] && service_pid_matches_managed_config "$pid"; then
+        printf '%s\n' "$pid"
+        return 0
+    fi
+    rm -f "$service_pid_path"
+
+    pid=$(service_find_managed_pid) || {
+        find_status=$?
+        return "$find_status"
+    }
+    service_write_pid "$pid" || return 1
+    printf '%s\n' "$pid"
+}
+
 service_write_pid() {
     local pid="$1"
     local temp_path="${service_pid_path}.$$"
@@ -134,7 +197,11 @@ service_start() {
         ;;
     nohup | *)
         local pid=""
-        service_is_active && return 0
+        local active_status=0
+        service_is_active
+        active_status=$?
+        [ "$active_status" -eq 0 ] && return 0
+        [ "$active_status" -eq 2 ] && return 1
         rm -f "$service_pid_path"
         pid=$(
             nohup "$BIN_KERNEL" -d "$CLASH_RESOURCES_DIR" -f "$CLASH_CONFIG_RUNTIME" </dev/null >"$service_log_path" 2>&1 &
@@ -188,12 +255,13 @@ service_sudo_start() {
 
 service_sudo_stop() {
     local pid=""
+    local resolve_status=0
 
     _is_root && service_stop && return 0
-    pid=$(service_pid_read) || return 0
-    service_pid_matches "$pid" || {
-        rm -f "$service_pid_path"
-        return 0
+    pid=$(service_resolve_managed_pid) || {
+        resolve_status=$?
+        [ "$resolve_status" -eq 1 ] && return 0
+        return "$resolve_status"
     }
     sudo kill -TERM "$pid" 2>/dev/null || {
         service_pid_matches "$pid" || {
@@ -227,13 +295,11 @@ service_stop() {
         ;;
     nohup | *)
         local pid=""
-        pid=$(service_pid_read) || {
-            rm -f "$service_pid_path"
-            return 0
-        }
-        service_pid_matches "$pid" || {
-            rm -f "$service_pid_path"
-            return 0
+        local resolve_status=0
+        pid=$(service_resolve_managed_pid) || {
+            resolve_status=$?
+            [ "$resolve_status" -eq 1 ] && return 0
+            return "$resolve_status"
         }
         kill -TERM "$pid" 2>/dev/null || {
             service_pid_matches "$pid" || {
@@ -292,8 +358,7 @@ service_status() {
         ;;
     nohup | *)
         local pid=""
-        pid=$(service_pid_read) || return 1
-        service_pid_matches "$pid" || return 1
+        pid=$(service_resolve_managed_pid) || return $?
         ps -p "$pid" -o pid=,args=
         ;;
     esac
@@ -316,8 +381,8 @@ service_is_active() {
         ;;
     nohup | *)
         local pid=""
-        pid=$(service_pid_read) || return 1
-        service_pid_matches "$pid"
+        pid=$(service_resolve_managed_pid) || return $?
+        service_pid_matches_managed_config "$pid"
         ;;
     esac
 }

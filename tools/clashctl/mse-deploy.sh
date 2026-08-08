@@ -5,6 +5,7 @@ set -e
 CLASHCTL_SRC="$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 CLASHCTL_HOME="${CLASHCTL_SRC}"
 CLASHCTL_KERNEL="${MSE_CLASHCTL_KERNEL:-mihomo}"
+CLASHCTL_SUB_UA="${MSE_CLASHCTL_SUB_UA:-clash-verge/v2.3.1}"
 CLASHCTL_BIN_DIR="${CLASHCTL_HOME}/../../bin"
 CLASHCTL_STATE_DIR="${CLASHCTL_HOME}/state"
 CLASHCTL_CACHE_DIR="${CLASHCTL_HOME}/cache"
@@ -45,7 +46,8 @@ install -m 644 "${CLASHCTL_SRC}/resources/geosite.dat" "${CLASHCTL_STATE_DIR}/ge
 [ -f "${CLASHCTL_STATE_DIR}/profiles.yaml" ] || \
     install -m 644 "${CLASHCTL_SRC}/resources/profiles.yaml" "${CLASHCTL_STATE_DIR}/profiles.yaml"
 [ -f "${CLASHCTL_STATE_DIR}/config.yaml" ] || : > "${CLASHCTL_STATE_DIR}/config.yaml"
-printf 'CLASHCTL_KERNEL=%s\nINIT_TYPE=nohup\n' "${CLASHCTL_KERNEL}" > "${CLASHCTL_STATE_DIR}/env"
+printf 'CLASHCTL_KERNEL=%s\nINIT_TYPE=nohup\nCLASHCTL_SUB_UA=%s\n' \
+    "${CLASHCTL_KERNEL}" "${CLASHCTL_SUB_UA}" > "${CLASHCTL_STATE_DIR}/env"
 
 prepare_zip
 

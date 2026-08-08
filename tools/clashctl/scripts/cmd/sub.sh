@@ -94,7 +94,18 @@ EOF
     }
 
     local existing_id
-    existing_id=$(_get_id_by_url "$url") && { _errorcat "该订阅链接已存在：[$existing_id] $url"; return 1; }
+    existing_id=$(_get_id_by_url "$url") && {
+        [ "$use_after_add" = true ] || {
+            _errorcat "该订阅链接已存在：[$existing_id] $url"
+            return 1
+        }
+        _okcat '✈️ ' "订阅已存在，更新并使用：[$existing_id]"
+        _sub_update "$existing_id" || return
+        local current_id
+        current_id=$("$BIN_YQ" '.use // "" | tostring' "$CLASH_PROFILES_META")
+        [ "$current_id" = "$existing_id" ] || _sub_use "$existing_id"
+        return
+    }
 
     _download_config "$CLASH_CONFIG_TEMP" "$url"
     _valid_config "$CLASH_CONFIG_TEMP" || {
@@ -133,14 +144,34 @@ _sub_del() {
         [ -z "$id" ] && { _errorcat "订阅 id 不能为空"; return 1; }
     }
 
-    local profile_path url use
+    local profile_path url use deleting_active=false
     profile_path=$(_get_path_by_id "$id") || _errorcat "订阅 id 不存在，请检查" || return
     url=$(_get_url_by_id "$id")
     use=$("$BIN_YQ" '.use // "" | tostring' "$CLASH_PROFILES_META")
-    [ "$use" = "$id" ] && { _errorcat "删除失败：订阅 $id 正在使用中，请先切换订阅"; return 1; }
 
-    /usr/bin/rm -f "$profile_path"
-    PROFILE_ID=$id "$BIN_YQ" -i 'del(.profiles[] | select((.id | tostring) == env(PROFILE_ID)))' "$CLASH_PROFILES_META"
+    if [ "$use" = "$id" ]; then
+        deleting_active=true
+        service_stop || {
+            _errorcat "删除失败：无法停止当前代理服务"
+            return 1
+        }
+        service_is_active >/dev/null 2>&1 && {
+            _errorcat "删除失败：当前代理服务仍在运行"
+            return 1
+        }
+        unset_system_proxy
+    fi
+
+    if [ "$deleting_active" = true ]; then
+        PROFILE_ID=$id "$BIN_YQ" -i '
+          .use = null |
+          del(.profiles[] | select((.id | tostring) == env(PROFILE_ID)))
+        ' "$CLASH_PROFILES_META" || return 1
+        /bin/rm -f "$CLASH_CONFIG_BASE" "$CLASH_CONFIG_RUNTIME" "$CLASH_CONFIG_TEMP"
+    else
+        PROFILE_ID=$id "$BIN_YQ" -i 'del(.profiles[] | select((.id | tostring) == env(PROFILE_ID)))' "$CLASH_PROFILES_META" || return 1
+    fi
+    /bin/rm -f "$profile_path"
     _logging_sub "➖ 已删除订阅：[$id] $url"
     _okcat '🎉' "订阅已删除：[$id] $url"
 }

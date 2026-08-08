@@ -322,6 +322,10 @@ clashctl sub add --use '<subscription-url>'
 proxy.on
 ```
 
+`clashctl add '<subscription-url>'` 是“添加并立即使用”的快捷命令；同一 URL 已存在时会安全更新现有订阅。`clashctl del <id>` 可删除当前订阅，删除前会停止 Mihomo 并清理 runtime，不保留旧端口或配置 fallback。
+
+订阅下载默认使用 `clash-verge/v2.3.1` User-Agent，以便服务商下发 AnyTLS 等现代 Mihomo 协议。deploy 会把该值写入 `tools/clashctl/state/env`；如服务商有特殊要求，可在部署时设置 `MSE_CLASHCTL_SUB_UA` 覆盖它。
+
 macOS 不安装或控制 `clashctl`。本仓库只根据 `MSE_PROXY_HOST`、`MSE_PROXY_PORT` 和 `MSE_PROXY_SOCKS_PORT` 设置当前 shell 的代理变量，Clash、Surge 等客户端继续由系统侧管理。Windows 和 WSL 同样使用外部代理客户端提供的端口。
 
 原生 Linux `clash` 模式下，`zsh/zshrc` 会从 `clashctl` 的 `runtime.yaml` 分别读取 HTTP 和 SOCKS 端口，并无条件覆盖同名环境变量。runtime 缺失、端口不完整或不可读时，`proxy.*` 直接失败，不使用手工端口。Slurm compute 节点读取共享仓库里的同一份 runtime，只把本地对应端口转发到 login 节点，不执行 `clashctl on/off`。

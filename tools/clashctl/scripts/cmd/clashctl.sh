@@ -19,6 +19,18 @@ clashctl() {
 
     case $sub_cmd in
     -h | --help | help) sub_cmd=help ;;
+    add)
+        clashsub add --use "$@"
+        return
+        ;;
+    del | delete)
+        clashsub del "$@"
+        return
+        ;;
+    ls | list | use | update)
+        clashsub "$sub_cmd" "$@"
+        return
+        ;;
     esac
 
     local target="clash${sub_cmd}"

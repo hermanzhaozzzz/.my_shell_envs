@@ -11,6 +11,11 @@ Commands:
   off                   关闭代理
   status                内核状态
   ui                    面板地址
+  add <url>             添加并立即使用订阅
+  del <id>              删除订阅（可删除当前订阅）
+  ls                    查看订阅
+  use <id>              切换订阅
+  update [id]           更新订阅
   sub                   订阅管理
   tun                   Tun 模式
   mixin                 Mixin 配置

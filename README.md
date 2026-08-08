@@ -318,6 +318,8 @@ Linux 上可选启用 `sqtop` step。它会通过 `cargo install sqtop` 安装�
 
 deploy 不读取或兼容 `$HOME/clashctl` 等旧安装路径，也不会覆盖已经生成的 state。
 
+如果 `~/.my_shell_envs` 本身是指向共享文件系统的符号链接或逻辑路径，clashctl 会先解析为同一个物理仓库路径，再派生 binary、state 与 pid 身份，避免同一 Mihomo 被逻辑路径和物理路径误判为两个服务。
+
 Linux deploy 会先完成 clashctl，再执行需要 GitHub/Rust 网络的公共安装。已有有效 runtime 时，deploy 会先自动启用它，再更新 clashctl 程序并把代理用于后续步骤；本地安装归档完整时也可以离线重装。真正的首次部署既没有 runtime、没有完整归档、又无法直连外网时，交互模式会在任何下载之前暂停，提示你临时打开当前终端可用的外网；非交互模式会立即停止。clashctl 安装完成后，如果仍无订阅且无法访问外网，交互模式会再提示你在另一终端执行仓库 `bin/clashctl add '<subscription-url>'`。这两道预检都不会悄悄回退到其它 Linux 代理实现。
 
 首次部署完成后添加订阅：

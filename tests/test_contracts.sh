@@ -37,8 +37,24 @@ test_clashctl_has_a_cron_safe_repo_wrapper() {
     assert_file_contains "$REPO_ROOT/tools/clashctl/scripts/cmd/sub.sh" '"${BIN_BASE_DIR}/clashctl" "$CLASHCTL_CRON_TAG"'
 }
 
+test_clashctl_canonicalizes_repo_identity() {
+    local fixture=""
+    local expected_home=""
+    fixture="$(mktemp -d "${TMPDIR:-/tmp}/mse-clash-home.XXXXXX")" || return 1
+    export CLASH_HOME_FIXTURE="$fixture"
+    trap 'rm -rf "$CLASH_HOME_FIXTURE"' EXIT
+    ln -s "$REPO_ROOT/tools/clashctl" "$fixture/clashctl-link"
+    CLASHCTL_HOME="$fixture/clashctl-link"
+    # shellcheck disable=SC1090
+    . "$CLASHCTL_HOME/scripts/cmd/clashctl.sh"
+    expected_home="$(CDPATH= cd -- "$REPO_ROOT/tools/clashctl" && pwd -P)"
+    assert_eq "$expected_home" "$CLASHCTL_HOME" \
+        "clashctl must canonicalize a symlinked repository path before deriving pid identity"
+}
+
 run_test "proxy.test documentation matches implementation" test_proxy_test_docs_match_code
 run_test "Windows unified proxy work remains marked TODO" test_windows_proxy_todo_is_explicit
 run_test "deploy bootstrap and cleanup ordering is safe" test_deploy_orders_bootstrap_and_cleanup_safely
 run_test "clashctl has a cron-safe repo wrapper" test_clashctl_has_a_cron_safe_repo_wrapper
+run_test "clashctl canonicalizes repository identity" test_clashctl_canonicalizes_repo_identity
 finish_tests

@@ -1,5 +1,12 @@
 #!/usr/bin/env bash
 
+_CLASHCTL_RESOLVED_HOME="$(CDPATH= cd -- "$CLASHCTL_HOME" && pwd -P)" || {
+    printf 'clashctl: cannot resolve CLASHCTL_HOME: %s\n' "$CLASHCTL_HOME" >&2
+    return 1 2>/dev/null || exit 1
+}
+export CLASHCTL_HOME="$_CLASHCTL_RESOLVED_HOME"
+unset _CLASHCTL_RESOLVED_HOME
+
 . "$CLASHCTL_HOME"/.env
 [ -f "$CLASHCTL_HOME/state/env" ] && . "$CLASHCTL_HOME/state/env"
 

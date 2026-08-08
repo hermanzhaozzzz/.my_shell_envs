@@ -133,6 +133,7 @@ test_existing_exact_process_is_adopted() {
     assert_file_contains "$service_pid_path" "$existing_pid" "adopted process must be recorded in the pidfile"
     service_stop || fail_test "an adopted MSE process must be stoppable"
     service_pid_matches "$existing_pid" && fail_test "adopted process must stop cleanly"
+    return 0
 }
 
 test_process_with_wrong_runtime_is_not_adopted() {

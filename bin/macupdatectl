@@ -1,561 +1,122 @@
 #!/bin/bash
 
-set -euo pipefail
-
-readonly PROGRAM_NAME="macupdatectl"
-readonly PROGRAM_VERSION="1.1.0"
-readonly MINIMUM_MACOS="10.15"
-
-readonly DEFAULTS_BIN="/usr/bin/defaults"
-readonly PLUTIL_BIN="/usr/bin/plutil"
-readonly SOFTWAREUPDATE_BIN="/usr/sbin/softwareupdate"
-readonly SW_VERS_BIN="/usr/bin/sw_vers"
-readonly LAUNCHCTL_BIN="/bin/launchctl"
-readonly SOFTWARE_UPDATE_PREFS="/Library/Preferences/com.apple.SoftwareUpdate"
-
-readonly SYSTEM_UPDATE_DAEMON_LABEL="com.apple.softwareupdated"
-readonly SYSTEM_UPDATE_DAEMON_PLIST="/System/Library/LaunchDaemons/com.apple.softwareupdated.plist"
-readonly MOBILE_UPDATE_DAEMON_LABEL="com.apple.mobile.softwareupdated"
-readonly MOBILE_UPDATE_DAEMON_PLIST="/System/Library/LaunchDaemons/com.apple.mobile.softwareupdated.plist"
-
-UPDATE_DOMAIN="gui/$(id -u)"
-readonly UPDATE_DOMAIN
-readonly MODERN_UPDATE_LABEL="com.apple.SoftwareUpdateNotificationManager"
-readonly MODERN_UPDATE_PLIST="/System/Library/LaunchAgents/com.apple.SoftwareUpdateNotificationManager.plist"
-readonly LEGACY_UPDATE_LABEL="com.apple.softwareupdate_notify_agent"
-readonly LEGACY_UPDATE_PLIST="/System/Library/LaunchAgents/com.apple.softwareupdate_notify_agent.plist"
-
-MACOS_VERSION=""
-MACOS_BUILD=""
-MACOS_MAJOR=0
-MACOS_MINOR=0
-MACOS_NAME=""
-MACOS_PROFILE=""
-MACOS_ARCH=""
-MACOS_ARCH_NAME=""
-DOCK_TEMP_FILE=""
-
-# ------------------------------------------------------------------->>>>>>>>
-# Output helpers
-# ------------------------------------------------------------------->>>>>>>>
-
-info() {
-    printf '%s\n' "$*"
-}
-
-warn() {
-    printf '警告：%s\n' "$*" >&2
-}
-
-die() {
-    printf '错误：%s\n' "$*" >&2
-    exit 1
-}
-
-usage() {
-    cat <<'EOF'
-macupdatectl - macOS 更新检查与提醒控制器
-
-用法：
-  macupdatectl                  关闭更新检查和提醒（默认）
-  macupdatectl off              同上
-  macupdatectl -r|restore       恢复更新检查和提醒
-  macupdatectl status           查看当前状态与系统兼容信息
-  macupdatectl -V|--version     显示程序版本
-  macupdatectl -h|--help        显示帮助
-
-兼容范围：
-  macOS Catalina 10.15 及更新版本，支持 Intel 与 Apple Silicon。
-  命令会同时识别系统版本，并探测当前系统实际提供的新旧更新通知组件。
-
-安全说明：
-  恢复模式只恢复检查与通知，不会自动开启“自动下载”或“自动安装 macOS 更新”。
-  关闭模式会禁用系统软件更新服务；期间系统安全数据更新也可能暂停。
-  请直接以普通用户运行；命令会在需要时自行调用 sudo。
-EOF
-}
-
-cleanup() {
-    if [[ -n "${DOCK_TEMP_FILE:-}" \
-        && "$DOCK_TEMP_FILE" == /private/tmp/com.apple.dock.* \
-        && -f "$DOCK_TEMP_FILE" ]]; then
-        rm -f -- "$DOCK_TEMP_FILE"
-    fi
-}
-trap cleanup EXIT
-
-# ------------------------------------------------------------------->>>>>>>>
-# Platform and compatibility detection
-# ------------------------------------------------------------------->>>>>>>>
-
-require_command() {
-    local command_path="$1"
-    [[ -x "$command_path" ]] || die "缺少必要命令：$command_path"
-}
-
-select_macos_name_and_profile() {
-    if (( MACOS_MAJOR == 10 && MACOS_MINOR == 15 )); then
-        MACOS_NAME="Catalina"
-        MACOS_PROFILE="legacy"
-    elif (( MACOS_MAJOR == 11 )); then
-        MACOS_NAME="Big Sur"
-        MACOS_PROFILE="legacy"
-    elif (( MACOS_MAJOR == 12 )); then
-        MACOS_NAME="Monterey"
-        MACOS_PROFILE="legacy"
-    elif (( MACOS_MAJOR == 13 )); then
-        MACOS_NAME="Ventura"
-        MACOS_PROFILE="modern"
-    elif (( MACOS_MAJOR == 14 )); then
-        MACOS_NAME="Sonoma"
-        MACOS_PROFILE="modern"
-    elif (( MACOS_MAJOR == 15 )); then
-        MACOS_NAME="Sequoia"
-        MACOS_PROFILE="modern"
-    elif (( MACOS_MAJOR == 26 )); then
-        MACOS_NAME="Tahoe"
-        MACOS_PROFILE="modern"
-    else
-        MACOS_NAME="未来或未识别版本"
-        MACOS_PROFILE="capability"
-    fi
-}
-
-detect_platform() {
-    local kernel_name
-    local version_major
-    local version_minor
-    local version_patch
-
-    kernel_name="$(uname -s)"
-    [[ "$kernel_name" == "Darwin" ]] || die "仅支持 macOS；当前系统为 $kernel_name"
-
-    require_command "$SW_VERS_BIN"
-    require_command "$SOFTWAREUPDATE_BIN"
-    require_command "$DEFAULTS_BIN"
-    require_command "$PLUTIL_BIN"
-    require_command "$LAUNCHCTL_BIN"
-
-    MACOS_VERSION="$($SW_VERS_BIN -productVersion)"
-    MACOS_BUILD="$($SW_VERS_BIN -buildVersion)"
-    MACOS_ARCH="$(uname -m)"
-
-    IFS='.' read -r version_major version_minor version_patch <<EOF
-$MACOS_VERSION
-EOF
-
-    version_minor="${version_minor:-0}"
-    version_patch="${version_patch:-0}"
-
-    [[ "$version_major" =~ ^[0-9]+$ \
-        && "$version_minor" =~ ^[0-9]+$ \
-        && "$version_patch" =~ ^[0-9]+$ ]] \
-        || die "无法解析 macOS 版本：$MACOS_VERSION"
-
-    MACOS_MAJOR=$((10#$version_major))
-    MACOS_MINOR=$((10#$version_minor))
-    if (( MACOS_MAJOR < 10 || (MACOS_MAJOR == 10 && MACOS_MINOR < 15) )); then
-        die "不支持 macOS ${MACOS_VERSION}；最低支持版本为 ${MINIMUM_MACOS}"
-    fi
-
-    case "$MACOS_ARCH" in
-        x86_64)
-            if [[ "$(/usr/sbin/sysctl -in sysctl.proc_translated 2>/dev/null || true)" == "1" ]]; then
-                MACOS_ARCH_NAME="Apple Silicon（Rosetta 2）"
-            else
-                MACOS_ARCH_NAME="Intel"
-            fi
-            ;;
-        arm64)
-            MACOS_ARCH_NAME="Apple Silicon"
-            ;;
-        *)
-            MACOS_ARCH_NAME="未知架构"
-            warn "未识别的 CPU 架构：${MACOS_ARCH}；将继续使用能力探测"
-            ;;
-    esac
-
-    select_macos_name_and_profile
-}
-
-print_platform() {
-    info "系统：macOS ${MACOS_VERSION} ${MACOS_NAME}（${MACOS_BUILD}）"
-    info "架构：${MACOS_ARCH_NAME}（${MACOS_ARCH}）"
-    info "兼容模式：${MACOS_PROFILE}"
-
-    if [[ "$MACOS_PROFILE" == "capability" ]]; then
-        warn "该 macOS 版本尚未列入内置版本表；将按实际可用组件运行"
-    fi
-}
-
-require_non_root_user() {
-    if (( EUID == 0 )); then
-        die "不要用 sudo 运行整个命令；请直接运行 ${PROGRAM_NAME}，程序会自行请求管理员权限"
-    fi
-}
-
-# ------------------------------------------------------------------->>>>>>>>
-# System update daemons
-# ------------------------------------------------------------------->>>>>>>>
-
-for_each_system_update_daemon() {
-    local callback="$1"
-
-    if [[ -f "$SYSTEM_UPDATE_DAEMON_PLIST" ]]; then
-        "$callback" "$SYSTEM_UPDATE_DAEMON_LABEL" "$SYSTEM_UPDATE_DAEMON_PLIST"
-    fi
-    if [[ -f "$MOBILE_UPDATE_DAEMON_PLIST" ]]; then
-        "$callback" "$MOBILE_UPDATE_DAEMON_LABEL" "$MOBILE_UPDATE_DAEMON_PLIST"
-    fi
-
-    return 0
-}
-
-disable_system_update_daemon() {
-    local label="$1"
-    local plist_path="$2"
-    local service="system/${label}"
-
-    sudo "$LAUNCHCTL_BIN" disable "$service"
-    sudo "$LAUNCHCTL_BIN" bootout "$service" 2>/dev/null || true
-
-    if "$LAUNCHCTL_BIN" print "$service" >/dev/null 2>&1; then
-        warn "${label} 已设为禁用，但当前进程仍在运行；重启后会完全生效"
-    fi
-
-    : "$plist_path"
-}
-
-restore_system_update_daemon() {
-    local label="$1"
-    local plist_path="$2"
-    local service="system/${label}"
-
-    sudo "$LAUNCHCTL_BIN" enable "$service"
-    sudo "$LAUNCHCTL_BIN" bootstrap system "$plist_path" 2>/dev/null || true
-    sudo "$LAUNCHCTL_BIN" kickstart -k "$service" 2>/dev/null || true
-}
-
-is_launchd_service_disabled() {
-    local domain="$1"
-    local label="$2"
-
-    "$LAUNCHCTL_BIN" print-disabled "$domain" 2>/dev/null \
-        | /usr/bin/grep -Fq "\"${label}\" => disabled"
-}
-
-print_system_update_daemon_status() {
-    local label="$1"
-    local plist_path="$2"
-    local service="system/${label}"
-    local disabled_state="启用"
-    local loaded_state="未运行"
-
-    if is_launchd_service_disabled system "$label"; then
-        disabled_state="禁用"
-    fi
-
-    if "$LAUNCHCTL_BIN" print "$service" >/dev/null 2>&1; then
-        loaded_state="运行中"
-    fi
-
-    info "系统组件：${label}（${disabled_state}，${loaded_state}）"
-    info "组件文件：$plist_path"
-}
-
-print_effective_guard_status() {
-    if [[ -f "$SYSTEM_UPDATE_DAEMON_PLIST" ]] \
-        && is_launchd_service_disabled system "$SYSTEM_UPDATE_DAEMON_LABEL"; then
-        if "$LAUNCHCTL_BIN" print "system/${SYSTEM_UPDATE_DAEMON_LABEL}" >/dev/null 2>&1; then
-            info "实际防护：等待重启（服务已设为禁用，但当前仍在运行）"
-        else
-            info "实际防护：已启用（系统更新服务已停止）"
-        fi
-    else
-        info "实际防护：未启用（系统更新服务仍可启动）"
-    fi
-}
-
-# ------------------------------------------------------------------->>>>>>>>
-# Update notification agents
-# ------------------------------------------------------------------->>>>>>>>
-
-for_each_update_agent() {
-    local callback="$1"
-
-    if [[ "$MACOS_PROFILE" == "legacy" ]]; then
-        if [[ -f "$LEGACY_UPDATE_PLIST" ]]; then
-            "$callback" "$LEGACY_UPDATE_LABEL" "$LEGACY_UPDATE_PLIST"
-        fi
-        if [[ -f "$MODERN_UPDATE_PLIST" ]]; then
-            "$callback" "$MODERN_UPDATE_LABEL" "$MODERN_UPDATE_PLIST"
-        fi
-    else
-        if [[ -f "$MODERN_UPDATE_PLIST" ]]; then
-            "$callback" "$MODERN_UPDATE_LABEL" "$MODERN_UPDATE_PLIST"
-        fi
-        if [[ -f "$LEGACY_UPDATE_PLIST" ]]; then
-            "$callback" "$LEGACY_UPDATE_LABEL" "$LEGACY_UPDATE_PLIST"
-        fi
-    fi
-
-    return 0
-}
-
-disable_update_agent() {
-    local label="$1"
-    local plist_path="$2"
-    local service="${UPDATE_DOMAIN}/${label}"
-
-    $LAUNCHCTL_BIN disable "$service" 2>/dev/null || true
-
-    if ! $LAUNCHCTL_BIN bootout "$service" 2>/dev/null; then
-        $LAUNCHCTL_BIN unload -w "$plist_path" 2>/dev/null || true
-    fi
-}
-
-restore_update_agent() {
-    local label="$1"
-    local plist_path="$2"
-    local service="${UPDATE_DOMAIN}/${label}"
-
-    $LAUNCHCTL_BIN enable "$service" 2>/dev/null || true
-
-    if ! $LAUNCHCTL_BIN bootstrap "$UPDATE_DOMAIN" "$plist_path" 2>/dev/null; then
-        $LAUNCHCTL_BIN load -w "$plist_path" 2>/dev/null || true
-    fi
-
-    $LAUNCHCTL_BIN kickstart -k "$service" 2>/dev/null || true
-}
-
-print_update_agent_status() {
-    local label="$1"
-    local plist_path="$2"
-    local service="${UPDATE_DOMAIN}/${label}"
-    local disabled_state="启用"
-    local loaded_state="未运行"
-
-    if $LAUNCHCTL_BIN print-disabled "$UPDATE_DOMAIN" 2>/dev/null \
-        | /usr/bin/grep -Fq "\"${label}\" => disabled"; then
-        disabled_state="禁用"
-    fi
-
-    if $LAUNCHCTL_BIN print "$service" >/dev/null 2>&1; then
-        loaded_state="运行中"
-    fi
-
-    info "通知组件：${label}（${disabled_state}，${loaded_state}）"
-    info "组件文件：$plist_path"
-}
-
-# ------------------------------------------------------------------->>>>>>>>
-# Dock badge handling
-# ------------------------------------------------------------------->>>>>>>>
-
-set_system_settings_dock_badge() {
-    local badge_value="$1"
-    local dock_group
-    local dock_count
-    local dock_index
-    local dock_bundle
-    local badge_key
-    local matched_count=0
-
-    DOCK_TEMP_FILE="$(mktemp /private/tmp/com.apple.dock.XXXXXX)" || return 1
-
-    if ! $DEFAULTS_BIN export com.apple.dock "$DOCK_TEMP_FILE" 2>/dev/null; then
-        warn "无法读取 Dock 偏好设置；跳过 Dock 角标处理"
-        return 0
-    fi
-
-    for dock_group in persistent-apps recent-apps; do
-        dock_count="$(
-            $PLUTIL_BIN -extract "$dock_group" raw -o - "$DOCK_TEMP_FILE" 2>/dev/null \
-                || printf '0\n'
-        )"
-
-        if [[ "$dock_count" =~ ^[0-9]+$ ]]; then
-            for ((dock_index = 0; dock_index < dock_count; dock_index++)); do
-                dock_bundle="$(
-                    $PLUTIL_BIN \
-                        -extract "${dock_group}.${dock_index}.tile-data.bundle-identifier" \
-                        raw -o - "$DOCK_TEMP_FILE" 2>/dev/null || true
-                )"
-
-                if [[ "$dock_bundle" == "com.apple.systempreferences" ]]; then
-                    badge_key="${dock_group}.${dock_index}.tile-data.dock-extra"
-
-                    if ! $PLUTIL_BIN -replace "$badge_key" -bool "$badge_value" \
-                        "$DOCK_TEMP_FILE" 2>/dev/null; then
-                        $PLUTIL_BIN -insert "$badge_key" -bool "$badge_value" \
-                            "$DOCK_TEMP_FILE"
-                    fi
-
-                    matched_count=$((matched_count + 1))
-                fi
-            done
-        fi
-    done
-
-    if (( matched_count > 0 )); then
-        $DEFAULTS_BIN import com.apple.dock "$DOCK_TEMP_FILE"
-    else
-        warn "Dock 中没有找到系统设置/系统偏好设置图标；无需修改角标"
-    fi
-}
-
-# ------------------------------------------------------------------->>>>>>>>
-# Preference and status helpers
-# ------------------------------------------------------------------->>>>>>>>
-
-read_update_preference() {
-    local key="$1"
-    local value
-
-    value="$($DEFAULTS_BIN read "$SOFTWARE_UPDATE_PREFS" "$key" 2>/dev/null || true)"
-    printf '%s' "${value:-未设置}"
-}
-
-print_schedule_status() {
-    local schedule_status
-
-    schedule_status="$($SOFTWAREUPDATE_BIN --schedule 2>&1 || true)"
-    info "Apple 原生调度（仅供参考）：${schedule_status:-无法读取}"
-}
-
-print_status() {
-    local found_agent=0
-
-    detect_platform
-    print_platform
-    info "命令版本：$PROGRAM_VERSION"
-    print_schedule_status
-    info "自动检查偏好：$(read_update_preference AutomaticCheckEnabled)"
-    info "自动下载偏好：$(read_update_preference AutomaticDownload)"
-    info "自动安装偏好：$(read_update_preference AutomaticallyInstallMacOSUpdates)"
-
-    for_each_system_update_daemon print_system_update_daemon_status
-    print_effective_guard_status
-
-    status_agent_wrapper() {
-        found_agent=1
-        print_update_agent_status "$@"
-    }
-
-    for_each_update_agent status_agent_wrapper
-
-    if (( found_agent == 0 )); then
-        warn "没有发现已知的软件更新通知组件"
-    fi
-}
-
-# ------------------------------------------------------------------->>>>>>>>
-# Main actions
-# ------------------------------------------------------------------->>>>>>>>
-
-disable_updates() {
-    detect_platform
-    require_non_root_user
-    print_platform
-    info "正在关闭 macOS 更新检查和提醒……"
-
-    sudo -v
-    sudo "$SOFTWAREUPDATE_BIN" --schedule off >/dev/null 2>&1 || true
-    sudo "$DEFAULTS_BIN" write "$SOFTWARE_UPDATE_PREFS" AutomaticCheckEnabled -bool false
-    sudo "$DEFAULTS_BIN" write "$SOFTWARE_UPDATE_PREFS" AutomaticDownload -bool false
-    sudo "$DEFAULTS_BIN" write "$SOFTWARE_UPDATE_PREFS" AutomaticallyInstallMacOSUpdates -bool false
-
-    # Keep the preferences enabled so security data resumes after restoration.
-    sudo "$DEFAULTS_BIN" write "$SOFTWARE_UPDATE_PREFS" ConfigDataInstall -bool true
-    sudo "$DEFAULTS_BIN" write "$SOFTWARE_UPDATE_PREFS" CriticalUpdateInstall -bool true
-
-    for_each_update_agent disable_update_agent
-    for_each_system_update_daemon disable_system_update_daemon
-
-    $DEFAULTS_BIN delete com.apple.systempreferences AttentionPrefBundleIDs 2>/dev/null || true
-    $DEFAULTS_BIN delete com.apple.systempreferences DidShowPrefBundleIDs 2>/dev/null || true
-
-    sudo "$DEFAULTS_BIN" write "$SOFTWARE_UPDATE_PREFS" LastUpdatesAvailable -int 0
-    sudo "$DEFAULTS_BIN" write "$SOFTWARE_UPDATE_PREFS" LastRecommendedUpdatesAvailable -int 0
-    sudo "$DEFAULTS_BIN" delete "$SOFTWARE_UPDATE_PREFS" RecommendedUpdates 2>/dev/null || true
-
-    set_system_settings_dock_badge false
-
-    /usr/bin/killall NotificationCenter 2>/dev/null || true
-    /usr/bin/killall Dock 2>/dev/null || true
-
-    info ""
-    info "禁用完成。"
-    print_effective_guard_status
-    print_schedule_status
-    info "说明：现代 macOS 可能始终把原生调度显示为 on；以实际防护状态为准。"
-}
-
-restore_updates() {
-    detect_platform
-    require_non_root_user
-    print_platform
-    info "正在恢复 macOS 更新检查和提醒……"
-
-    sudo -v
-    sudo "$SOFTWAREUPDATE_BIN" --schedule on >/dev/null 2>&1 || true
-    sudo "$DEFAULTS_BIN" write "$SOFTWARE_UPDATE_PREFS" AutomaticCheckEnabled -bool true
-
-    # Restore checking and notifications without enabling unattended updates.
-    sudo "$DEFAULTS_BIN" write "$SOFTWARE_UPDATE_PREFS" AutomaticDownload -bool false
-    sudo "$DEFAULTS_BIN" write "$SOFTWARE_UPDATE_PREFS" AutomaticallyInstallMacOSUpdates -bool false
-    sudo "$DEFAULTS_BIN" write "$SOFTWARE_UPDATE_PREFS" ConfigDataInstall -bool true
-    sudo "$DEFAULTS_BIN" write "$SOFTWARE_UPDATE_PREFS" CriticalUpdateInstall -bool true
-
-    for_each_update_agent restore_update_agent
-    for_each_system_update_daemon restore_system_update_daemon
-    set_system_settings_dock_badge true
-
-    /usr/bin/killall NotificationCenter 2>/dev/null || true
-    /usr/bin/killall Dock 2>/dev/null || true
-
-    info ""
-    info "恢复完成。"
-    print_effective_guard_status
-    print_schedule_status
-    info "自动下载和自动安装仍保持关闭；需要时请在系统设置中手动开启。"
-}
-
-main() {
-    local mode
-
-    if (( $# > 1 )); then
-        printf '错误：参数过多。\n\n' >&2
-        usage >&2
-        exit 2
-    fi
-
-    mode="${1:-off}"
-
-    case "$mode" in
-        off|--off)
-            disable_updates
-            ;;
-        -r|restore|--restore|on)
-            restore_updates
-            ;;
-        status|--status|-s)
-            print_status
-            ;;
-        -V|--version|version)
-            printf '%s %s\n' "$PROGRAM_NAME" "$PROGRAM_VERSION"
-            ;;
-        -h|--help|help)
-            usage
-            ;;
-        *)
-            printf '错误：未知参数 %s\n\n' "$mode" >&2
-            usage >&2
-            exit 2
-            ;;
-    esac
-}
-
-if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
-    main "$@"
+# ==============================
+# macOS 系统更新屏蔽工具
+# 支持：macOS 12+ / 13+ / 14+ / 15 Sequoia
+# 功能：屏蔽更新 / 恢复更新 / 清除小红点
+# ==============================
+
+if [ $UID -ne 0 ]; then
+    exec /usr/bin/sudo "$0" "$@"
 fi
+
+clear
+
+# 图形菜单
+CHOICE=$(osascript <<'EOF'
+set options to {"🔒 一键屏蔽所有系统更新", "🔓 一键恢复系统更新", "🧹 清除更新小红点", "⚙️ 只屏蔽大版本，保留安全更新"}
+choose from list options with title "macOS 更新屏蔽工具" with prompt "选择一个操作：" default items {"🧹 清除更新小红点"}
+EOF
+)
+
+if [ "$CHOICE" = "false" ]; then
+    exit 0
+fi
+
+# ======================
+# 1. 屏蔽更新
+# ======================
+if [[ $CHOICE == *"屏蔽所有系统更新"* ]]; then
+
+echo "正在关闭自动更新..."
+sudo defaults write /Library/Preferences/com.apple.SoftwareUpdate AutomaticCheckEnabled -bool FALSE
+sudo defaults write /Library/Preferences/com.apple.SoftwareUpdate AutomaticDownload -bool FALSE
+sudo defaults write /Library/Preferences/com.apple.SoftwareUpdate AutomaticallyInstallMacOSUpdates -bool FALSE
+sudo defaults write /Library/Preferences/com.apple.SoftwareUpdate ConfigDataInstall -bool FALSE
+sudo defaults write /Library/Preferences/com.apple.SoftwareUpdate CriticalUpdateInstall -bool FALSE
+sudo softwareupdate --schedule off
+
+sudo launchctl disable system/com.apple.softwareupdated
+sudo killall -9 softwareupdated 2>/dev/null
+
+# 写入 hosts
+sudo sed -i '' '/# 屏蔽macOS/d' /etc/hosts
+sudo tee -a /etc/hosts <<'EOF'
+
+# 屏蔽macOS系统更新服务器
+127.0.0.1 swscan.apple.com
+127.0.0.1 swdist.apple.com
+127.0.0.1 swcdn.apple.com
+127.0.0.1 gdmf.apple.com
+127.0.0.1 mesu.apple.com
+127.0.0.1 xp.apple.com
+127.0.0.1 swdownload.apple.com
+127.0.0.1 updates-http.cdn-apple.com
+127.0.0.1 updates.cdn-apple.com
+EOF
+
+sudo dscacheutil -flushcache
+sudo killall -HUP mDNSResponder
+sudo rm -rf /Library/Updates/*
+
+osascript -e 'display dialog "✅ 所有系统更新已屏蔽完成！" buttons {"好"}'
+
+# ======================
+# 2. 恢复更新
+# ======================
+elif [[ $CHOICE == *"恢复系统更新"* ]]; then
+
+sudo defaults write /Library/Preferences/com.apple.SoftwareUpdate AutomaticCheckEnabled -bool TRUE
+sudo defaults write /Library/Preferences/com.apple.SoftwareUpdate AutomaticDownload -bool TRUE
+sudo defaults write /Library/Preferences/com.apple.SoftwareUpdate AutomaticallyInstallMacOSUpdates -bool TRUE
+sudo defaults write /Library/Preferences/com.apple.SoftwareUpdate ConfigDataInstall -bool TRUE
+sudo defaults write /Library/Preferences/com.apple.SoftwareUpdate CriticalUpdateInstall -bool TRUE
+sudo softwareupdate --schedule on
+
+sudo launchctl enable system/com.apple.softwareupdated
+sudo launchctl start com.apple.softwareupdated
+
+sudo sed -i '' '/# 屏蔽macOS/d' /etc/hosts
+sudo dscacheutil -flushcache
+sudo killall -HUP mDNSResponder
+
+osascript -e 'display dialog "✅ 系统更新已恢复！" buttons {"好"}'
+
+# ======================
+# 3. 清除小红点
+# ======================
+elif [[ $CHOICE == *"清除更新小红点"* ]]; then
+
+sudo killall -9 softwareupdated System\ Settings Dock NotificationCenter 2>/dev/null
+
+sudo rm -rf ~/Library/Caches/com.apple.preferences.softwareupdate
+sudo rm -rf /Library/Caches/com.apple.softwareupdate
+sudo rm -rf /private/var/db/com.apple.softwareupdate
+sudo rm -rf ~/Library/Preferences/com.apple.SoftwareUpdate.plist
+
+defaults write com.apple.systempreferences AttentionPrefBundleIDs 0
+killall Dock
+
+osascript -e 'display dialog "✅ 小红点已清除！如仍显示请重启电脑" buttons {"好"}'
+
+# ======================
+# 4. 只屏蔽大版本，保留安全更新
+# ======================
+elif [[ $CHOICE == *"只屏蔽大版本"* ]]; then
+
+sudo defaults write /Library/Preferences/com.apple.SoftwareUpdate AutomaticCheckEnabled -bool TRUE
+sudo defaults write /Library/Preferences/com.apple.SoftwareUpdate AutomaticDownload -bool TRUE
+sudo defaults write /Library/Preferences/com.apple.SoftwareUpdate AutomaticallyInstallMacOSUpdates -bool FALSE
+sudo defaults write /Library/Preferences/com.apple.SoftwareUpdate ConfigDataInstall -bool TRUE
+sudo defaults write /Library/Preferences/com.apple.SoftwareUpdate CriticalUpdateInstall -bool TRUE
+sudo softwareupdate --schedule on
+
+sudo sed -i '' '/# 屏蔽macOS/d' /etc/hosts
+sudo dscacheutil -flushcache
+sudo killall -HUP mDNSResponder
+
+osascript -e 'display dialog "✅ 已设置：仅屏蔽大版本，保留安全更新" buttons {"好"}'
+
+fi
+
+exit 0

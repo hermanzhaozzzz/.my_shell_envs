@@ -7,105 +7,61 @@ CLI_PATH="$REPO_ROOT/bin/macupdatectl"
 
 # shellcheck disable=SC1090,SC1091
 . "$TEST_DIR/testlib.sh"
-# shellcheck disable=SC1090
-. "$CLI_PATH"
 
-assert_macos_profile() {
-    local major="$1"
-    local minor="$2"
-    local expected_name="$3"
-    local expected_profile="$4"
-
-    # shellcheck disable=SC2034
-    MACOS_MAJOR="$major"
-    # shellcheck disable=SC2034
-    MACOS_MINOR="$minor"
-    MACOS_NAME=""
-    MACOS_PROFILE=""
-    select_macos_name_and_profile
-
-    assert_eq "$expected_name" "$MACOS_NAME" "macOS name for $major.$minor"
-    assert_eq "$expected_profile" "$MACOS_PROFILE" "compatibility profile for $major.$minor"
+test_script_is_valid_and_executable() {
+    [ -x "$CLI_PATH" ] || fail_test "macupdatectl must be executable"
+    /bin/bash -n "$CLI_PATH" || fail_test "macupdatectl must pass bash syntax validation"
 }
 
-test_known_macos_versions() {
-    assert_macos_profile 10 15 Catalina legacy
-    assert_macos_profile 11 0 "Big Sur" legacy
-    assert_macos_profile 12 0 Monterey legacy
-    assert_macos_profile 13 0 Ventura modern
-    assert_macos_profile 14 0 Sonoma modern
-    assert_macos_profile 15 0 Sequoia modern
-    assert_macos_profile 26 0 Tahoe modern
+test_non_root_execution_elevates_automatically() {
+    assert_file_contains "$CLI_PATH" 'exec /usr/bin/sudo "$0" "$@"' \
+        "non-root execution must prompt for administrator privileges automatically"
 }
 
-test_future_macos_uses_capability_detection() {
-    assert_macos_profile 27 0 "未来或未识别版本" capability
+test_graphical_menu_exposes_all_modes() {
+    assert_file_contains "$CLI_PATH" '🔒 一键屏蔽所有系统更新' "menu must expose full blocking"
+    assert_file_contains "$CLI_PATH" '🔓 一键恢复系统更新' "menu must expose recovery"
+    assert_file_contains "$CLI_PATH" '🧹 清除更新小红点' "menu must expose badge cleanup"
+    assert_file_contains "$CLI_PATH" '⚙️ 只屏蔽大版本，保留安全更新' \
+        "menu must expose major-upgrade blocking"
 }
 
-test_cli_version() {
-    local output
-    output="$($CLI_PATH --version)"
-    assert_eq "macupdatectl $PROGRAM_VERSION" "$output" "version output"
-}
-
-test_chinese_locale_variable_boundaries() {
-    local output
-
-    output="$(
-        LC_ALL=zh_CN.UTF-8 bash -c '
-            . "$1"
-            MACOS_VERSION="15.2"
-            MACOS_BUILD="24C101"
-            MACOS_NAME="Sequoia"
-            MACOS_PROFILE="modern"
-            MACOS_ARCH="x86_64"
-            MACOS_ARCH_NAME="Intel"
-            print_platform
-        ' _ "$CLI_PATH" 2>&1
-    )"
-
-    assert_contains "$output" "系统：macOS 15.2 Sequoia（24C101）" \
-        "Chinese locale must not extend shell variable names"
-}
-
-test_default_mode_is_off() {
-    local selected_mode=""
-
-    # shellcheck disable=SC2329
-    disable_updates() {
-        selected_mode="off"
-    }
-
-    main
-    assert_eq "off" "$selected_mode" "default mode must remain off"
-}
-
-test_restore_flag_routes_to_restore() {
-    local selected_mode=""
-
-    # shellcheck disable=SC2329
-    restore_updates() {
-        selected_mode="restore"
-    }
-
-    main -r
-    assert_eq "restore" "$selected_mode" "-r must select restore mode"
-}
-
-test_system_daemon_guard_is_symmetric() {
+test_full_blocking_uses_service_and_network_layers() {
     assert_file_contains "$CLI_PATH" \
-        "for_each_system_update_daemon disable_system_update_daemon" \
-        "off mode must disable system update daemons"
-    assert_file_contains "$CLI_PATH" \
-        "for_each_system_update_daemon restore_system_update_daemon" \
-        "restore mode must re-enable system update daemons"
+        'launchctl disable system/com.apple.softwareupdated' \
+        "full blocking must disable softwareupdated"
+    assert_file_contains "$CLI_PATH" '127.0.0.1 swscan.apple.com' \
+        "full blocking must block the macOS update catalogue"
+    assert_file_contains "$CLI_PATH" '127.0.0.1 swdownload.apple.com' \
+        "full blocking must block update downloads"
 }
 
-run_test "known macOS version profiles" test_known_macos_versions
-run_test "future macOS capability profile" test_future_macos_uses_capability_detection
-run_test "CLI version output" test_cli_version
-run_test "Chinese locale variable boundaries" test_chinese_locale_variable_boundaries
-run_test "default mode is off" test_default_mode_is_off
-run_test "restore flag routing" test_restore_flag_routes_to_restore
-run_test "system daemon guard symmetry" test_system_daemon_guard_is_symmetric
+test_recovery_reenables_updates() {
+    assert_file_contains "$CLI_PATH" 'softwareupdate --schedule on' \
+        "recovery must re-enable scheduled checks"
+    assert_file_contains "$CLI_PATH" \
+        'launchctl enable system/com.apple.softwareupdated' \
+        "recovery must re-enable softwareupdated"
+}
+
+test_badge_cleanup_targets_system_settings() {
+    assert_file_contains "$CLI_PATH" \
+        'defaults write com.apple.systempreferences AttentionPrefBundleIDs 0' \
+        "badge cleanup must target System Settings attention state"
+}
+
+test_major_only_mode_keeps_security_preferences_enabled() {
+    assert_file_contains "$CLI_PATH" 'ConfigDataInstall -bool TRUE' \
+        "major-only mode must retain configuration data updates"
+    assert_file_contains "$CLI_PATH" 'CriticalUpdateInstall -bool TRUE' \
+        "major-only mode must retain critical updates"
+}
+
+run_test "script is valid and executable" test_script_is_valid_and_executable
+run_test "non-root execution elevates automatically" test_non_root_execution_elevates_automatically
+run_test "graphical menu exposes all modes" test_graphical_menu_exposes_all_modes
+run_test "full blocking uses service and network layers" test_full_blocking_uses_service_and_network_layers
+run_test "recovery re-enables updates" test_recovery_reenables_updates
+run_test "badge cleanup targets System Settings" test_badge_cleanup_targets_system_settings
+run_test "major-only mode keeps security preferences enabled" test_major_only_mode_keeps_security_preferences_enabled
 finish_tests

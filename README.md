@@ -265,16 +265,20 @@ WSL、macOS 和 Windows 通过 `MSE_PROXY_PORT` 指向外部代理客户端；�
 
 ### macupdatectl
 
-`macupdatectl` 是 macOS 更新检查与提醒控制器，支持 macOS Catalina 10.15 及更新版本，并兼容 Intel 与 Apple Silicon。它会识别 macOS 版本，并根据系统中实际存在的新旧软件更新组件选择兼容路径。
+`macupdatectl` 是 macOS 系统更新屏蔽工具，支持 macOS 12 至 macOS 15 Sequoia。直接运行命令即可自动请求管理员权限并打开图形菜单：
 
 ```shell
-macupdatectl             # 关闭更新检查与提醒（默认）
-macupdatectl status      # 查看系统、架构、兼容模式和当前状态
-macupdatectl -r          # 恢复更新检查与提醒
-macupdatectl --help      # 查看完整帮助
+macupdatectl
 ```
 
-恢复模式不会自动开启更新下载或无人值守安装，适合需要自行控制升级时机的黑苹果或固定版本开发机。关闭模式会禁用系统软件更新服务，因此期间系统安全数据更新也可能暂停；需要检查或安装安全更新时，应先执行 `macupdatectl -r`。命令仅支持 macOS；在 Linux、WSL 和 Windows 上会明确退出，不修改系统。
+菜单提供以下操作：
+
+- 一键屏蔽所有系统更新
+- 一键恢复系统更新
+- 清除系统更新小红点
+- 只屏蔽大版本并保留安全更新
+
+“屏蔽所有系统更新”会关闭软件更新服务、相关自动更新选项，并在 `/etc/hosts` 中阻断 Apple 更新服务器；期间系统安全数据更新也会暂停。需要检查或安装更新时，请重新运行 `macupdatectl` 并选择“一键恢复系统更新”。
 
 ### sqtop
 

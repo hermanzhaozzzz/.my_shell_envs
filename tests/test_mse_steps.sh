@@ -165,6 +165,95 @@ test_dirty_external_repo_is_preserved_without_pull() {
     fi
 }
 
+test_legacy_code_notify_stop_hook_is_removed() {
+    load_mse
+    local fixture=""
+    fixture="$(mktemp -d "${TMPDIR:-/tmp}/mse-code-notify.XXXXXX")" || return 1
+    trap "/bin/rm -rf '$fixture'" EXIT
+    mkdir -p "$fixture/.codex"
+    cat >"$fixture/.codex/hooks.json" <<'EOF'
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/usr/local/opt/code-notify/lib/code-notify/core/notifier.sh stop claude"
+          }
+        ]
+      }
+    ]
+  }
+}
+EOF
+    cat >"$fixture/.codex/config.toml" <<EOF
+model = "test"
+
+[hooks.state."$fixture/.codex/hooks.json:stop:0:0"]
+trusted_hash = "sha256:test"
+enabled = true
+EOF
+    MSE_CODEX_HOME_OVERRIDE="$fixture/.codex" remove_legacy_code_notify_codex_stop_hook >/dev/null
+    [ ! -e "$fixture/.codex/hooks.json" ] \
+        || fail_test "legacy Code-Notify-only hooks.json must be removed"
+    if /usr/bin/grep -q 'hooks.json:stop' "$fixture/.codex/config.toml"; then
+        fail_test "stale trusted hook state must be removed"
+    fi
+    find "$fixture/.codex" -name 'hooks.json.mse-backup-*' -type f | /usr/bin/grep -q . \
+        || fail_test "legacy hook cleanup must create a recovery backup"
+}
+
+test_legacy_cleanup_preserves_unrelated_stop_hooks() {
+    load_mse
+    local fixture=""
+    fixture="$(mktemp -d "${TMPDIR:-/tmp}/mse-code-notify-preserve.XXXXXX")" || return 1
+    trap "/bin/rm -rf '$fixture'" EXIT
+    mkdir -p "$fixture/.codex"
+    cat >"$fixture/.codex/hooks.json" <<'EOF'
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/usr/local/opt/code-notify/lib/code-notify/core/notifier.sh stop claude"
+          },
+          {
+            "type": "command",
+            "command": "/usr/local/bin/keep-me"
+          }
+        ]
+      }
+    ]
+  }
+}
+EOF
+    MSE_CODEX_HOME_OVERRIDE="$fixture/.codex" remove_legacy_code_notify_codex_stop_hook >/dev/null
+    assert_file_contains "$fixture/.codex/hooks.json" "/usr/local/bin/keep-me"
+    if /usr/bin/grep -q 'notifier.sh stop claude' "$fixture/.codex/hooks.json"; then
+        fail_test "legacy Code-Notify hook must be removed while unrelated hooks remain"
+    fi
+}
+
+test_codex_notify_owner_distinguishes_existing_integrations() {
+    load_mse
+    local fixture=""
+    fixture="$(mktemp -d "${TMPDIR:-/tmp}/mse-code-notify-owner.XXXXXX")" || return 1
+    trap "/bin/rm -rf '$fixture'" EXIT
+    mkdir -p "$fixture/.codex"
+    cat >"$fixture/.codex/config.toml" <<'EOF'
+model = "test"
+notify = ["/Applications/Other.app/notifier", "turn-ended"]
+
+[projects."/tmp"]
+trust_level = "trusted"
+EOF
+    assert_eq "other" "$(MSE_CODEX_HOME_OVERRIDE="$fixture/.codex" codex_notify_owner)" \
+        "an unrelated Codex notify command must not be mistaken for Code-Notify"
+}
+
 run_test "interactive Enter defaults clashctl to enabled" test_interactive_enter_enables_clashctl
 run_test "interactive n skips clashctl" test_interactive_n_skips_clashctl
 run_test "fast deploy enables clashctl" test_fast_enables_clashctl
@@ -179,4 +268,7 @@ run_test "offline cold start stops before network setup" test_offline_cold_start
 run_test "offline first install stops before downloads" test_offline_first_install_stops_before_clashctl_download
 run_test "complete clashctl cache installs offline" test_complete_clashctl_cache_allows_offline_install
 run_test "dirty external repo is preserved" test_dirty_external_repo_is_preserved_without_pull
+run_test "legacy Code-Notify Stop hook is removed safely" test_legacy_code_notify_stop_hook_is_removed
+run_test "legacy cleanup preserves unrelated Stop hooks" test_legacy_cleanup_preserves_unrelated_stop_hooks
+run_test "Codex notify ownership is detected" test_codex_notify_owner_distinguishes_existing_integrations
 finish_tests

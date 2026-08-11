@@ -3,6 +3,9 @@
 ##############
 .codex
 /bin/
+!/bin/
+/bin/*
+!/bin/macupdatectl
 /conda_local_env_settings/
 /conda/micromamba-pycharm/
 /tools/jcat/jcat

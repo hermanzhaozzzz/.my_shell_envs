@@ -263,6 +263,19 @@ WSL、macOS 和 Windows 通过 `MSE_PROXY_PORT` 指向外部代理客户端；�
 
 终端词典工具。参考项目：[Wudao-dict](https://github.com/ChestnutHeng/Wudao-dict)
 
+### macupdatectl
+
+`macupdatectl` 是 macOS 更新检查与提醒控制器，支持 macOS Catalina 10.15 及更新版本，并兼容 Intel 与 Apple Silicon。它会识别 macOS 版本，并根据系统中实际存在的新旧软件更新组件选择兼容路径。
+
+```shell
+macupdatectl             # 关闭更新检查与提醒（默认）
+macupdatectl status      # 查看系统、架构、兼容模式和当前状态
+macupdatectl -r          # 恢复更新检查与提醒
+macupdatectl --help      # 查看完整帮助
+```
+
+恢复模式不会自动开启更新下载或无人值守安装，适合需要自行控制升级时机的黑苹果或固定版本开发机。关闭模式会禁用系统软件更新服务，因此期间系统安全数据更新也可能暂停；需要检查或安装安全更新时，应先执行 `macupdatectl -r`。命令仅支持 macOS；在 Linux、WSL 和 Windows 上会明确退出，不修改系统。
+
 ### sqtop
 
 Linux 上可选启用 `sqtop` step。它会通过 `cargo install sqtop` 安装一个面向 Slurm 的终端监控工具，使用体验更接近 `htop` / `nvitop` 这一类 TUI 工具，适合快速查看队列、节点和作业占用情况。
@@ -273,7 +286,9 @@ Linux 上可选启用 `sqtop` step。它会通过 `cargo install sqtop` 安装�
 
 这是一个 macOS 终端通知工具。参考项目：[code-notify](https://github.com/mylee04/code-notify)
 
-如果你在 macOS 上启用了 `code_notify` step，`mse` 会完成对应接入；Linux 和 Windows 上会跳过这一步。
+如果你在 macOS 上启用了 `code_notify` step，`mse` 会安装并仅为 Codex 启用 Code-Notify，同时清理旧版本可能从 Claude 配置迁移而来的不兼容 Stop hook；Linux 和 Windows 上会跳过这一步。
+
+Codex 的顶层 `notify` 只能由一个通知命令占用。如果该位置已经属于 Computer Use 等其他集成，`mse` 会保留现有配置、禁用 Code-Notify 的完成通知并给出警告，不会覆盖其他工具。
 
 ## Cluster Proxy
 

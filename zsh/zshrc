@@ -1663,6 +1663,11 @@ export NVM_DIR="$HOME/.nvm"
 # Conda | Mamba (Must be at the end)
 # ------------------------------------------------------------------->>>>>>>>>>
 
+# Load per-directory environments after explicit `direnv allow`.
+if command -v direnv >/dev/null 2>&1; then
+    eval "$(direnv hook zsh)"
+fi
+
 if [[ "$platform" == "Darwin" ]]; then
     export MAMBA_EXE="$HOME/micromamba/bin/micromamba";
     export MAMBA_ROOT_PREFIX="$HOME/micromamba";

@@ -523,7 +523,10 @@ If you select `code_notify` during macOS deployment, MSE will:
 - install `code-notify` via Homebrew
 - set the alert sound to `Blow.aiff`
 - add `permission_prompt` and `auth_success` alerts
-- turn notifications on
+- enable notifications for Codex only
+- remove incompatible legacy Code-Notify Stop hooks imported from Claude configuration
+
+Codex can expose only one top-level `notify` command. If another integration already owns it, MSE preserves that command, leaves Code-Notify completion alerts disabled, and prints a warning.
 
 You can skip this step in interactive mode. It is automatically ignored on Windows / Linux.
 

@@ -1959,7 +1959,145 @@ step_sqtop() {
     log_ok "sqtop ready at $(fmt_path "$REPO_BIN_SQTOP_PATH")"
 }
 
+codex_notify_owner() {
+    local codex_config_root="${MSE_CODEX_HOME_OVERRIDE:-${CODEX_HOME:-$HOME/.codex}}"
+    local codex_config_file="$codex_config_root/config.toml"
+
+    [ -f "$codex_config_file" ] || {
+        printf '%s\n' "absent"
+        return 0
+    }
+
+    awk '
+        /^[[:space:]]*\[/ { exit }
+        /^[[:space:]]*notify[[:space:]]*=/ {
+            if ($0 ~ /code-notify/) {
+                print "code-notify"
+            } else {
+                print "other"
+            }
+            found = 1
+            exit
+        }
+        END {
+            if (!found) print "absent"
+        }
+    ' "$codex_config_file"
+}
+
+remove_legacy_code_notify_codex_stop_hook() {
+    local codex_config_root="${MSE_CODEX_HOME_OVERRIDE:-${CODEX_HOME:-$HOME/.codex}}"
+    local hooks_file="$codex_config_root/hooks.json"
+    local config_file="$codex_config_root/config.toml"
+
+    [ -f "$hooks_file" ] || return 0
+    command -v python3 >/dev/null 2>&1 || {
+        log_warn "cannot inspect legacy Codex hooks because python3 is unavailable"
+        return 0
+    }
+
+    python3 - "$hooks_file" "$config_file" <<'PY'
+import datetime
+import json
+import pathlib
+import shutil
+import sys
+
+hooks_path = pathlib.Path(sys.argv[1])
+config_path = pathlib.Path(sys.argv[2])
+
+try:
+    document = json.loads(hooks_path.read_text(encoding="utf-8"))
+except (OSError, json.JSONDecodeError) as exc:
+    print(f"warning: cannot parse {hooks_path}: {exc}", file=sys.stderr)
+    raise SystemExit(0)
+
+hooks = document.get("hooks")
+stop_groups = hooks.get("Stop") if isinstance(hooks, dict) else None
+if not isinstance(stop_groups, list):
+    raise SystemExit(0)
+
+removed = 0
+kept_groups = []
+for group in stop_groups:
+    if not isinstance(group, dict) or not isinstance(group.get("hooks"), list):
+        kept_groups.append(group)
+        continue
+
+    kept_commands = []
+    for hook in group["hooks"]:
+        command = hook.get("command", "") if isinstance(hook, dict) else ""
+        normalized = " ".join(command.split())
+        if (
+            isinstance(hook, dict)
+            and hook.get("type") == "command"
+            and "code-notify" in normalized
+            and normalized.endswith("notifier.sh stop claude")
+        ):
+            removed += 1
+        else:
+            kept_commands.append(hook)
+
+    if kept_commands:
+        updated_group = dict(group)
+        updated_group["hooks"] = kept_commands
+        kept_groups.append(updated_group)
+
+if removed == 0:
+    raise SystemExit(0)
+
+stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+backup_path = hooks_path.with_name(f"{hooks_path.name}.mse-backup-{stamp}")
+shutil.copy2(hooks_path, backup_path)
+
+if kept_groups:
+    hooks["Stop"] = kept_groups
+else:
+    hooks.pop("Stop", None)
+
+if hooks:
+    hooks_path.write_text(json.dumps(document, indent=2) + "\n", encoding="utf-8")
+else:
+    hooks_path.unlink()
+
+if not hooks_path.exists() and config_path.is_file():
+    lines = config_path.read_text(encoding="utf-8").splitlines(keepends=True)
+    output = []
+    skipping = False
+    config_changed = False
+
+    def belongs_to_removed_hooks_file(header: str) -> bool:
+        prefix = '[hooks.state."'
+        suffix = '"]'
+        if not header.startswith(prefix) or not header.endswith(suffix):
+            return False
+        state_key = header[len(prefix) : -len(suffix)]
+        source, separator, _ = state_key.partition(":stop:")
+        if not separator:
+            return False
+        return pathlib.Path(source) == hooks_path
+
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith("["):
+            skipping = belongs_to_removed_hooks_file(stripped)
+            if skipping:
+                config_changed = True
+                continue
+        if not skipping:
+            output.append(line)
+    if config_changed:
+        config_backup = config_path.with_name(f"{config_path.name}.mse-backup-{stamp}")
+        shutil.copy2(config_path, config_backup)
+        config_path.write_text("".join(output), encoding="utf-8")
+
+print(f"removed {removed} legacy Code-Notify Claude-style Stop hook(s); backup: {backup_path}")
+PY
+}
+
 step_code_notify() {
+    local notify_owner=""
+
     if [ "$platform_family" != "MacOS" ]; then
         log_warn "skip code-notify on platform: $platform"
         return 0
@@ -1986,10 +2124,29 @@ step_code_notify() {
     cn alerts add permission_prompt || log_warn "failed to add permission_prompt alert"
     cn alerts add auth_success || log_warn "failed to add auth_success alert"
 
-    log_info "enabling code-notify"
-    cn on || log_warn "failed to enable code-notify"
+    log_info "removing incompatible legacy Code-Notify hooks imported from Claude"
+    remove_legacy_code_notify_codex_stop_hook || log_warn "failed to clean legacy Code-Notify Codex hooks"
 
-    log_ok "code-notify is ready"
+    notify_owner="$(codex_notify_owner)"
+    case "$notify_owner" in
+        absent)
+            log_info "enabling code-notify for Codex"
+            cn on codex || log_warn "failed to enable code-notify for Codex"
+            notify_owner="$(codex_notify_owner)"
+            ;;
+        code-notify)
+            log_ok "code-notify is already configured as the Codex notify command"
+            ;;
+        other)
+            log_warn "Codex already has a non-Code-Notify notify command; preserving it and leaving Code-Notify completion alerts disabled"
+            ;;
+    esac
+
+    case "$notify_owner" in
+        code-notify) log_ok "code-notify is ready" ;;
+        other) log_ok "code-notify is installed; existing Codex notify integration was preserved" ;;
+        *) log_warn "code-notify is installed but Codex completion notifications are not configured" ;;
+    esac
 }
 
 step_powershell() {

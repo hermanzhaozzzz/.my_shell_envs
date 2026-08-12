@@ -1,122 +1,598 @@
 #!/bin/bash
 
-# ==============================
-# macOS 系统更新屏蔽工具
-# 支持：macOS 12+ / 13+ / 14+ / 15 Sequoia
-# 功能：屏蔽更新 / 恢复更新 / 清除小红点
-# ==============================
+set -euo pipefail
 
-if [ $UID -ne 0 ]; then
-    exec /usr/bin/sudo "$0" "$@"
-fi
+readonly PROGRAM_NAME="macupdatectl"
+readonly PROGRAM_VERSION="2.0.1"
+readonly MINIMUM_MACOS_MAJOR=12
 
-clear
+readonly DEFAULTS_BIN="/usr/bin/defaults"
+readonly SOFTWAREUPDATE_BIN="/usr/sbin/softwareupdate"
+readonly SW_VERS_BIN="/usr/bin/sw_vers"
+readonly LAUNCHCTL_BIN="/bin/launchctl"
+readonly HOSTS_FILE="/etc/hosts"
+readonly HOSTS_BACKUP_DIR="/var/backups/macupdatectl"
+readonly HOSTS_BLOCK_BEGIN="# BEGIN macupdatectl: macOS update block"
+readonly HOSTS_BLOCK_END="# END macupdatectl: macOS update block"
+readonly LEGACY_HOSTS_MARKER="# 屏蔽macOS系统更新服务器"
+readonly SOFTWARE_UPDATE_PREFS="/Library/Preferences/com.apple.SoftwareUpdate"
 
-# 图形菜单
-CHOICE=$(osascript <<'EOF'
-set options to {"🔒 一键屏蔽所有系统更新", "🔓 一键恢复系统更新", "🧹 清除更新小红点", "⚙️ 只屏蔽大版本，保留安全更新"}
-choose from list options with title "macOS 更新屏蔽工具" with prompt "选择一个操作：" default items {"🧹 清除更新小红点"}
-EOF
+readonly SYSTEM_UPDATE_DAEMON_LABEL="com.apple.softwareupdated"
+readonly SYSTEM_UPDATE_DAEMON_PLIST="/System/Library/LaunchDaemons/com.apple.softwareupdated.plist"
+readonly MODERN_UPDATE_AGENT_LABEL="com.apple.SoftwareUpdateNotificationManager"
+readonly MODERN_UPDATE_AGENT_PLIST="/System/Library/LaunchAgents/com.apple.SoftwareUpdateNotificationManager.plist"
+readonly LEGACY_UPDATE_AGENT_LABEL="com.apple.softwareupdate_notify_agent"
+readonly LEGACY_UPDATE_AGENT_PLIST="/System/Library/LaunchAgents/com.apple.softwareupdate_notify_agent.plist"
+
+readonly UPDATE_HOSTS=(
+    "swscan.apple.com"
+    "swdist.apple.com"
+    "swcdn.apple.com"
+    "gdmf.apple.com"
+    "mesu.apple.com"
+    "xp.apple.com"
+    "swdownload.apple.com"
+    "updates-http.cdn-apple.com"
+    "updates.cdn-apple.com"
 )
 
-if [ "$CHOICE" = "false" ]; then
-    exit 0
-fi
+MACOS_VERSION=""
+MACOS_BUILD=""
+MACOS_MAJOR=0
+MACOS_NAME=""
+UPDATE_DOMAIN="gui/$(id -u)"
+GUI_MODE=0
+TEMP_FILES=()
 
-# ======================
-# 1. 屏蔽更新
-# ======================
-if [[ $CHOICE == *"屏蔽所有系统更新"* ]]; then
+# ------------------------------------------------------------------->>>>>>>>
+# 基础辅助函数
+# ------------------------------------------------------------------->>>>>>>>
 
-echo "正在关闭自动更新..."
-sudo defaults write /Library/Preferences/com.apple.SoftwareUpdate AutomaticCheckEnabled -bool FALSE
-sudo defaults write /Library/Preferences/com.apple.SoftwareUpdate AutomaticDownload -bool FALSE
-sudo defaults write /Library/Preferences/com.apple.SoftwareUpdate AutomaticallyInstallMacOSUpdates -bool FALSE
-sudo defaults write /Library/Preferences/com.apple.SoftwareUpdate ConfigDataInstall -bool FALSE
-sudo defaults write /Library/Preferences/com.apple.SoftwareUpdate CriticalUpdateInstall -bool FALSE
-sudo softwareupdate --schedule off
+info() {
+    printf '%s\n' "$*"
+}
 
-sudo launchctl disable system/com.apple.softwareupdated
-sudo killall -9 softwareupdated 2>/dev/null
+warn() {
+    printf '警告：%s\n' "$*" >&2
+}
 
-# 写入 hosts
-sudo sed -i '' '/# 屏蔽macOS/d' /etc/hosts
-sudo tee -a /etc/hosts <<'EOF'
+die() {
+    printf '错误：%s\n' "$*" >&2
+    exit 1
+}
 
-# 屏蔽macOS系统更新服务器
-127.0.0.1 swscan.apple.com
-127.0.0.1 swdist.apple.com
-127.0.0.1 swcdn.apple.com
-127.0.0.1 gdmf.apple.com
-127.0.0.1 mesu.apple.com
-127.0.0.1 xp.apple.com
-127.0.0.1 swdownload.apple.com
-127.0.0.1 updates-http.cdn-apple.com
-127.0.0.1 updates.cdn-apple.com
+cleanup() {
+    local path
+
+    for path in "${TEMP_FILES[@]:-}"; do
+        case "$path" in
+            /private/tmp/macupdatectl.*)
+                if [[ -f "$path" && ! -L "$path" ]]; then
+                    /bin/rm -f -- "$path"
+                fi
+                ;;
+        esac
+    done
+}
+trap cleanup EXIT HUP INT TERM
+
+usage() {
+    cat <<'EOF'
+macupdatectl - macOS 系统更新控制器
+
+用法：
+  macupdatectl                         打开图形菜单
+  macupdatectl block|off              屏蔽所有系统更新
+  macupdatectl restore|on             恢复检查与手动更新（黑苹果推荐）
+  macupdatectl manual                 同 restore（兼容旧命令）
+  macupdatectl clear-badge            清除“系统设置”的更新角标
+  macupdatectl status                 查看更新服务、偏好和 hosts 状态
+  macupdatectl -V|--version           显示版本
+  macupdatectl -h|--help              显示帮助
+
+安全说明：
+  - 请以普通用户运行；需要系统权限时程序会自行调用 sudo。
+  - “恢复”不会开启自动下载或自动安装 macOS，适合黑苹果手动更新。
+  - hosts 修改前会备份到 /var/backups/macupdatectl/，并采用标记区块管理。
+  - 不会删除 /Library/Updates 或 softwareupdate 系统数据库。
 EOF
+}
 
-sudo dscacheutil -flushcache
-sudo killall -HUP mDNSResponder
-sudo rm -rf /Library/Updates/*
+require_command() {
+    local command_path="$1"
+    [[ -x "$command_path" ]] || die "缺少必要命令：$command_path"
+}
 
-osascript -e 'display dialog "✅ 所有系统更新已屏蔽完成！" buttons {"好"}'
+require_non_root_user() {
+    if (( EUID == 0 )); then
+        die "不要用 sudo 运行整个命令；请直接运行 ${PROGRAM_NAME}"
+    fi
+}
 
-# ======================
-# 2. 恢复更新
-# ======================
-elif [[ $CHOICE == *"恢复系统更新"* ]]; then
+select_macos_name() {
+    case "$MACOS_MAJOR" in
+        12) MACOS_NAME="Monterey" ;;
+        13) MACOS_NAME="Ventura" ;;
+        14) MACOS_NAME="Sonoma" ;;
+        15) MACOS_NAME="Sequoia" ;;
+        26) MACOS_NAME="Tahoe" ;;
+        *) MACOS_NAME="未识别版本" ;;
+    esac
+}
 
-sudo defaults write /Library/Preferences/com.apple.SoftwareUpdate AutomaticCheckEnabled -bool TRUE
-sudo defaults write /Library/Preferences/com.apple.SoftwareUpdate AutomaticDownload -bool TRUE
-sudo defaults write /Library/Preferences/com.apple.SoftwareUpdate AutomaticallyInstallMacOSUpdates -bool TRUE
-sudo defaults write /Library/Preferences/com.apple.SoftwareUpdate ConfigDataInstall -bool TRUE
-sudo defaults write /Library/Preferences/com.apple.SoftwareUpdate CriticalUpdateInstall -bool TRUE
-sudo softwareupdate --schedule on
+detect_platform() {
+    local version_major
 
-sudo launchctl enable system/com.apple.softwareupdated
-sudo launchctl start com.apple.softwareupdated
+    [[ "$(uname -s)" == "Darwin" ]] || die "仅支持 macOS"
+    require_command "$DEFAULTS_BIN"
+    require_command "$SOFTWAREUPDATE_BIN"
+    require_command "$SW_VERS_BIN"
+    require_command "$LAUNCHCTL_BIN"
 
-sudo sed -i '' '/# 屏蔽macOS/d' /etc/hosts
-sudo dscacheutil -flushcache
-sudo killall -HUP mDNSResponder
+    MACOS_VERSION="$($SW_VERS_BIN -productVersion)"
+    MACOS_BUILD="$($SW_VERS_BIN -buildVersion)"
+    version_major="${MACOS_VERSION%%.*}"
+    [[ "$version_major" =~ ^[0-9]+$ ]] || die "无法解析 macOS 版本：$MACOS_VERSION"
+    MACOS_MAJOR=$((10#$version_major))
+    (( MACOS_MAJOR >= MINIMUM_MACOS_MAJOR )) \
+        || die "不支持 macOS ${MACOS_VERSION}；最低支持 macOS ${MINIMUM_MACOS_MAJOR}"
+    select_macos_name
+}
 
-osascript -e 'display dialog "✅ 系统更新已恢复！" buttons {"好"}'
+print_platform() {
+    info "系统：macOS ${MACOS_VERSION} ${MACOS_NAME}（${MACOS_BUILD}）"
+    info "架构：$(uname -m)"
+    if [[ "$MACOS_NAME" == "未识别版本" ]]; then
+        warn "当前系统未列入内置版本表，将按实际组件进行能力探测"
+    fi
+}
 
-# ======================
-# 3. 清除小红点
-# ======================
-elif [[ $CHOICE == *"清除更新小红点"* ]]; then
+display_result() {
+    local message="$1"
 
-sudo killall -9 softwareupdated System\ Settings Dock NotificationCenter 2>/dev/null
+    if (( GUI_MODE == 1 )); then
+        /usr/bin/osascript - "$message" <<'APPLESCRIPT' >/dev/null
+on run argv
+    display dialog (item 1 of argv) buttons {"好"} default button "好"
+end run
+APPLESCRIPT
+    fi
+}
 
-sudo rm -rf ~/Library/Caches/com.apple.preferences.softwareupdate
-sudo rm -rf /Library/Caches/com.apple.softwareupdate
-sudo rm -rf /private/var/db/com.apple.softwareupdate
-sudo rm -rf ~/Library/Preferences/com.apple.SoftwareUpdate.plist
+choose_gui_action() {
+    local choice
 
-defaults write com.apple.systempreferences AttentionPrefBundleIDs 0
-killall Dock
+    choice="$(/usr/bin/osascript <<'APPLESCRIPT'
+set options to {"🔒 屏蔽所有系统更新", "🔓 恢复检查与手动更新（黑苹果推荐）", "🧹 清除更新小红点", "🔎 查看当前状态"}
+choose from list options with title "macOS 更新控制器" with prompt "选择一个操作：" default items {"🔎 查看当前状态"}
+APPLESCRIPT
+)"
 
-osascript -e 'display dialog "✅ 小红点已清除！如仍显示请重启电脑" buttons {"好"}'
+    case "$choice" in
+        false) printf 'cancel\n' ;;
+        *"屏蔽所有系统更新"*) printf 'block\n' ;;
+        *"恢复检查与手动更新"*) printf 'restore\n' ;;
+        *"清除更新小红点"*) printf 'clear-badge\n' ;;
+        *"查看当前状态"*) printf 'status\n' ;;
+        *) die "无法识别图形菜单选择：$choice" ;;
+    esac
+}
 
-# ======================
-# 4. 只屏蔽大版本，保留安全更新
-# ======================
-elif [[ $CHOICE == *"只屏蔽大版本"* ]]; then
+# ------------------------------------------------------------------->>>>>>>>
+# hosts 管理：兼容清理旧版无结束标记的条目
+# ------------------------------------------------------------------->>>>>>>>
 
-sudo defaults write /Library/Preferences/com.apple.SoftwareUpdate AutomaticCheckEnabled -bool TRUE
-sudo defaults write /Library/Preferences/com.apple.SoftwareUpdate AutomaticDownload -bool TRUE
-sudo defaults write /Library/Preferences/com.apple.SoftwareUpdate AutomaticallyInstallMacOSUpdates -bool FALSE
-sudo defaults write /Library/Preferences/com.apple.SoftwareUpdate ConfigDataInstall -bool TRUE
-sudo defaults write /Library/Preferences/com.apple.SoftwareUpdate CriticalUpdateInstall -bool TRUE
-sudo softwareupdate --schedule on
+blocked_hosts_csv() {
+    local IFS=,
+    printf '%s' "${UPDATE_HOSTS[*]}"
+}
 
-sudo sed -i '' '/# 屏蔽macOS/d' /etc/hosts
-sudo dscacheutil -flushcache
-sudo killall -HUP mDNSResponder
+render_hosts_without_managed_entries() {
+    local input_path="$1"
+    local output_path="$2"
+    local blocked_csv
 
-osascript -e 'display dialog "✅ 已设置：仅屏蔽大版本，保留安全更新" buttons {"好"}'
+    [[ -f "$input_path" && ! -L "$input_path" ]] \
+        || die "hosts 输入不是普通文件：$input_path"
+    blocked_csv="$(blocked_hosts_csv)"
 
+    /usr/bin/awk \
+        -v begin_marker="$HOSTS_BLOCK_BEGIN" \
+        -v end_marker="$HOSTS_BLOCK_END" \
+        -v legacy_marker="$LEGACY_HOSTS_MARKER" \
+        -v blocked_csv="$blocked_csv" '
+        function emit(line) {
+            if (line == "") {
+                pending_blank_lines++
+                return
+            }
+            while (pending_blank_lines > 0) {
+                print ""
+                pending_blank_lines--
+            }
+            print line
+        }
+        BEGIN {
+            count = split(blocked_csv, names, ",")
+            for (i = 1; i <= count; i++) blocked[names[i]] = 1
+            in_managed_block = 0
+            pending_blank_lines = 0
+        }
+        $0 == begin_marker {
+            if (in_managed_block) exit 42
+            in_managed_block = 1
+            next
+        }
+        $0 == end_marker {
+            if (!in_managed_block) exit 43
+            in_managed_block = 0
+            next
+        }
+        in_managed_block { next }
+        $0 == legacy_marker { next }
+        NF == 2 && ($1 == "127.0.0.1" || $1 == "::1") && ($2 in blocked) { next }
+        { emit($0) }
+        END {
+            if (in_managed_block) exit 44
+        }
+    ' "$input_path" > "$output_path"
+}
+
+render_hosts_with_block() {
+    local input_path="$1"
+    local output_path="$2"
+    local host
+
+    render_hosts_without_managed_entries "$input_path" "$output_path"
+    {
+        printf '\n%s\n' "$HOSTS_BLOCK_BEGIN"
+        for host in "${UPDATE_HOSTS[@]}"; do
+            printf '127.0.0.1 %s\n' "$host"
+        done
+        printf '%s\n' "$HOSTS_BLOCK_END"
+    } >> "$output_path"
+}
+
+validate_rendered_hosts() {
+    local path="$1"
+    local expected_mode="$2"
+    local begin_count
+    local end_count
+    local host
+    local host_count
+
+    [[ -s "$path" && ! -L "$path" ]] || die "生成的 hosts 文件无效：$path"
+    begin_count="$(/usr/bin/grep -Fxc "$HOSTS_BLOCK_BEGIN" "$path" || true)"
+    end_count="$(/usr/bin/grep -Fxc "$HOSTS_BLOCK_END" "$path" || true)"
+
+    if [[ "$expected_mode" == "block" ]]; then
+        [[ "$begin_count" == "1" && "$end_count" == "1" ]] \
+            || die "生成的 hosts 屏蔽区块标记不完整"
+        for host in "${UPDATE_HOSTS[@]}"; do
+            host_count="$(/usr/bin/awk -v host="$host" \
+                'NF == 2 && $1 == "127.0.0.1" && $2 == host { count++ } END { print count + 0 }' \
+                "$path")"
+            [[ "$host_count" == "1" ]] || die "hosts 条目数量异常：$host"
+        done
+    else
+        [[ "$begin_count" == "0" && "$end_count" == "0" ]] \
+            || die "恢复后的 hosts 仍含管理标记"
+        for host in "${UPDATE_HOSTS[@]}"; do
+            if /usr/bin/awk -v host="$host" \
+                'NF == 2 && ($1 == "127.0.0.1" || $1 == "::1") && $2 == host { found = 1 } END { exit !found }' \
+                "$path"; then
+                die "恢复后的 hosts 仍在屏蔽：$host"
+            fi
+        done
+    fi
+}
+
+ensure_hosts_backup_dir() {
+    if sudo /bin/test -e "$HOSTS_BACKUP_DIR"; then
+        sudo /bin/test -d "$HOSTS_BACKUP_DIR" \
+            || die "hosts 备份路径不是目录：$HOSTS_BACKUP_DIR"
+        if sudo /bin/test -L "$HOSTS_BACKUP_DIR"; then
+            die "hosts 备份目录不能是符号链接：$HOSTS_BACKUP_DIR"
+        fi
+    else
+        sudo /usr/bin/install -d -o root -g wheel -m 0700 "$HOSTS_BACKUP_DIR"
+    fi
+}
+
+install_hosts_if_changed() {
+    local rendered_path="$1"
+    local backup_path
+    local timestamp
+
+    [[ "$HOSTS_FILE" == "/etc/hosts" ]] || die "拒绝修改非预期 hosts 路径"
+    [[ -f "$HOSTS_FILE" && ! -L "$HOSTS_FILE" ]] \
+        || die "/etc/hosts 不是普通文件，拒绝覆盖"
+
+    if /usr/bin/cmp -s "$HOSTS_FILE" "$rendered_path"; then
+        info "hosts 已是目标状态，无需修改"
+        return 0
+    fi
+
+    ensure_hosts_backup_dir
+    timestamp="$(/bin/date '+%Y%m%d-%H%M%S')"
+    [[ "$timestamp" =~ ^[0-9]{8}-[0-9]{6}$ ]] || die "无法生成 hosts 备份时间戳"
+    backup_path="${HOSTS_BACKUP_DIR}/hosts.${timestamp}.$$"
+    case "$backup_path" in
+        "$HOSTS_BACKUP_DIR"/hosts.*) ;;
+        *) die "hosts 备份路径校验失败" ;;
+    esac
+
+    sudo /bin/cp -p -- "$HOSTS_FILE" "$backup_path"
+    sudo /usr/bin/install -o root -g wheel -m 0644 "$rendered_path" "$HOSTS_FILE"
+    /usr/bin/cmp -s "$HOSTS_FILE" "$rendered_path" \
+        || die "hosts 写入后校验失败；备份位于 $backup_path"
+    info "hosts 已更新；备份：$backup_path"
+}
+
+flush_dns_cache() {
+    sudo /usr/bin/dscacheutil -flushcache
+    sudo /usr/bin/killall -HUP mDNSResponder 2>/dev/null || true
+}
+
+update_hosts() {
+    local mode="$1"
+    local rendered_path
+
+    rendered_path="$(/usr/bin/mktemp /private/tmp/macupdatectl.hosts.XXXXXX)"
+    [[ -n "$rendered_path" && "$rendered_path" == /private/tmp/macupdatectl.hosts.* ]] \
+        || die "无法创建安全的 hosts 临时文件"
+    TEMP_FILES+=("$rendered_path")
+
+    case "$mode" in
+        block) render_hosts_with_block "$HOSTS_FILE" "$rendered_path" ;;
+        restore) render_hosts_without_managed_entries "$HOSTS_FILE" "$rendered_path" ;;
+        *) die "未知 hosts 操作：$mode" ;;
+    esac
+    validate_rendered_hosts "$rendered_path" "$mode"
+    install_hosts_if_changed "$rendered_path"
+    flush_dns_cache
+}
+
+print_hosts_status() {
+    local begin_count
+    local end_count
+    local blocked_count
+
+    begin_count="$(/usr/bin/grep -Fxc "$HOSTS_BLOCK_BEGIN" "$HOSTS_FILE" || true)"
+    end_count="$(/usr/bin/grep -Fxc "$HOSTS_BLOCK_END" "$HOSTS_FILE" || true)"
+    blocked_count="$(/usr/bin/awk -v blocked_csv="$(blocked_hosts_csv)" '
+        BEGIN {
+            count = split(blocked_csv, names, ",")
+            for (i = 1; i <= count; i++) blocked[names[i]] = 1
+        }
+        NF == 2 && ($1 == "127.0.0.1" || $1 == "::1") && ($2 in blocked) { found++ }
+        END { print found + 0 }
+    ' "$HOSTS_FILE")"
+
+    if [[ "$begin_count" == "1" && "$end_count" == "1" && "$blocked_count" == "${#UPDATE_HOSTS[@]}" ]]; then
+        info "hosts 屏蔽：启用（受管区块完整）"
+    elif (( blocked_count > 0 )); then
+        warn "hosts 屏蔽：残留或不完整（${blocked_count}/${#UPDATE_HOSTS[@]} 条）"
+    else
+        info "hosts 屏蔽：关闭"
+    fi
+}
+
+# ------------------------------------------------------------------->>>>>>>>
+# launchd 与偏好设置
+# ------------------------------------------------------------------->>>>>>>>
+
+is_service_disabled() {
+    local domain="$1"
+    local label="$2"
+
+    "$LAUNCHCTL_BIN" print-disabled "$domain" 2>/dev/null \
+        | /usr/bin/grep -Fq "\"${label}\" => disabled"
+}
+
+disable_system_update_daemon() {
+    local service="system/${SYSTEM_UPDATE_DAEMON_LABEL}"
+
+    [[ -f "$SYSTEM_UPDATE_DAEMON_PLIST" ]] || return 0
+    sudo "$LAUNCHCTL_BIN" disable "$service"
+    sudo "$LAUNCHCTL_BIN" bootout "$service" 2>/dev/null || true
+}
+
+restore_system_update_daemon() {
+    local service="system/${SYSTEM_UPDATE_DAEMON_LABEL}"
+
+    [[ -f "$SYSTEM_UPDATE_DAEMON_PLIST" ]] || return 0
+    sudo "$LAUNCHCTL_BIN" enable "$service"
+    if ! "$LAUNCHCTL_BIN" print "$service" >/dev/null 2>&1; then
+        sudo "$LAUNCHCTL_BIN" bootstrap system "$SYSTEM_UPDATE_DAEMON_PLIST" 2>/dev/null || true
+    fi
+    sudo "$LAUNCHCTL_BIN" kickstart -k "$service" 2>/dev/null || true
+}
+
+for_each_update_agent() {
+    local callback="$1"
+
+    if [[ -f "$MODERN_UPDATE_AGENT_PLIST" ]]; then
+        "$callback" "$MODERN_UPDATE_AGENT_LABEL" "$MODERN_UPDATE_AGENT_PLIST"
+    fi
+    if [[ -f "$LEGACY_UPDATE_AGENT_PLIST" ]]; then
+        "$callback" "$LEGACY_UPDATE_AGENT_LABEL" "$LEGACY_UPDATE_AGENT_PLIST"
+    fi
+}
+
+disable_update_agent() {
+    local label="$1"
+    local plist_path="$2"
+    local service="${UPDATE_DOMAIN}/${label}"
+
+    "$LAUNCHCTL_BIN" disable "$service" 2>/dev/null || true
+    "$LAUNCHCTL_BIN" bootout "$service" 2>/dev/null \
+        || "$LAUNCHCTL_BIN" unload -w "$plist_path" 2>/dev/null \
+        || true
+}
+
+restore_update_agent() {
+    local label="$1"
+    local plist_path="$2"
+    local service="${UPDATE_DOMAIN}/${label}"
+
+    "$LAUNCHCTL_BIN" enable "$service" 2>/dev/null || true
+    if ! "$LAUNCHCTL_BIN" print "$service" >/dev/null 2>&1; then
+        "$LAUNCHCTL_BIN" bootstrap "$UPDATE_DOMAIN" "$plist_path" 2>/dev/null \
+            || "$LAUNCHCTL_BIN" load -w "$plist_path" 2>/dev/null \
+            || true
+    fi
+    "$LAUNCHCTL_BIN" kickstart -k "$service" 2>/dev/null || true
+}
+
+write_update_preferences() {
+    local mode="$1"
+
+    case "$mode" in
+        block)
+            sudo "$DEFAULTS_BIN" write "$SOFTWARE_UPDATE_PREFS" AutomaticCheckEnabled -bool false
+            sudo "$DEFAULTS_BIN" write "$SOFTWARE_UPDATE_PREFS" AutomaticDownload -bool false
+            sudo "$DEFAULTS_BIN" write "$SOFTWARE_UPDATE_PREFS" AutomaticallyInstallMacOSUpdates -bool false
+            sudo "$DEFAULTS_BIN" write "$SOFTWARE_UPDATE_PREFS" ConfigDataInstall -bool false
+            sudo "$DEFAULTS_BIN" write "$SOFTWARE_UPDATE_PREFS" CriticalUpdateInstall -bool false
+            ;;
+        manual)
+            sudo "$DEFAULTS_BIN" write "$SOFTWARE_UPDATE_PREFS" AutomaticCheckEnabled -bool true
+            sudo "$DEFAULTS_BIN" write "$SOFTWARE_UPDATE_PREFS" AutomaticDownload -bool false
+            sudo "$DEFAULTS_BIN" write "$SOFTWARE_UPDATE_PREFS" AutomaticallyInstallMacOSUpdates -bool false
+            sudo "$DEFAULTS_BIN" write "$SOFTWARE_UPDATE_PREFS" ConfigDataInstall -bool true
+            sudo "$DEFAULTS_BIN" write "$SOFTWARE_UPDATE_PREFS" CriticalUpdateInstall -bool true
+            ;;
+        *) die "未知偏好设置模式：$mode" ;;
+    esac
+}
+
+clear_update_badge() {
+    "$DEFAULTS_BIN" delete com.apple.systempreferences AttentionPrefBundleIDs 2>/dev/null || true
+    "$DEFAULTS_BIN" delete com.apple.systempreferences DidShowPrefBundleIDs 2>/dev/null || true
+    sudo "$DEFAULTS_BIN" write "$SOFTWARE_UPDATE_PREFS" LastUpdatesAvailable -int 0
+    sudo "$DEFAULTS_BIN" write "$SOFTWARE_UPDATE_PREFS" LastRecommendedUpdatesAvailable -int 0
+    sudo "$DEFAULTS_BIN" delete "$SOFTWARE_UPDATE_PREFS" RecommendedUpdates 2>/dev/null || true
+    /usr/bin/killall NotificationCenter 2>/dev/null || true
+    /usr/bin/killall Dock 2>/dev/null || true
+}
+
+read_update_preference() {
+    local key="$1"
+    local value
+
+    value="$($DEFAULTS_BIN read "$SOFTWARE_UPDATE_PREFS" "$key" 2>/dev/null || true)"
+    printf '%s' "${value:-未设置}"
+}
+
+print_status() {
+    local service="system/${SYSTEM_UPDATE_DAEMON_LABEL}"
+    local disabled_state="启用"
+    local loaded_state="未运行（按需启动）"
+    local schedule_status
+
+    detect_platform
+    print_platform
+    info "命令版本：${PROGRAM_VERSION}"
+    schedule_status="$($SOFTWAREUPDATE_BIN --schedule 2>&1 || true)"
+    info "原生调度：${schedule_status:-无法读取}"
+    info "自动检查：$(read_update_preference AutomaticCheckEnabled)"
+    info "自动下载：$(read_update_preference AutomaticDownload)"
+    info "自动安装 macOS：$(read_update_preference AutomaticallyInstallMacOSUpdates)"
+    info "配置数据更新：$(read_update_preference ConfigDataInstall)"
+    info "关键安全更新：$(read_update_preference CriticalUpdateInstall)"
+
+    if is_service_disabled system "$SYSTEM_UPDATE_DAEMON_LABEL"; then
+        disabled_state="禁用"
+    fi
+    if "$LAUNCHCTL_BIN" print "$service" >/dev/null 2>&1; then
+        loaded_state="运行中"
+    fi
+    info "更新服务：${disabled_state}，${loaded_state}"
+    print_hosts_status
+}
+
+# ------------------------------------------------------------------->>>>>>>>
+# 操作入口
+# ------------------------------------------------------------------->>>>>>>>
+
+block_updates() {
+    detect_platform
+    require_non_root_user
+    print_platform
+    info "正在屏蔽所有 macOS 系统更新……"
+    sudo -v
+
+    write_update_preferences block
+    sudo "$SOFTWAREUPDATE_BIN" --schedule off >/dev/null 2>&1 || true
+    for_each_update_agent disable_update_agent
+    disable_system_update_daemon
+    update_hosts block
+    clear_update_badge
+
+    info "屏蔽完成；安全数据更新也已暂停。"
+    display_result "所有系统更新已屏蔽。需要更新时请先执行恢复。"
+}
+
+restore_updates() {
+    detect_platform
+    require_non_root_user
+    print_platform
+    info "正在恢复系统更新检查……"
+    sudo -v
+
+    update_hosts restore
+    write_update_preferences manual
+    restore_system_update_daemon
+    for_each_update_agent restore_update_agent
+    sudo "$SOFTWAREUPDATE_BIN" --schedule on >/dev/null 2>&1 || true
+
+    info "恢复完成；自动下载和自动安装 macOS 保持关闭。"
+    info "可运行 softwareupdate -l 或在系统设置中手动检查更新。"
+    display_result "系统更新检查已恢复；macOS 仍需手动安装。"
+}
+
+clear_badge_action() {
+    detect_platform
+    require_non_root_user
+    print_platform
+    sudo -v
+    clear_update_badge
+    info "更新角标状态已清理；未删除系统更新数据库或下载文件。"
+    display_result "系统更新小红点已清理。"
+}
+
+main() {
+    local action
+
+    if (( $# == 0 )); then
+        GUI_MODE=1
+        action="$(choose_gui_action)"
+    elif (( $# == 1 )); then
+        action="$1"
+    else
+        printf '错误：参数过多。\n\n' >&2
+        usage >&2
+        exit 2
+    fi
+
+    case "$action" in
+        block|off|--off) block_updates ;;
+        restore|on|--restore|-r) restore_updates ;;
+        manual|safe|security) restore_updates ;;
+        clear-badge|badge) clear_badge_action ;;
+        status|--status|-s) print_status ;;
+        -V|--version|version) printf '%s %s\n' "$PROGRAM_NAME" "$PROGRAM_VERSION" ;;
+        -h|--help|help) usage ;;
+        cancel) exit 0 ;;
+        *)
+            printf '错误：未知参数 %s\n\n' "$action" >&2
+            usage >&2
+            exit 2
+            ;;
+    esac
+}
+
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+    main "$@"
 fi
-
-exit 0

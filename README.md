@@ -326,13 +326,20 @@ Codex 的顶层 `notify` 只能由一个通知命令占用。如果该位置已�
 
 仓库只负责把请求接到 login 节点上的 Clash。`baidu`、`google`、`gpt`、`claude` 这些请求最后怎么走，全部由 Clash 的规则决定；这个仓库不负责流量分流。
 
-原生 Linux 上，`mse deploy --fast` 会执行 `clashctl` step。控制脚本、Web UI 和基础资源放在仓库的 `tools/clashctl` 中；`mihomo`、`yq`、`subconverter` 会按当前 CPU 架构安装到仓库的 `bin` 中：
+原生 Linux 上，`mse deploy --fast` 会执行 `clashctl` step。控制脚本、Web UI 和基础资源放在仓库的 `tools/clashctl` 中；`mihomo` 和 `subconverter` 会按当前 CPU 架构安装到仓库的 `bin` 中：
 
 ```shell
 ~/.my_shell_envs/bin/mihomo
-~/.my_shell_envs/bin/yq
 ~/.my_shell_envs/bin/subconverter/subconverter
 ```
+
+`yq` 只是 clashctl 的私有运行依赖，默认安装到不进入 `PATH` 的 `libexec` 目录，避免平时整理仓库 `bin` 时误删：
+
+```shell
+~/.local/libexec/mse-clashctl/yq
+```
+
+如需改到其它位置，可在部署时设置 `MSE_CLASHCTL_YQ_BIN`；deploy 会把最终路径写入 `tools/clashctl/state/env`。
 
 订阅、token、生成的 `runtime.yaml`、日志和下载缓存同样留在仓库目录内，但被 Git 忽略：
 

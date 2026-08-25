@@ -256,6 +256,7 @@ _mse_clashctl_loaded() {
 _mse_clashctl_install_diagnostic() {
     local bin_dir="${CLASHCTL_BIN_DIR:-${CLASHCTL_HOME:-}/../../bin}"
     local kernel="${CLASHCTL_KERNEL:-}"
+    local yq_bin="${BIN_YQ:-${CLASHCTL_YQ_BIN:-${bin_dir}/yq}}"
 
     _mse_clashctl_loaded || {
         echo "control function is not loaded from ${CLASHCTL_HOME:-<unset>}"
@@ -276,8 +277,8 @@ _mse_clashctl_install_diagnostic() {
         echo "kernel is missing or not executable: ${bin_dir}/${kernel}"
         return 1
     }
-    [[ -x "${bin_dir}/yq" ]] || {
-        echo "yq is missing or not executable: ${bin_dir}/yq"
+    [[ -x "${yq_bin}" ]] || {
+        echo "yq is missing or not executable: ${yq_bin}"
         return 1
     }
     [[ -x "${bin_dir}/subconverter/subconverter" ]] || {

@@ -5,6 +5,12 @@ Host MacPro-AMD-64G.local
     User zhaohuanan
     IdentityFile ~/.ssh/id_rsa  # 替换为你的私钥路径（可选）
     ServerAliveInterval 60  # 保持连接的心跳包时间间隔（可选）
+Host MacPro-AMD-64G
+    HostName 100.66.1.8
+    Port 22
+    User zhaohuanan
+    IdentityFile ~/.ssh/id_rsa  # 替换为你的私钥路径（可选）
+    ServerAliveInterval 60  # 保持连接的心跳包时间间隔（可选）
 Host MacBookAir-M2-24G
     HostName 100.66.1.4
     Port 22

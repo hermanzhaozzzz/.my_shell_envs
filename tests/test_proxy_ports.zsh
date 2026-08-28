@@ -81,6 +81,20 @@ test_http_only_runtime_is_not_ready() {
     fi
 }
 
+test_private_yq_path_is_accepted() {
+    make_proxy_fixture
+    trap 'rm -rf "$TEST_TMP"' EXIT
+    rm -f "${MSE_REPO_ROOT}/bin/yq"
+    export BIN_YQ="${HOME}/.local/libexec/mse-clashctl/yq"
+    mkdir -p "${BIN_YQ:h}"
+    touch "${BIN_YQ}"
+    chmod +x "${BIN_YQ}"
+    write_runtime $'port: 7890\nsocks-port: 7891'
+    load_proxy_helpers
+    _mse_clashctl_install_diagnostic \
+        || fail_test "private yq path from clashctl state must be accepted"
+}
+
 test_invalid_mode_does_not_fall_back_to_clash() {
     make_proxy_fixture
     trap 'rm -rf "$TEST_TMP"' EXIT
@@ -102,5 +116,6 @@ run_test "runtime overwrites post-load port changes" test_post_load_override_is_
 run_test "invalid runtime clears stale ports" test_invalid_runtime_clears_stale_ports
 run_test "mixed-port supplies both protocols" test_mixed_port_drives_both_protocols
 run_test "HTTP-only runtime is rejected" test_http_only_runtime_is_not_ready
+run_test "private yq path is accepted" test_private_yq_path_is_accepted
 run_test "invalid mode has no clash fallback" test_invalid_mode_does_not_fall_back_to_clash
 finish_tests

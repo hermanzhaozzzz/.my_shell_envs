@@ -53,8 +53,8 @@ test_default_subscription_ua_requests_modern_mihomo_profiles() {
         "deploy must persist the modern subscription UA"
     assert_file_contains \
         "$REPO_ROOT/tools/clashctl/mse-deploy.sh" \
-        'INIT_TYPE=nohup\nCLASHCTL_SUB_UA=%s\n' \
-        "deploy state must include the subscription UA"
+        'INIT_TYPE=nohup\nCLASHCTL_SUB_UA=%s\nCLASHCTL_YQ_BIN=%q\n' \
+        "deploy state must include the subscription UA and private yq path"
 }
 
 test_deleting_active_subscription_stops_service_and_clears_runtime() {

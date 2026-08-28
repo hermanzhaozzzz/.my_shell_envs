@@ -7,8 +7,10 @@ CLASHCTL_HOME="${CLASHCTL_SRC}"
 CLASHCTL_KERNEL="${MSE_CLASHCTL_KERNEL:-mihomo}"
 CLASHCTL_SUB_UA="${MSE_CLASHCTL_SUB_UA:-clash-verge/v2.3.1}"
 CLASHCTL_BIN_DIR="${CLASHCTL_HOME}/../../bin"
+CLASHCTL_YQ_BIN="${MSE_CLASHCTL_YQ_BIN:-${HOME}/.local/libexec/mse-clashctl/yq}"
 CLASHCTL_STATE_DIR="${CLASHCTL_HOME}/state"
 CLASHCTL_CACHE_DIR="${CLASHCTL_HOME}/cache"
+export CLASHCTL_YQ_BIN
 
 case "${CLASHCTL_KERNEL}" in
     mihomo|clash) ;;
@@ -49,8 +51,9 @@ install -m 644 "${CLASHCTL_SRC}/resources/geosite.dat" "${CLASHCTL_STATE_DIR}/ge
 [ -f "${CLASHCTL_STATE_DIR}/profiles.yaml" ] || \
     install -m 644 "${CLASHCTL_SRC}/resources/profiles.yaml" "${CLASHCTL_STATE_DIR}/profiles.yaml"
 [ -f "${CLASHCTL_STATE_DIR}/config.yaml" ] || : > "${CLASHCTL_STATE_DIR}/config.yaml"
-printf 'CLASHCTL_KERNEL=%s\nINIT_TYPE=nohup\nCLASHCTL_SUB_UA=%s\n' \
-    "${CLASHCTL_KERNEL}" "${CLASHCTL_SUB_UA}" > "${CLASHCTL_STATE_DIR}/env"
+printf 'CLASHCTL_KERNEL=%s\nINIT_TYPE=nohup\nCLASHCTL_SUB_UA=%s\nCLASHCTL_YQ_BIN=%q\n' \
+    "${CLASHCTL_KERNEL}" "${CLASHCTL_SUB_UA}" "${CLASHCTL_YQ_BIN}" \
+    > "${CLASHCTL_STATE_DIR}/env"
 
 restart_running_service=false
 if [ -x "${CLASHCTL_BIN_DIR}/${CLASHCTL_KERNEL}" ]; then
@@ -60,6 +63,15 @@ if [ -x "${CLASHCTL_BIN_DIR}/${CLASHCTL_KERNEL}" ]; then
 fi
 
 prepare_zip
+
+# Older deployments unpacked all yq archive members into the repository bin.
+# Keep only the private helper installed above and remove those managed files.
+if [ "${CLASHCTL_YQ_BIN}" != "${CLASHCTL_BIN_DIR}/yq" ]; then
+    rm -f \
+        "${CLASHCTL_BIN_DIR}/yq" \
+        "${CLASHCTL_BIN_DIR}/yq.1" \
+        "${CLASHCTL_BIN_DIR}/install-man-page.sh"
+fi
 
 if [ "${restart_running_service}" = true ]; then
     service_restart >/dev/null 2>&1 || {
@@ -73,5 +85,5 @@ if [ "${restart_running_service}" = true ]; then
 fi
 
 printf 'CLASHCTL_HOME=%s\n' "${CLASHCTL_HOME}"
-printf 'clashctl binaries installed in %s; runtime data preserved in %s\n' \
-    "${CLASHCTL_BIN_DIR}" "${CLASHCTL_STATE_DIR}"
+printf 'clashctl kernel and subconverter installed in %s; yq installed at %s; runtime data preserved in %s\n' \
+    "${CLASHCTL_BIN_DIR}" "${CLASHCTL_YQ_BIN}" "${CLASHCTL_STATE_DIR}"

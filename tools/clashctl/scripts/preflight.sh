@@ -210,10 +210,16 @@ valid_zip() {
     [ ${#fail_zips[@]} -eq 0 ] || _errorcat "文件验证失败：${fail_zips[*]} 请删除后重试，或自行下载对应版本至 ${ZIP_BASE_DIR} 目录" || exit
 }
 unzip_zip() {
+    local yq_member=""
+
     valid_zip "$ZIP_KERNEL" "$ZIP_YQ" "$ZIP_SUBCONVERTER" "$ZIP_UI"
+    yq_member=$(tar -tf "$ZIP_YQ" | grep -E '(^|/)yq_[^/]+$' | head -n 1)
+    [ -n "$yq_member" ] || {
+        _errorcat "yq 压缩包中没有找到可执行文件：$ZIP_YQ"
+        return 1
+    }
     /usr/bin/install -D <(gzip -dc "$ZIP_KERNEL") "$BIN_KERNEL"
-    tar -xf "$ZIP_YQ" -C "${BIN_BASE_DIR}"
-    /bin/mv -f "${BIN_BASE_DIR}"/yq_* "${BIN_BASE_DIR}/yq"
+    /usr/bin/install -D -m 755 <(tar -xOf "$ZIP_YQ" "$yq_member") "$BIN_YQ"
     tar -xf "$ZIP_SUBCONVERTER" -C "$BIN_BASE_DIR"
     /bin/cp "$BIN_SUBCONVERTER_DIR/pref.example.yml" "$BIN_SUBCONVERTER_CONFIG"
     unzip -oqq "$ZIP_UI" -d "$CLASH_RESOURCES_DIR" 2>/dev/null || tar -xf "$ZIP_UI" -C "$CLASH_RESOURCES_DIR"

@@ -37,6 +37,18 @@ test_clashctl_has_a_cron_safe_repo_wrapper() {
     assert_file_contains "$REPO_ROOT/tools/clashctl/scripts/cmd/sub.sh" '"${BIN_BASE_DIR}/clashctl" "$CLASHCTL_CRON_TAG"'
 }
 
+test_clashctl_yq_uses_private_helper_path() {
+    assert_file_contains \
+        "$REPO_ROOT/tools/clashctl/mse-deploy.sh" \
+        'CLASHCTL_YQ_BIN="${MSE_CLASHCTL_YQ_BIN:-${HOME}/.local/libexec/mse-clashctl/yq}"'
+    assert_file_contains \
+        "$REPO_ROOT/tools/clashctl/scripts/lib/common.sh" \
+        'BIN_YQ="${CLASHCTL_YQ_BIN:-${BIN_BASE_DIR}/yq}"'
+    assert_file_contains \
+        "$REPO_ROOT/tools/clashctl/scripts/preflight.sh" \
+        '/usr/bin/install -D -m 755 <(tar -xOf "$ZIP_YQ" "$yq_member") "$BIN_YQ"'
+}
+
 test_clashctl_canonicalizes_repo_identity() {
     local fixture=""
     local expected_home=""
@@ -56,5 +68,6 @@ run_test "proxy.test documentation matches implementation" test_proxy_test_docs_
 run_test "Windows unified proxy work remains marked TODO" test_windows_proxy_todo_is_explicit
 run_test "deploy bootstrap and cleanup ordering is safe" test_deploy_orders_bootstrap_and_cleanup_safely
 run_test "clashctl has a cron-safe repo wrapper" test_clashctl_has_a_cron_safe_repo_wrapper
+run_test "clashctl yq uses private helper path" test_clashctl_yq_uses_private_helper_path
 run_test "clashctl canonicalizes repository identity" test_clashctl_canonicalizes_repo_identity
 finish_tests

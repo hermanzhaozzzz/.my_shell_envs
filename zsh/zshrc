@@ -393,7 +393,7 @@ _mse_proxy_sync_clashctl_ports() {
     local socks_port=""
 
     _mse_proxy_requires_clashctl_runtime || return 1
-    unset MSE_PROXY_PORT MSE_PROXY_SOCKS_PORT
+    unset MSE_PROXY_PORT MSE_PROXY_SOCKS_PORT MSE_PROXY_SOCKS_HOST MSE_PROXY_SOURCE
     _mse_clashctl_runtime_ready || return 1
 
     proxy_port="$(_mse_clashctl_proxy_port 2>/dev/null || true)"
@@ -405,11 +405,27 @@ _mse_proxy_sync_clashctl_ports() {
 
 _mse_proxy_sync_clashctl_ports 2>/dev/null || true
 
+source "${MSE_REPO_ROOT}/zsh/proxy_external.zsh"
+
+_mse_proxy_sync_ports() {
+    if _mse_proxy_is_external; then
+        _mse_proxy_sync_external_ports || {
+            _mse_proxy_disable_env
+            return 1
+        }
+    elif _mse_proxy_requires_clashctl_runtime; then
+        _mse_proxy_sync_clashctl_ports
+    fi
+}
+
 _mse_proxy_default_no_proxy() {
     printf '%s\n' "localhost,127.0.0.1,::1"
 }
 
 _mse_proxy_require_port() {
+    if _mse_proxy_is_external && [[ -n "${MSE_PROXY_SOCKS_PORT:-}" ]]; then
+        return 0
+    fi
     if [[ -n "${MSE_PROXY_PORT:-}" ]]; then
         return 0
     fi
@@ -417,7 +433,7 @@ _mse_proxy_require_port() {
     if _mse_proxy_requires_clashctl_runtime; then
         echo "proxy: Linux clash mode requires valid HTTP and SOCKS ports in clashctl runtime.yaml"
     else
-        echo "proxy: set the HTTP port exposed by Clash/Surge in ~/.zprofile"
+        echo "proxy: external proxy unavailable; start the client, then run proxy.on to detect it"
     fi
     return 1
 }
@@ -427,7 +443,7 @@ _mse_proxy_socks_port() {
 
     if [[ "$(_mse_proxy_mode_setting)" == "direct-egress" ]]; then
         socks_port="${MSE_PROXY_PORT:-}"
-    elif _mse_proxy_requires_clashctl_runtime; then
+    elif _mse_proxy_requires_clashctl_runtime || _mse_proxy_is_external; then
         socks_port="${MSE_PROXY_SOCKS_PORT:-}"
     else
         socks_port="${MSE_PROXY_SOCKS_PORT:-${MSE_PROXY_PORT:-}}"
@@ -437,6 +453,9 @@ _mse_proxy_socks_port() {
 }
 
 _mse_proxy_auth_prefix() {
+    # External discovery validates unauthenticated endpoints and must not reuse
+    # Linux clashctl credentials inherited through a shared environment.
+    _mse_proxy_is_external && return 0
     local auth="${MSE_PROXY_AUTH:-}"
 
     if [[ -z "${auth}" && "$(_mse_proxy_mode_setting)" == "clash" ]]; then
@@ -448,7 +467,9 @@ _mse_proxy_auth_prefix() {
 
 _mse_proxy_http_url() {
     local auth_prefix="$(_mse_proxy_auth_prefix)"
-    if [[ "$(_mse_proxy_mode_setting)" == "direct-egress" ]]; then
+    if _mse_proxy_is_external && [[ -z "${MSE_PROXY_PORT:-}" ]]; then
+        _mse_proxy_socks_remote_dns_url
+    elif [[ "$(_mse_proxy_mode_setting)" == "direct-egress" ]]; then
         printf 'socks5://%s%s:%s\n' "${auth_prefix}" "${MSE_PROXY_HOST}" "$(_mse_proxy_socks_port)"
     else
         printf 'http://%s%s:%s\n' "${auth_prefix}" "${MSE_PROXY_HOST}" "${MSE_PROXY_PORT}"
@@ -457,12 +478,16 @@ _mse_proxy_http_url() {
 
 _mse_proxy_socks_url() {
     local auth_prefix="$(_mse_proxy_auth_prefix)"
-    printf 'socks5://%s%s:%s\n' "${auth_prefix}" "${MSE_PROXY_HOST}" "$(_mse_proxy_socks_port)"
+    local socks_port=""
+    socks_port="$(_mse_proxy_socks_port)" || return 1
+    printf 'socks5://%s%s:%s\n' "${auth_prefix}" "${MSE_PROXY_SOCKS_HOST:-${MSE_PROXY_HOST}}" "${socks_port}"
 }
 
 _mse_proxy_socks_remote_dns_url() {
     local auth_prefix="$(_mse_proxy_auth_prefix)"
-    printf 'socks5h://%s%s:%s\n' "${auth_prefix}" "${MSE_PROXY_HOST}" "$(_mse_proxy_socks_port)"
+    local socks_port=""
+    socks_port="$(_mse_proxy_socks_port)" || return 1
+    printf 'socks5h://%s%s:%s\n' "${auth_prefix}" "${MSE_PROXY_SOCKS_HOST:-${MSE_PROXY_HOST}}" "${socks_port}"
 }
 
 _mse_proxy_autossh_bin() {
@@ -553,6 +578,11 @@ _mse_proxy_port_open() {
 }
 
 _mse_proxy_required_ports_open() {
+    # External endpoints have already passed protocol probes during discovery.
+    if _mse_proxy_is_external; then
+        [[ -n "${MSE_PROXY_SOURCE:-}" ]] && _mse_proxy_require_port
+        return $?
+    fi
     _mse_proxy_port_open "127.0.0.1" "${MSE_PROXY_PORT}" || return 1
     if [[ "$(_mse_proxy_mode_setting)" == "clash" && "$(_mse_proxy_socks_port)" != "${MSE_PROXY_PORT}" ]]; then
         _mse_proxy_port_open "127.0.0.1" "$(_mse_proxy_socks_port)" || return 1
@@ -592,6 +622,7 @@ _mse_proxy_probe_local_proxy() {
 }
 
 _mse_proxy_is_compute_node() {
+    [[ "${_OS}" == Linux ]] || return 1
     local host_name=""
     local direct_host=""
 
@@ -871,8 +902,8 @@ _mse_proxy_enable_env() {
     export HTTPS_PROXY="${http_url}"
     export HTTP_PROXY="${http_url}"
     # Prefer remote DNS resolution whenever a client honors SOCKS5h.
-    export all_proxy="${socks_remote_dns_url}"
-    export ALL_PROXY="${socks_remote_dns_url}"
+    export all_proxy="${socks_remote_dns_url:-${http_url}}"
+    export ALL_PROXY="${all_proxy}"
     export no_proxy="${MSE_PROXY_NO_PROXY:-$(_mse_proxy_default_no_proxy)}"
     export NO_PROXY="${no_proxy}"
 
@@ -925,8 +956,19 @@ _mse_proxy_disable_env() {
 
 _mse_proxy_runtime_proxychains_conf() {
     _mse_proxy_require_port >/dev/null || return 1
-    local runtime_conf="${TMPDIR:-/tmp}/mse-proxychains-${UID:-$(id -u)}-${MSE_PROXY_PORT}.conf"
+    local runtime_conf="${TMPDIR:-/tmp}/mse-proxychains-${UID:-$(id -u)}-${MSE_PROXY_PORT:-${MSE_PROXY_SOCKS_PORT}}.conf"
     local socks_port="$(_mse_proxy_socks_port)"
+    local protocol=socks5 proxy_host="${MSE_PROXY_HOST}" proxy_port="${socks_port}"
+    if _mse_proxy_is_external; then
+        if [[ -n "$socks_port" ]]; then
+            proxy_host="${MSE_PROXY_SOCKS_HOST}"
+        else
+            protocol=http
+            proxy_port="${MSE_PROXY_PORT}"
+        fi
+    fi
+    proxy_host="${proxy_host#\[}"
+    proxy_host="${proxy_host%\]}"
     cat > "${runtime_conf}" <<EOF
 strict_chain
 proxy_dns
@@ -935,7 +977,7 @@ tcp_read_time_out 15000
 tcp_connect_time_out 8000
 
 [ProxyList]
-socks5 ${MSE_PROXY_HOST} ${socks_port}
+${protocol} ${proxy_host} ${proxy_port}
 EOF
     printf '%s\n' "${runtime_conf}"
 }
@@ -1085,6 +1127,9 @@ _func_proxy_on() {
     typeset -a upstream_candidates=()
 
     _mse_proxy_require_mode || return 1
+    if _mse_proxy_is_external; then
+        _mse_proxy_sync_ports || return 1
+    fi
     mode="$(_mse_proxy_mode)"
     proxy_mode="$(_mse_proxy_mode_setting)"
 
@@ -1209,18 +1254,27 @@ _func_proxy_status() {
     local runtime_conf=""
 
     _mse_proxy_require_mode || return 1
-    if _mse_proxy_requires_clashctl_runtime; then
+    if _mse_proxy_is_external; then
+        _mse_proxy_sync_ports || return 1
+    elif _mse_proxy_requires_clashctl_runtime; then
         _mse_proxy_sync_clashctl_ports >/dev/null 2>&1 || true
     fi
     mode="$(_mse_proxy_mode)"
     proxy_mode="$(_mse_proxy_mode_setting)"
-    runtime_conf="$(_mse_proxy_runtime_proxychains_conf 2>/dev/null || echo '<unavailable: MSE_PROXY_PORT unset>')"
     echo "proxy node role: ${mode}"
     echo "proxy mode: ${proxy_mode}"
     echo "proxy env http: ${http_proxy:-<unset>}"
     echo "proxy env socks: ${all_proxy:-<unset>}"
     echo "proxy http port: ${MSE_PROXY_PORT:-<unset>}"
     echo "proxy socks port: $(_mse_proxy_socks_port 2>/dev/null || echo '<unset>')"
+    if _mse_proxy_is_external; then
+        echo "proxy discovery: ${MSE_PROXY_SOURCE}"
+        echo "proxy HTTP endpoint: $(_mse_proxy_http_url)"
+        echo "proxy SOCKS endpoint: $(_mse_proxy_socks_remote_dns_url || echo '<unavailable>')"
+        echo "proxy client: externally managed"
+        return 0
+    fi
+    runtime_conf="$(_mse_proxy_runtime_proxychains_conf 2>/dev/null || echo '<unavailable: MSE_PROXY_PORT unset>')"
     echo "autossh: $(_mse_proxy_autossh_bin || echo '<missing>')"
     echo "proxychains: $(_mse_proxy_proxychains_bin || echo '<missing>')"
     echo "proxychains conf: ${runtime_conf}"
@@ -1305,8 +1359,9 @@ _func_proxy_test() {
     }
     _mse_proxy_require_mode || return 1
     _mse_proxy_require_clashctl_runtime || return 1
-    if _mse_proxy_requires_clashctl_runtime; then
-        _mse_proxy_sync_clashctl_ports || return 1
+    _mse_proxy_sync_ports || return 1
+    if _mse_proxy_is_external; then
+        MSE_PROXY_QUIET=1 _mse_proxy_enable_env
     fi
     _mse_proxy_require_port || return 1
     runtime_conf="$(_mse_proxy_runtime_proxychains_conf)"
@@ -1371,9 +1426,7 @@ _func_proxy_exec() {
 
     _mse_proxy_require_mode || return 1
     _mse_proxy_require_clashctl_runtime || return 1
-    if _mse_proxy_requires_clashctl_runtime; then
-        _mse_proxy_sync_clashctl_ports || return 1
-    fi
+    _mse_proxy_sync_ports || return 1
     proxychains_bin="$(_mse_proxy_proxychains_bin)"
     _mse_proxy_require_port || return 1
     runtime_conf="$(_mse_proxy_runtime_proxychains_conf)"
@@ -1386,7 +1439,13 @@ _func_proxy_exec() {
         return 1
     }
 
-    "${proxychains_bin}" -f "${runtime_conf}" "$@"
+    if _mse_proxy_is_external; then
+        env -u http_proxy -u https_proxy -u all_proxy \
+            -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY \
+            "${proxychains_bin}" -f "${runtime_conf}" "$@"
+    else
+        "${proxychains_bin}" -f "${runtime_conf}" "$@"
+    fi
 }
 
 _mse_proxy_print_shell_hint() {
@@ -1424,6 +1483,10 @@ _mse_proxy_auto_init() {
     local mode=""
     local proxy_mode=""
 
+    if _mse_proxy_is_external; then
+        echo -e '\tproxy: external client | run \033[1;35mproxy.on\033[0m to detect system/client proxy automatically'
+        return 0
+    fi
     case "${MSE_SLURM_NODE_PROXY_AUTO_ENABLE}" in
         false|FALSE|False|no|NO|No|off|OFF|Off)
             return 0
@@ -1445,7 +1508,7 @@ _mse_proxy_auto_init() {
         elif [[ "$(_mse_proxy_mode_setting)" == "direct-egress" ]]; then
             echo -e '\tproxy: \033[1;33moff\033[0m | set the direct-egress SOCKS port as \033[1;35mMSE_PROXY_PORT\033[0m in \033[1;35m~/.zprofile\033[0m'
         else
-            echo -e '\tproxy: \033[1;33moff\033[0m | set Clash/Surge HTTP port as \033[1;35mMSE_PROXY_PORT\033[0m in \033[1;35m~/.zprofile\033[0m'
+            echo -e '\tproxy: \033[1;33moff\033[0m | start the external proxy client, then run \033[1;35mproxy.on\033[0m'
         fi
         return 0
     fi

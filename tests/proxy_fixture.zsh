@@ -24,6 +24,8 @@ make_proxy_fixture() {
         "${MSE_REPO_ROOT}/bin/subconverter" \
         "${MSE_REPO_ROOT}/tools/clashctl/scripts/cmd" \
         "${MSE_REPO_ROOT}/tools/clashctl/state"
+    ln -s "${REPO_ROOT}/zsh" "${MSE_REPO_ROOT}/zsh"
+    unset MSE_PROXY_SOCKS_HOST MSE_PROXY_SOURCE
     touch \
         "${MSE_REPO_ROOT}/bin/mihomo" \
         "${MSE_REPO_ROOT}/bin/yq" \

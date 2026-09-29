@@ -20,19 +20,20 @@ test_macos_system_and_client_parsers() {
     external_fixture
     trap 'rm -rf "$TEST_TMP"' EXIT
     scutil() {
-        print -r -- $'<dictionary> {\n  HTTPEnable : 1\n  HTTPProxy : 127.0.0.1\n  HTTPPort : 6152\n  HTTPSEnable : 1\n  HTTPSProxy : 127.0.0.1\n  HTTPSPort : 6152\n  SOCKSEnable : 0\n  SOCKSProxy : 127.0.0.1\n  SOCKSPort : 6153\n  __SCOPED__ : <dictionary> {\n    HTTPPort : 9999\n  }\n}'
+        print -r -- $'<dictionary> {\n  HTTPEnable : 1\n  HTTPProxy : 127.0.0.1\n  HTTPPort : 6152\n  HTTPSEnable : 1\n  HTTPSProxy : 127.0.0.1\n  HTTPSPort : 6152\n  SOCKSEnable : 0\n  SOCKSProxy : 127.0.0.1\n  SOCKSPort : 9998\n  __SCOPED__ : <dictionary> {\n    HTTPPort : 9999\n  }\n}'
     }
     lsof() {
-        print -r -- $'p11\ncSurge\nn127.0.0.1:6152\nn127.0.0.1:6153\np12\ncClashX\nn*:7890\np13\ncFlClash\nn[::1]:8890\np14\ncmihomo\nn*:8891\np15\ncweb-server\nn*:9090'
+        print -r -- $'p11\ncSurge\nn127.0.0.1:49180\nn127.0.0.1:6152\nn127.0.0.1:6153\np12\ncClashX\nn*:7890\np13\ncFlClash\nn[::1]:8890\np14\ncmihomo\nn*:8891\np15\ncweb-server\nn*:9090'
     }
     local actual="$(_mse_proxy_macos_candidates)"
-    assert_contains "$actual" 'macOS-system|127.0.0.1|6152'
+    assert_contains "$actual" 'macOS-system-Surge-11|127.0.0.1|6152'
     assert_contains "$actual" 'macOS-process-Surge-11|127.0.0.1|6153'
+    [[ "$actual" == *'macOS-process-Surge-11|127.0.0.1|6153'*'macOS-process-Surge-11|127.0.0.1|49180'* ]] || fail_test 'process ports must be checked in numeric order'
     assert_contains "$actual" 'macOS-process-ClashX-12|127.0.0.1|7890'
     assert_contains "$actual" 'macOS-process-FlClash-13|[::1]|8890'
     assert_contains "$actual" 'macOS-process-mihomo-14|127.0.0.1|8891'
     [[ "$actual" != *9999* && "$actual" != *9090* ]] || fail_test 'scoped settings and web servers must not become candidates'
-    [[ "$actual" != *'macOS-system|127.0.0.1|6153'* ]] || fail_test 'disabled SOCKS setting must be ignored'
+    [[ "$actual" != *'|9998'* ]] || fail_test 'disabled SOCKS setting must be ignored'
 }
 
 test_system_precedence_and_http_only() {
@@ -192,11 +193,83 @@ EOF
     assert_eq 'http://old:9999' "$http_proxy" 'exec must not mutate parent proxy environment'
 }
 
-test_startup_does_not_discover() {
+startup_fixture() {
     external_fixture
+    scutil() { print -r -- "$SYSTEM_SETTINGS"; }
+    lsof() { print -r -- "$LISTENERS"; }
+    curl() { print called >> "$TEST_TMP/curl.calls"; return 99; }
+    _func_proxy_on() { fail_test 'startup must not call the probing/manual on path'; }
+    SYSTEM_SETTINGS=$'HTTPEnable : 1\nHTTPProxy : 127.0.0.1\nHTTPPort : 6152\nSOCKSEnable : 1\nSOCKSProxy : 127.0.0.1\nSOCKSPort : 6153'
+    LISTENERS=$'p11\ncSurge\ntIPv4\nn*:6152\nn*:6153'
+}
+
+test_macos_startup_adopts_system_without_network() {
+    startup_fixture
     trap 'rm -rf "$TEST_TMP"' EXIT
-    _mse_proxy_external_candidates() { fail_test 'startup must not discover'; }
-    _mse_proxy_auto_init >/dev/null || fail_test 'startup must return immediately'
+    export http_proxy=http://old:9999 HTTPS_PROXY=http://old:9999 ALL_PROXY=socks5h://old:9998
+    _mse_proxy_auto_init >/dev/null || fail_test 'startup must work'
+    assert_eq 'http://127.0.0.1:6152' "$http_proxy"
+    assert_eq 'socks5h://127.0.0.1:6153' "$all_proxy"
+    assert_eq "$http_proxy" "$HTTP_PROXY"
+    assert_eq "$https_proxy" "$HTTPS_PROXY"
+    assert_eq "$all_proxy" "$ALL_PROXY"
+    assert_eq "$no_proxy" "$NO_PROXY"
+    [[ ! -e "$TEST_TMP/probes" && ! -e "$TEST_TMP/curl.calls" ]] || fail_test 'startup must not probe the network'
+    [[ ! -e "$TEST_TMP/clashctl.calls" ]] || fail_test 'startup must not control the client'
+}
+
+test_macos_startup_protocols_and_ipv6() {
+    startup_fixture
+    trap 'rm -rf "$TEST_TMP"' EXIT
+    SYSTEM_SETTINGS=$'HTTPEnable : 1\nHTTPProxy : 127.0.0.1\nHTTPPort : 6152'
+    _mse_proxy_auto_init >/dev/null
+    assert_eq 'http://127.0.0.1:6152' "$all_proxy" 'HTTP-only startup must not invent SOCKS'
+    assert_eq '' "$MSE_PROXY_SOCKS_PORT"
+    SYSTEM_SETTINGS=$'SOCKSEnable : 1\nSOCKSProxy : ::1\nSOCKSPort : 8890'
+    LISTENERS=$'p11\ncFlClash\ntIPv6\nn[::1]:8890'
+    _mse_proxy_auto_init >/dev/null
+    assert_eq 'socks5h://[::1]:8890' "$http_proxy"
+    assert_eq '' "$MSE_PROXY_PORT"
+    SYSTEM_SETTINGS+=$'\nHTTPEnable : 1\nHTTPProxy : ::1\nHTTPPort : 8890'
+    _mse_proxy_auto_init >/dev/null
+    assert_eq 'http://[::1]:8890' "$http_proxy" 'mixed port must retain the declared HTTP protocol'
+    assert_eq 'socks5h://[::1]:8890' "$all_proxy" 'same-port SOCKS declaration must not be skipped as a duplicate'
+    [[ ! -e "$TEST_TMP/probes" && ! -e "$TEST_TMP/curl.calls" ]] || fail_test 'startup must not probe the network'
+}
+
+test_macos_startup_does_not_mix_clients() {
+    startup_fixture
+    trap 'rm -rf "$TEST_TMP"' EXIT
+    SYSTEM_SETTINGS=$'HTTPEnable : 1\nHTTPProxy : 127.0.0.1\nHTTPPort : 6152\nSOCKSEnable : 1\nSOCKSProxy : 127.0.0.1\nSOCKSPort : 7891'
+    LISTENERS=$'p11\ncSurge\ntIPv4\nn*:6152\np12\ncClashX\ntIPv4\nn*:7891'
+    _mse_proxy_auto_init >/dev/null
+    assert_eq macOS-system-Surge-11 "$MSE_PROXY_SOURCE"
+    assert_eq '' "$MSE_PROXY_SOCKS_PORT"
+    assert_eq "$http_proxy" "$all_proxy"
+}
+
+test_macos_startup_without_settings_stays_off() {
+    startup_fixture
+    trap 'rm -rf "$TEST_TMP"' EXIT
+    export http_proxy=http://old:9999 HTTPS_PROXY=http://old:9999 ALL_PROXY=socks5h://old:9998
+    SYSTEM_SETTINGS='HTTPEnable : 0'
+    _mse_proxy_auto_init >/dev/null
+    assert_eq '' "${http_proxy:-}${https_proxy:-}${all_proxy:-}${HTTP_PROXY:-}${HTTPS_PROXY:-}${ALL_PROXY:-}"
+    assert_eq '' "${MSE_PROXY_PORT:-}${MSE_PROXY_SOCKS_PORT:-}${MSE_PROXY_SOURCE:-}"
+    SYSTEM_SETTINGS=$'HTTPEnable : 1\nHTTPProxy : 127.0.0.1\nHTTPPort : 65536'
+    _mse_proxy_auto_init >/dev/null
+    assert_eq '' "${http_proxy:-}${all_proxy:-}"
+    [[ ! -e "$TEST_TMP/probes" && ! -e "$TEST_TMP/curl.calls" ]] || fail_test 'listener-only startup must not probe'
+}
+
+test_wsl_startup_stays_manual() {
+    startup_fixture
+    trap 'rm -rf "$TEST_TMP"' EXIT
+    _OS=WSL
+    export http_proxy=http://old:9999 HTTPS_PROXY=http://old:9999 ALL_PROXY=socks5h://old:9998
+    _mse_proxy_auto_init >/dev/null
+    assert_eq '' "${http_proxy:-}${https_proxy:-}${all_proxy:-}${HTTP_PROXY:-}${HTTPS_PROXY:-}${ALL_PROXY:-}"
+    [[ ! -e "$TEST_TMP/probes" && ! -e "$TEST_TMP/curl.calls" ]] || fail_test 'WSL startup must not probe'
 }
 
 test_probe_requires_correct_protocol() {
@@ -208,11 +281,15 @@ test_probe_requires_correct_protocol() {
         print -rn -- "$CURL_CODE"
         return "${CURL_RC:-0}"
     }
-    CURL_CODE=200 CURL_RC=0
+    CURL_CODE='200 200' CURL_RC=0
     _mse_proxy_external_probe http 127.0.0.1 6152 || fail_test 'CONNECT 200 must pass'
-    assert_file_contains "$TEST_TMP/curl.args" '%{http_connect}'
+    assert_file_contains "$TEST_TMP/curl.args" '%{http_connect} %{http_code}'
     assert_file_contains "$TEST_TMP/curl.args" '--noproxy  --proxy http://127.0.0.1:6152'
-    CURL_CODE=407
+    CURL_CODE='200 000' CURL_RC=35
+    if _mse_proxy_external_probe http 127.0.0.1 6152; then fail_test 'failed HTTPS after CONNECT must not pass'; fi
+    CURL_CODE='200 200' CURL_RC=28
+    if _mse_proxy_external_probe http 127.0.0.1 6152; then fail_test 'timed out body must not pass'; fi
+    CURL_CODE='407 000' CURL_RC=0
     if _mse_proxy_external_probe http 127.0.0.1 6152; then fail_test 'auth-required proxy must not pass'; fi
     CURL_CODE=000
     if _mse_proxy_external_probe http 127.0.0.1 6152; then fail_test 'web dashboard must not pass CONNECT'; fi
@@ -220,6 +297,95 @@ test_probe_requires_correct_protocol() {
     if _mse_proxy_external_probe socks 127.0.0.1 6153; then fail_test 'failed SOCKS negotiation must not pass'; fi
     CURL_CODE=403 CURL_RC=0
     _mse_proxy_external_probe socks 127.0.0.1 6153 || fail_test 'HTTP denial still proves SOCKS transport'
+}
+
+test_system_owners_and_listener_completion() {
+    external_fixture
+    trap 'rm -rf "$TEST_TMP"' EXIT
+    scutil() {
+        print -r -- $'HTTPEnable : 1\nHTTPProxy : localhost\nHTTPPort : 6152\nSOCKSEnable : 1\nSOCKSProxy : 127.0.0.1\nSOCKSPort : 7891'
+    }
+    lsof() {
+        print -r -- $'p11\ncSurge\ntIPv4\nn*:6152\nn*:6153\np12\ncClashX\ntIPv4\nn*:7891'
+    }
+    CANDIDATES="$(_mse_proxy_macos_candidates)"
+    GOOD_ENDPOINTS='http 127.0.0.1 6152|socks 127.0.0.1 7891'
+    _func_proxy_on || fail_test 'system HTTP must work'
+    assert_eq macOS-system-Surge-11 "$MSE_PROXY_SOURCE"
+    assert_eq '' "$MSE_PROXY_SOCKS_PORT" 'system settings must not mix client owners'
+    GOOD_ENDPOINTS+='|socks 127.0.0.1 6153'
+    _func_proxy_on || fail_test 'same-owner SOCKS listener must be discovered'
+    assert_eq 6153 "$MSE_PROXY_SOCKS_PORT"
+}
+
+test_exact_loopback_and_bare_ipv6() {
+    external_fixture
+    trap 'rm -rf "$TEST_TMP"' EXIT
+    assert_eq '127.0.0.2' "$(_mse_proxy_external_hosts 127.0.0.2 macOS-system)"
+    assert_eq '[::1]' "$(_mse_proxy_external_hosts ::1 macOS-system)"
+    CANDIDATES='macOS-system|2001:db8::1|8890'
+    GOOD_ENDPOINTS='http [2001:db8::1] 8890|socks [2001:db8::1] 8890'
+    _func_proxy_on || fail_test 'bare IPv6 must be bracketed'
+    assert_eq 'http://[2001:db8::1]:8890' "$http_proxy"
+    lsof() { print -r -- $'p11\ncSurge\ntIPv6\nn*:6153'; }
+    scutil() { return 0; }
+    assert_contains "$(_mse_proxy_macos_candidates)" 'macOS-process-Surge-11|[::1]|6153'
+}
+
+test_status_refreshes_enabled_environment() {
+    external_fixture
+    trap 'rm -rf "$TEST_TMP"' EXIT
+    CANDIDATES='macOS-process-Surge-1|127.0.0.1|6152'
+    GOOD_ENDPOINTS='http 127.0.0.1 6152'
+    _func_proxy_on || fail_test 'initial detection must work'
+    CANDIDATES='macOS-process-FlClash-2|127.0.0.1|8890'
+    GOOD_ENDPOINTS='socks 127.0.0.1 8890'
+    _func_proxy_status > "$TEST_TMP/status" || fail_test 'status must refresh'
+    assert_eq 'socks5h://127.0.0.1:8890' "$http_proxy"
+    assert_eq "$http_proxy" "$HTTP_PROXY"
+    assert_eq "$https_proxy" "$HTTPS_PROXY"
+    assert_eq "$all_proxy" "$ALL_PROXY"
+    assert_eq "$no_proxy" "$NO_PROXY"
+    assert_file_contains "$TEST_TMP/status" 'proxy HTTP endpoint: <unavailable>'
+    _func_proxy_off || fail_test 'off must work'
+    _func_proxy_status >/dev/null || fail_test 'disabled status must work'
+    assert_eq '' "${HTTP_PROXY:-}${HTTPS_PROXY:-}${ALL_PROXY:-}"
+}
+
+test_external_test_checks_both_transports_without_bypass() {
+    external_fixture
+    trap 'rm -rf "$TEST_TMP"' EXIT
+    CANDIDATES='macOS-process-FlClash-1|127.0.0.1|8890'
+    GOOD_ENDPOINTS='http 127.0.0.1 8890|socks 127.0.0.1 8890'
+    export MSE_PROXY_NO_PROXY='*'
+    curl() {
+        print -r -- "$*" >> "$TEST_TMP/curl.args"
+        print -rn -- 200
+        return "${CURL_RC:-0}"
+    }
+    _func_proxy_test >/dev/null || fail_test 'both transports must work'
+    assert_eq 4 "$(wc -l < "$TEST_TMP/curl.args" | tr -d ' ')"
+    assert_file_contains "$TEST_TMP/curl.args" '-q -s -o /dev/null'
+    assert_file_contains "$TEST_TMP/curl.args" '--noproxy  --proxy http://127.0.0.1:8890'
+    assert_file_contains "$TEST_TMP/curl.args" '--noproxy  --proxy socks5h://127.0.0.1:8890'
+    assert_file_contains "$TEST_TMP/curl.args" 'http://www.example.com/'
+    assert_file_contains "$TEST_TMP/curl.args" 'https://www.example.com/'
+    CURL_RC=28
+    if _func_proxy_test >/dev/null; then fail_test 'curl failure must fail even after response headers'; fi
+}
+
+test_control_listeners_do_not_hide_proxy() {
+    external_fixture
+    trap 'rm -rf "$TEST_TMP"' EXIT
+    CANDIDATES=''
+    local port
+    for port in {8001..8013}; do
+        CANDIDATES+="macOS-process-FlClash-1|127.0.0.1|${port}"$'\n'
+    done
+    CANDIDATES+='macOS-process-FlClash-1|127.0.0.1|8890'
+    GOOD_ENDPOINTS='http 127.0.0.1 8890|socks 127.0.0.1 8890'
+    _func_proxy_on || fail_test 'control listeners must not exhaust proxy discovery'
+    assert_eq 8890 "$MSE_PROXY_PORT"
 }
 
 run_test 'macOS system settings and Surge/ClashX/FlClash parsing' test_macos_system_and_client_parsers
@@ -235,6 +401,15 @@ run_test 'fallback does not mix unrelated clients' test_process_fallback_and_no_
 run_test 'ports refresh and off preserves external clients' test_refresh_and_external_off
 run_test 'status reports discovery without enabling proxy' test_status_reports_source_without_enabling_proxy
 run_test 'proxy.exec avoids nesting environment proxies' test_external_exec_avoids_nested_proxy
-run_test 'shell startup performs no discovery' test_startup_does_not_discover
+run_test 'macOS startup adopts system proxy without network traffic' test_macos_startup_adopts_system_without_network
+run_test 'macOS startup preserves HTTP-only SOCKS-only mixed and IPv6 settings' test_macos_startup_protocols_and_ipv6
+run_test 'macOS startup keeps client protocols separate' test_macos_startup_does_not_mix_clients
+run_test 'macOS startup without valid system settings clears inherited proxy' test_macos_startup_without_settings_stays_off
+run_test 'WSL startup remains manual' test_wsl_startup_stays_manual
 run_test 'probes validate protocol and ignore inherited bypass' test_probe_requires_correct_protocol
+run_test 'system endpoints keep client owners and complete same-client listeners' test_system_owners_and_listener_completion
+run_test 'literal loopback and bare IPv6 addresses are preserved' test_exact_loopback_and_bare_ipv6
+run_test 'status refreshes enabled variables and preserves disabled state' test_status_refreshes_enabled_environment
+run_test 'proxy.test checks HTTP and SOCKS without curlrc or bypass' test_external_test_checks_both_transports_without_bypass
+run_test 'control listeners do not hide later proxy ports' test_control_listeners_do_not_hide_proxy
 finish_tests

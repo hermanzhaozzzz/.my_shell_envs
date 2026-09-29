@@ -236,6 +236,69 @@ test_proxy_off_cleans_managed_state_and_legacy_tunnel() {
     [[ ! -s "${TEST_TMP}/clashctl.calls" ]] || fail_test "compute proxy.off must not call clashctl"
 }
 
+test_linux_startup_is_off_for_every_role() {
+    make_proxy_fixture
+    trap 'rm -rf "$TEST_TMP"' EXIT
+    write_runtime $'port: 7890\nsocks-port: 7891'
+    load_proxy_helpers
+    _func_proxy_on() { fail_test 'Linux startup must not enable proxy'; }
+    _mse_proxy_stop_all_tunnels() { fail_test 'startup must leave existing tunnels alone'; }
+    _mse_proxy_probe_local_proxy() { fail_test 'Linux startup must not probe'; }
+    export MSE_SLURM_NODE_PROXY_AUTO_ENABLE=true
+    local host
+    for host in workstation login01 c57b01n01; do
+        export MSE_TEST_HOSTNAME="$host"
+        unset SLURM_JOB_ID
+        [[ "$host" != workstation ]] && export SLURM_JOB_ID=123
+        export http_proxy=http://old:9999 https_proxy=http://old:9999 all_proxy=socks5h://old:9998
+        export HTTP_PROXY=http://old:9999 HTTPS_PROXY=http://old:9999 ALL_PROXY=socks5h://old:9998
+        export no_proxy=old NO_PROXY=old
+        _mse_proxy_auto_init >/dev/null || fail_test 'startup must succeed'
+        assert_eq '' "${http_proxy:-}${https_proxy:-}${all_proxy:-}${HTTP_PROXY:-}${HTTPS_PROXY:-}${ALL_PROXY:-}${no_proxy:-}${NO_PROXY:-}"
+    done
+    [[ ! -e "$TEST_TMP/clashctl.calls" ]] || fail_test 'startup must not control clashctl'
+}
+
+test_linux_child_shell_restores_git_ssh_without_proxy() {
+    make_proxy_fixture
+    trap 'rm -rf "$TEST_TMP"' EXIT
+    write_runtime $'port: 7890\nsocks-port: 7891'
+    load_proxy_helpers
+    export MSE_TEST_HOSTNAME=c57b01n01 SLURM_JOB_ID=123 MSE_PROXY_QUIET=1
+    _mse_proxy_git_ssh_proxy_command() { print -r -- 'nc -x 127.0.0.1:7891 -X 5 %h %p'; }
+    local original='ssh -F /tmp/user-ssh-config'
+    local managed="" actual=""
+    export GIT_SSH_COMMAND="$original"
+    _mse_proxy_enable_env
+    managed="$GIT_SSH_COMMAND"
+    actual="$(zsh -f -c '
+        source "$TEST_TMP/proxy-helpers.zsh"
+        _mse_proxy_auto_init >/dev/null
+        print -r -- "${GIT_SSH_COMMAND-<unset>}"
+        print -r -- "$_MSE_PROXY_GIT_SSH_COMMAND_OWNED"
+    ')" || fail_test 'child startup must work'
+    assert_eq "$original"$'\n0' "$actual" 'child must restore original Git SSH command'
+    assert_eq "$managed" "$GIT_SSH_COMMAND" 'child must leave parent enabled'
+    assert_eq 1 "$_MSE_PROXY_GIT_SSH_COMMAND_OWNED"
+    _mse_proxy_disable_env
+    unset GIT_SSH_COMMAND
+    _mse_proxy_enable_env
+    actual="$(zsh -f -c '
+        source "$TEST_TMP/proxy-helpers.zsh"
+        _mse_proxy_auto_init >/dev/null
+        print -r -- "${GIT_SSH_COMMAND-<unset>}"
+    ')"
+    assert_eq '<unset>' "$actual" 'child must unset MSE Git SSH command when no original existed'
+    _mse_proxy_disable_env
+    export GIT_SSH_COMMAND="$original"
+    actual="$(zsh -f -c '
+        source "$TEST_TMP/proxy-helpers.zsh"
+        _mse_proxy_auto_init >/dev/null
+        print -r -- "$GIT_SSH_COMMAND"
+    ')"
+    assert_eq "$original" "$actual" 'unmanaged user Git SSH command must survive startup'
+}
+
 run_test "compute clash mode consumes runtime without calling clashctl" test_compute_requires_runtime_without_calling_clashctl
 run_test "compute clash mode has no manual port fallback" test_compute_rejects_missing_runtime_without_port_fallback
 run_test "direct Linux requires clashctl runtime" test_direct_linux_requires_runtime
@@ -250,4 +313,6 @@ run_test "managed scan finds old ports only" test_managed_scan_finds_old_ports_b
 run_test "stale tunnel state is removed" test_stale_tunnel_state_is_removed
 run_test "new tunnel state is recorded" test_new_tunnel_is_recorded
 run_test "proxy.off cleans MSE tunnel residue" test_proxy_off_cleans_managed_state_and_legacy_tunnel
+run_test "Linux startup is off for direct login and compute roles" test_linux_startup_is_off_for_every_role
+run_test "Linux child shell disables owned Git SSH proxy and preserves user command" test_linux_child_shell_restores_git_ssh_without_proxy
 finish_tests

@@ -393,7 +393,6 @@ export PATH="$HOME/.local/bin:$PATH"
 export EDITOR="nvim"
 export PAGER="less"
 export MSE_MAMBA_AUTO_ACTIVATE_BASE=false
-export MSE_SLURM_NODE_PROXY_AUTO_ENABLE=false
 # Optional on Slurm compute nodes.
 export MSE_PROXY_UPSTREAM_HOST=<login-host>
 export MSE_PROXY_PROCESS_LOOKUP_TIMEOUT=2
@@ -409,20 +408,26 @@ On native Linux, deploy installs clashctl before network-dependent Git and Rust 
 
 macOS and WSL automatically discover external proxy endpoints without `clashctl` or manual host/port variables. Native Windows PowerShell retains its existing configuration behavior. Linux Slurm compute nodes read the shared clashctl runtime and forward those exact ports to the login node with an MSE-managed autossh tunnel; they never execute `clashctl on/off`. The separate compute-only `direct-egress` mode still takes an explicit local SOCKS port because it does not use Clash.
 
-On Slurm compute nodes, `zshrc` tries upstream hosts in this order: `MSE_PROXY_UPSTREAM_HOST`, `SLURM_SUBMIT_HOST`, reverse lookup from `SSH_CONNECTION` / `SSH_CLIENT`, then `MSE_PROXY_DIRECT_HOSTS`. Host lookup is capped by `MSE_PROXY_HOST_LOOKUP_TIMEOUT`; autossh process lookup reads `/proc` directly and is capped by `MSE_PROXY_PROCESS_LOOKUP_TIMEOUT`; the autossh connection is capped by `MSE_PROXY_SSH_CONNECT_TIMEOUT` with non-interactive SSH. A bad upstream or a slow process table should fail quickly instead of blocking shell startup. Set `MSE_PROXY_DEBUG=1` before running `proxy.on` if you need to inspect upstream detection.
+On Slurm compute nodes, a manual `proxy.on` tries upstream hosts in this order: `MSE_PROXY_UPSTREAM_HOST`, `SLURM_SUBMIT_HOST`, reverse lookup from `SSH_CONNECTION` / `SSH_CLIENT`, then `MSE_PROXY_DIRECT_HOSTS`. Host lookup is capped by `MSE_PROXY_HOST_LOOKUP_TIMEOUT`; autossh process lookup reads `/proc` directly and is capped by `MSE_PROXY_PROCESS_LOOKUP_TIMEOUT`; the autossh connection is capped by `MSE_PROXY_SSH_CONNECT_TIMEOUT` with non-interactive SSH. A bad upstream or a slow process table should fail quickly instead of leaving `proxy.on` waiting. Set `MSE_PROXY_DEBUG=1` before running `proxy.on` if you need to inspect upstream detection.
 
 MSE stores one host-specific tunnel PID and full command record under the Git-ignored `tools/clashctl/state/proxy-tunnels`. `proxy.on` and `proxy.off` remove stale state, old-port tunnels, and tunnels created by pre-state MSE versions while leaving autossh/SSH processes that do not match the complete MSE signature untouched.
 
 Some compute nodes can hang before reaching user dotfiles because the system login bash reads `/etc/profile` first. In interactive zsh, the repo wraps only bare `ssh -p 32985 cXXbYYnZZ` Slurm compute-node logins and runs remote `zsh -l` directly. SSH calls with an explicit remote command are left unchanged.
 
-On macOS / WSL, start the external client and run `proxy.on`; `proxy.status` shows the discovery source and endpoints.
+New terminals use these defaults:
+
+- macOS enables the explicitly configured HTTP / HTTPS / SOCKS system proxies from `scutil --proxy`, using local `lsof` listener ownership to avoid combining different clients. Startup sets both uppercase and lowercase variables without curl or network probes. If no usable system proxy is configured, it stays off; a manual `proxy.on` can still discover and validate client listeners.
+- Linux login/direct and Slurm compute shells start with proxy variables cleared, including inherited uppercase and lowercase values. Startup calls neither `clashctl` nor `autossh`; run `proxy.on` when needed to use the existing Clash or Slurm tunnel path.
+- WSL requires manual `proxy.on` and does not inspect Windows or local proxies at startup.
+
+On macOS / WSL, run `proxy.on` after changing clients or ports, or when manual activation is needed; `proxy.status` shows the discovery source and endpoints. Full discovery works as follows:
 
 - macOS reads enabled `scutil --proxy` settings first, then uses `lsof` to find Surge, ClashX, FlClash and supported proxy-core listeners (including mihomo and sing-box).
 - WSL reads Windows user proxy settings and proxy-process listeners through PowerShell, and also checks proxy cores running inside WSL. Windows loopback endpoints are tried through localhost and the WSL default gateway for mirrored/NAT networking.
-- Candidates must pass HTTP CONNECT or SOCKS5h probes. HTTP-only, SOCKS-only, separate and mixed ports are supported. Protocols are grouped by system configuration or client process rather than combining unrelated clients.
-- Discovery runs on `proxy.on`, `proxy.status`, `proxy.test` and `proxy.exec`, not shell startup. `proxy.off` only clears shell variables and leaves the external client running. Existing manual host/port values are replaced by discovery results.
+- Candidates must pass HTTP CONNECT or SOCKS5h probes. HTTP-only, SOCKS-only, separate and mixed ports are supported. macOS system endpoints are grouped by listener process and completed with the same process's other listeners. Endpoints without a known owner are checked separately.
+- Protocol probes run on `proxy.on`, `proxy.status`, `proxy.test` and `proxy.exec`, not shell startup. `proxy.status` refreshes both uppercase and lowercase proxy variables when already enabled, and leaves a disabled shell disabled. On macOS / WSL, `proxy.test` explicitly checks HTTP and HTTPS requests through each discovered HTTP/SOCKS protocol, ignoring curl configuration and bypass rules. `proxy.off` only clears shell variables and leaves the external client running. Existing manual host/port values are replaced by discovery results.
 
-Probes use `curl` through the candidate proxy to `example.com` (2 seconds per probe, at most 12 candidate endpoints), so that site must be reachable. macOS discovery uses `scutil`/`lsof`; Windows discovery from WSL requires PowerShell interop and `wslpath`. PAC scripts and authenticated proxies are not automatically handled; a PAC/TUN client can still be found if it exposes a supported local proxy listener. Detection failures produce diagnostics rather than requesting manual port overrides. In WSL NAT mode, a Windows listener bound only to Windows localhost or blocked by the firewall must be made reachable from WSL in the client/network settings, or mirrored networking used.
+Probes use `curl` through the candidate proxy to `example.com` (2 seconds per probe, with duplicate endpoints skipped), so that site must be reachable. macOS discovery uses `scutil`/`lsof`; Windows discovery from WSL requires PowerShell interop and `wslpath`. PAC scripts and authenticated proxies are not automatically handled; a PAC/TUN client can still be found if it exposes a supported local proxy listener. Detection failures produce diagnostics rather than requesting manual port overrides. In WSL NAT mode, a Windows listener bound only to Windows localhost or blocked by the firewall must be made reachable from WSL in the client/network settings, or mirrored networking used.
 
 Keep machine-specific or organization-specific values in your own `~/.zprofile`. Do not add them to the shared repo-managed `zshrc`.
 

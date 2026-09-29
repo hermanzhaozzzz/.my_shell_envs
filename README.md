@@ -190,7 +190,6 @@ zsh 常见加载顺序：
 export MSE_ZSH_THEME="fino"
 export MSE_ZSH_PLUGINS="git z zsh-syntax-highlighting zsh-autosuggestions"
 export MSE_MAMBA_AUTO_ACTIVATE_BASE=false
-export MSE_SLURM_NODE_PROXY_AUTO_ENABLE=false
 export MSE_PROXY_MODE=clash
 ```
 
@@ -199,7 +198,6 @@ export MSE_PROXY_MODE=clash
 - `MSE_ZSH_THEME`：覆盖默认 Oh My Zsh 主题
 - `MSE_ZSH_PLUGINS`：整体覆盖默认插件列表
 - `MSE_MAMBA_AUTO_ACTIVATE_BASE=true|false`：是否在新 shell 中自动 `micromamba activate base`
-- `MSE_SLURM_NODE_PROXY_AUTO_ENABLE=true|false`：是否在 Slurm 计算节点加载 `zshrc` 时自动尝试启用代理
 - `MSE_PROXY_MODE=clash|direct-egress`：代理工作模式；默认 `clash`。`direct-egress` 只用于 Slurm compute 节点，原生 Linux direct/login 节点强制由仓库内 `clashctl` 管理
 - `MSE_PROXY_PORT=<port>`：仅 compute-only `direct-egress` 需要显式设置本地 SOCKS 端口。Linux `clash` 模式从 `runtime.yaml` 读取；macOS/WSL 自动识别外部代理，不使用手动端口覆盖。Windows PowerShell 保持原有配置方式。
 - `MSE_PROXY_HOST=<host>`：默认 `127.0.0.1`
@@ -217,9 +215,6 @@ export EDITOR="nvim"
 
 # 新 shell 不自动 activate base
 export MSE_MAMBA_AUTO_ACTIVATE_BASE=false
-
-# 计算节点登录后不自动开代理
-export MSE_SLURM_NODE_PROXY_AUTO_ENABLE=false
 
 # 代理模式：原生 Linux login/direct 固定使用 clashctl；direct-egress 仅供 Slurm compute 节点
 export MSE_PROXY_MODE=clash
@@ -362,22 +357,22 @@ proxy.on
 
 订阅下载默认使用 `clash-verge/v2.3.1` User-Agent，以便服务商下发 AnyTLS 等现代 Mihomo 协议。deploy 会把该值写入 `tools/clashctl/state/env`；如服务商有特殊要求，可在部署时设置 `MSE_CLASHCTL_SUB_UA` 覆盖它。
 
-macOS / WSL 不安装或控制 `clashctl`，也不要求设置 `MSE_PROXY_HOST`、`MSE_PROXY_PORT` 或 `MSE_PROXY_SOCKS_PORT`。启动客户端后直接运行：
+macOS / WSL 不安装或控制 `clashctl`，也不要求设置 `MSE_PROXY_HOST`、`MSE_PROXY_PORT` 或 `MSE_PROXY_SOCKS_PORT`。macOS 新终端自动采用已启用的系统代理；WSL 按需手动开启。客户端切换、端口变化，或 macOS 客户端未开启系统代理时，运行：
 
 ```shell
 proxy.on
 proxy.status
 ```
 
-自动识别顺序：
+手动执行 `proxy.on` 时的自动识别顺序：
 
 - macOS：先读取 `scutil --proxy` 中启用的系统代理；不可用时，通过 `lsof` 查找 Surge、ClashX、FlClash 及 mihomo、sing-box 等内核的 TCP 监听端口。
 - WSL：通过 Windows PowerShell 读取当前用户的系统代理和代理进程监听端口，也支持 WSL 内运行的代理内核。Windows loopback 地址会依次尝试本地 loopback 和 WSL 默认网关，以兼容 mirrored / NAT 网络。
-- 对候选端口分别验证 HTTP CONNECT 和 SOCKS5h；不会仅因端口开放就认为它是代理，也不会把 HTTP-only 端口当成 SOCKS。HTTP-only、SOCKS-only、分离端口和混合端口均可使用；同一套系统配置或同一客户端进程内组合协议，不拼接两个无关客户端。
+- 对候选端口分别验证 HTTP CONNECT 和 SOCKS5h；不会仅因端口开放就认为它是代理，也不会把 HTTP-only 端口当成 SOCKS。HTTP-only、SOCKS-only、分离端口和混合端口均可使用；macOS 系统端点按监听进程分组，并补充同一进程的其他代理端口，不拼接两个无关客户端；无法确认所属进程的系统端点分别验证。
 
-`proxy.on`、`proxy.status`、`proxy.test` 和 `proxy.exec` 执行时重新识别；打开终端时不进行网络探测。`proxy.off` 只清除当前 shell 代理，不停止外部客户端。Linux 仍使用 clashctl runtime，原生 Windows PowerShell profile 保持原有配置方式。
+`proxy.on`、`proxy.status`、`proxy.test` 和 `proxy.exec` 执行时重新识别；打开终端时不进行网络探测。代理已开启时，`proxy.status` 会同步刷新大小写环境变量；关闭状态下只显示发现结果。macOS / WSL 的 `proxy.test` 对每个已识别的 HTTP、SOCKS 协议分别请求 `example.com` 的 HTTP 和 HTTPS 地址，忽略 curl 配置和绕过规则。`proxy.off` 只清除当前 shell 代理，不停止外部客户端。Linux 仍使用 clashctl runtime，原生 Windows PowerShell profile 保持原有配置方式。
 
-协议验证通过 `curl` 访问 `example.com`，需要代理能连通该站点；单次探测最多 2 秒，最多检查 12 个候选端点。macOS 需要系统的 `scutil` / `lsof`；WSL 的 Windows 发现需要 PowerShell interop 和 `wslpath`。不执行 PAC 脚本，也不自动处理需要账号密码的代理；PAC/TUN 客户端若同时提供可识别的本地代理监听，仍可使用进程发现。没有可用候选时给出诊断，不要求填写覆盖变量。WSL NAT 下如果 Windows 客户端只监听 Windows localhost 或被防火墙阻挡，需要在客户端允许 WSL 访问，或使用 mirrored 网络；端口识别不能绕过这个网络限制。
+协议验证通过 `curl` 访问 `example.com`，需要代理能连通该站点；单次探测最多 2 秒，候选端点去重后逐一检查。macOS 需要系统的 `scutil` / `lsof`；WSL 的 Windows 发现需要 PowerShell interop 和 `wslpath`。不执行 PAC 脚本，也不自动处理需要账号密码的代理；PAC/TUN 客户端若同时提供可识别的本地代理监听，仍可使用进程发现。没有可用候选时给出诊断，不要求填写覆盖变量。WSL NAT 下如果 Windows 客户端只监听 Windows localhost 或被防火墙阻挡，需要在客户端允许 WSL 访问，或使用 mirrored 网络；端口识别不能绕过这个网络限制。
 
 原生 Linux `clash` 模式下，`zsh/zshrc` 会从 `clashctl` 的 `runtime.yaml` 分别读取 HTTP 和 SOCKS 端口，并无条件覆盖同名环境变量。runtime 缺失、端口不完整或不可读时，`proxy.*` 直接失败，不使用手工端口。Slurm compute 节点读取共享仓库里的同一份 runtime，只把本地对应端口转发到 login 节点，不执行 `clashctl on/off`。
 
@@ -422,14 +417,14 @@ proxy.off
 ```
 
 ```shell
-# compute 节点：自动开代理（默认行为）
-# 加载 zshrc 时会自动执行 proxy.on
+# compute 节点：默认关闭，按需手动建立代理隧道
+proxy.on
 
 # compute 节点：测网络
 proxy.test
 ```
 
-`proxy.test` 会依次测试 `baidu.com`、`google.com.hk`、`api.openai.com`、`api.anthropic.com`，每个 URL 显示 OK 或 FAIL：
+Linux 的 `proxy.test` 会依次测试 `baidu.com`、`google.com.hk`、`api.openai.com`、`api.anthropic.com`，每个 URL 显示 OK 或 FAIL：
 
 ```text
 == curl via env proxy ==
@@ -570,7 +565,7 @@ compute 节点上的 `proxy.on` 现在不再只看本地端口是否在监听，
 - `SSH_CONNECTION` / `SSH_CLIENT` 反查到的主机
 - `MSE_PROXY_DIRECT_HOSTS` 里的主机
 
-反查 `SSH_CONNECTION` / `SSH_CLIENT` 时会受 `MSE_PROXY_HOST_LOOKUP_TIMEOUT` 限制；查找旧 autossh 隧道时会直接读取 `/proc`，并受 `MSE_PROXY_PROCESS_LOOKUP_TIMEOUT` 限制；启动 autossh 隧道时会受 `MSE_PROXY_SSH_CONNECT_TIMEOUT` 限制，并使用非交互 SSH，避免 compute 节点登录时因为上游不可达、进程枚举异常或密码提示卡在 zsh 启动阶段。
+反查 `SSH_CONNECTION` / `SSH_CLIENT` 时会受 `MSE_PROXY_HOST_LOOKUP_TIMEOUT` 限制；查找旧 autossh 隧道时会直接读取 `/proc`，并受 `MSE_PROXY_PROCESS_LOOKUP_TIMEOUT` 限制；启动 autossh 隧道时会受 `MSE_PROXY_SSH_CONNECT_TIMEOUT` 限制，并使用非交互 SSH，避免手动执行 `proxy.on` 时因为上游不可达、进程枚举异常或密码提示长时间等待。
 
 每个 compute 主机的 MSE 隧道 PID 和完整命令记录在仓库内 Git 忽略的 `tools/clashctl/state/proxy-tunnels`。`proxy.on` 启动前与 `proxy.off` 关闭时都会清理当前主机的 stale state、旧端口隧道和旧版 MSE 隧道；匹配不到 MSE 完整特征的其它 autossh/SSH 隧道不会被处理。
 
@@ -618,21 +613,16 @@ MSE_PROXY_UPSTREAM_HOST=login03 proxy.on
 
 ### 自动启用
 
-- **compute 节点**：加载 `zshrc` 时自动执行 `proxy.on`（开 autossh 隧道 + 设环境变量 + 设 `GIT_SSH_COMMAND`）
-- **login/direct 节点**：不会自动开代理，只提示 `proxy.on` 可用；需要时手动执行
+- **macOS**：新终端读取 `scutil --proxy` 中已启用的 HTTP / HTTPS / SOCKS 配置，结合本地 `lsof` 监听进程归属设置大小写代理变量，避免混用不同客户端。启动不运行 curl、不联网探测；没有可用系统配置时保持 off，手动执行 `proxy.on` 仍可通过客户端监听端口发现并验证代理。
+- **Linux（login/direct/Slurm compute）**：新终端一律保持 off，并清除继承的大小写代理环境变量。启动不调用 `clashctl` 或 `autossh`；需要时手动执行 `proxy.on`，原有 Clash 和 Slurm 隧道功能保留。
+- **WSL**：保持手动启用，启动时不探测 Windows 或本地代理。
 
-如果自动启用失败，说明当前自动探测到的所有上游候选都没有提供一个真正可用的代理端口。这时优先检查：
+如果 compute 节点手动执行 `proxy.on` 失败，优先检查：
 
 - login 节点上是否已经执行过 `proxy.on`
 - `proxy.status` 里的 `proxy upstream` 是否真的是你想借出的那台 login 节点
 - 是否需要在 `~/.zprofile` 里显式设置 `MSE_PROXY_UPSTREAM_HOST=loginXX`
 - 是否需要临时设置 `MSE_PROXY_DEBUG=1` 后重新执行 `proxy.on` 查看上游推断过程
-
-如果你不想要 compute 节点的自动启用行为，在 `~/.zprofile` 里写：
-
-```shell
-export MSE_SLURM_NODE_PROXY_AUTO_ENABLE=false
-```
 
 ### compute 节点上的 git
 

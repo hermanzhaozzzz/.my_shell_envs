@@ -215,12 +215,13 @@ fi
 
 export MSE_PROXY_MODE="${MSE_PROXY_MODE:-clash}"
 export MSE_PROXY_HOST="${MSE_PROXY_HOST:-127.0.0.1}"
-typeset -gi _MSE_PROXY_GIT_SSH_COMMAND_OWNED=0
-typeset -gi _MSE_PROXY_GIT_SSH_COMMAND_WAS_SET=0
-typeset -g _MSE_PROXY_GIT_SSH_COMMAND_PREVIOUS=""
+# Child shells need the existing ownership information to start with proxy off
+# while restoring the user's original Git SSH command.
+typeset -gix _MSE_PROXY_GIT_SSH_COMMAND_OWNED=${_MSE_PROXY_GIT_SSH_COMMAND_OWNED:-0}
+typeset -gix _MSE_PROXY_GIT_SSH_COMMAND_WAS_SET=${_MSE_PROXY_GIT_SSH_COMMAND_WAS_SET:-0}
+typeset -gx _MSE_PROXY_GIT_SSH_COMMAND_PREVIOUS="${_MSE_PROXY_GIT_SSH_COMMAND_PREVIOUS:-}"
 export MSE_PROXY_SOCKS_PORT="${MSE_PROXY_SOCKS_PORT:-}"
 export MSE_PROXYCHAINS_CONF="${MSE_PROXYCHAINS_CONF:-${MSE_REPO_ROOT}/tools/proxychains/proxychains.conf}"
-export MSE_SLURM_NODE_PROXY_AUTO_ENABLE="${MSE_SLURM_NODE_PROXY_AUTO_ENABLE:-true}"
 export MSE_MAMBA_AUTO_ACTIVATE_BASE="${MSE_MAMBA_AUTO_ACTIVATE_BASE:-false}"
 export MSE_PROXY_HOST_LOOKUP_TIMEOUT="${MSE_PROXY_HOST_LOOKUP_TIMEOUT:-2}"
 export MSE_PROXY_PROCESS_LOOKUP_TIMEOUT="${MSE_PROXY_PROCESS_LOOKUP_TIMEOUT:-2}"
@@ -1256,6 +1257,9 @@ _func_proxy_status() {
     _mse_proxy_require_mode || return 1
     if _mse_proxy_is_external; then
         _mse_proxy_sync_ports || return 1
+        if [[ -n "${http_proxy:-}${https_proxy:-}${all_proxy:-}${HTTP_PROXY:-}${HTTPS_PROXY:-}${ALL_PROXY:-}" ]]; then
+            MSE_PROXY_QUIET=1 _mse_proxy_enable_env
+        fi
     elif _mse_proxy_requires_clashctl_runtime; then
         _mse_proxy_sync_clashctl_ports >/dev/null 2>&1 || true
     fi
@@ -1269,7 +1273,11 @@ _func_proxy_status() {
     echo "proxy socks port: $(_mse_proxy_socks_port 2>/dev/null || echo '<unset>')"
     if _mse_proxy_is_external; then
         echo "proxy discovery: ${MSE_PROXY_SOURCE}"
-        echo "proxy HTTP endpoint: $(_mse_proxy_http_url)"
+        if [[ -n "${MSE_PROXY_PORT:-}" ]]; then
+            echo "proxy HTTP endpoint: $(_mse_proxy_http_url)"
+        else
+            echo 'proxy HTTP endpoint: <unavailable>'
+        fi
         echo "proxy SOCKS endpoint: $(_mse_proxy_socks_remote_dns_url || echo '<unavailable>')"
         echo "proxy client: externally managed"
         return 0
@@ -1352,6 +1360,8 @@ _func_proxy_test() {
     local short=""
     local code=""
     local failed=0
+    local endpoint=""
+    local -a endpoints=()
 
     command -v curl >/dev/null 2>&1 || {
         echo "proxy.test: curl not found"
@@ -1362,6 +1372,25 @@ _func_proxy_test() {
     _mse_proxy_sync_ports || return 1
     if _mse_proxy_is_external; then
         MSE_PROXY_QUIET=1 _mse_proxy_enable_env
+        [[ -n "${MSE_PROXY_PORT:-}" ]] && endpoints+=("$(_mse_proxy_http_url)")
+        [[ -n "${MSE_PROXY_SOCKS_PORT:-}" ]] && endpoints+=("$(_mse_proxy_socks_remote_dns_url)")
+        # Test every discovered protocol, including HTTP and HTTPS traffic.
+        # Ignore curlrc and bypass rules so a direct request cannot look like
+        # a successful proxy test.
+        for endpoint in "${endpoints[@]}"; do
+            echo "== curl via ${endpoint} =="
+            for url in http://www.example.com/ https://www.example.com/; do
+                if code=$(curl -q -s -o /dev/null -w '%{http_code}' \
+                    --noproxy '' --proxy "$endpoint" --connect-timeout 3 --max-time 8 \
+                    "$url" 2>/dev/null) && [[ "$code" == [1-5][0-9][0-9] && "$code" != 407 ]]; then
+                    printf '  OK %s (HTTP %s)\n' "$url" "$code"
+                else
+                    printf '  FAIL %s (HTTP %s)\n' "$url" "${code:-000}"
+                    (( failed += 1 ))
+                fi
+            done
+        done
+        return "$failed"
     fi
     _mse_proxy_require_port || return 1
     runtime_conf="$(_mse_proxy_runtime_proxychains_conf)"
@@ -1448,86 +1477,19 @@ _func_proxy_exec() {
     fi
 }
 
-_mse_proxy_print_shell_hint() {
-    local mode=""
-    local proxy_mode=""
-    local upstream_host=""
-    local probe_status=""
-
-    mode="$(_mse_proxy_mode)"
-    proxy_mode="$(_mse_proxy_mode_setting)"
-
-    if [[ -n "${http_proxy:-}" || -n "${https_proxy:-}" || -n "${all_proxy:-}" ]]; then
-        if _mse_proxy_probe_local_proxy; then
-            probe_status='\033[1;32mok\033[0m'
-        else
-            probe_status='\033[1;31mfailed\033[0m'
-        fi
-        if _mse_proxy_is_compute_node; then
-            upstream_host="$(_mse_proxy_upstream_host 2>/dev/null || true)"
-            echo -e "\tproxy: \033[1;32mon\033[0m | role=${mode} | mode=${proxy_mode} | upstream=${upstream_host:-<unknown>} | probe=${probe_status}"
-        else
-            echo -e "\tproxy: \033[1;32mon\033[0m | role=${mode} | mode=${proxy_mode} | probe=${probe_status}"
-        fi
-        echo -e '\tcheck: \033[1;35mproxy.status\033[0m'
-    else
-        if [[ "${mode}" == "compute" ]]; then
-            echo -e "\tproxy: \033[1;33moff\033[0m | role=${mode} | mode=${proxy_mode} | run \033[1;35mproxy.on\033[0m"
-        else
-            echo -e "\tproxy: \033[1;33moff\033[0m | role=${mode} | mode=${proxy_mode} | run \033[1;35mproxy.on\033[0m"
-        fi
-    fi
-}
-
 _mse_proxy_auto_init() {
-    local mode=""
-    local proxy_mode=""
-
-    if _mse_proxy_is_external; then
-        echo -e '\tproxy: external client | run \033[1;35mproxy.on\033[0m to detect system/client proxy automatically'
-        return 0
-    fi
-    case "${MSE_SLURM_NODE_PROXY_AUTO_ENABLE}" in
-        false|FALSE|False|no|NO|No|off|OFF|Off)
+    # Each new shell follows its own platform policy, not inherited proxy vars.
+    # Do not stop shared clients/tunnels or run network probes during startup.
+    _mse_proxy_disable_env
+    if [[ "${_OS}" == macOS ]] && _mse_proxy_is_external; then
+        if _mse_proxy_sync_external_ports system; then
+            MSE_PROXY_QUIET=1 _mse_proxy_enable_env
+            echo -e '\tproxy: \033[1;32mon\033[0m | system proxy | run \033[1;35mproxy.off\033[0m to disable in this shell'
             return 0
-            ;;
-    esac
-
-    if ! _mse_proxy_require_mode; then
-        return 0
-    fi
-
-    if [[ -n "${http_proxy:-}" || -n "${https_proxy:-}" || -n "${all_proxy:-}" ]]; then
-        _mse_proxy_print_shell_hint
-        return 0
-    fi
-
-    if [[ -z "${MSE_PROXY_PORT:-}" ]]; then
-        if _mse_proxy_requires_clashctl_runtime; then
-            echo -e '\tproxy: \033[1;33moff\033[0m | clashctl runtime ports unavailable | run \033[1;35mmse deploy\033[0m and configure a subscription'
-        elif [[ "$(_mse_proxy_mode_setting)" == "direct-egress" ]]; then
-            echo -e '\tproxy: \033[1;33moff\033[0m | set the direct-egress SOCKS port as \033[1;35mMSE_PROXY_PORT\033[0m in \033[1;35m~/.zprofile\033[0m'
-        else
-            echo -e '\tproxy: \033[1;33moff\033[0m | start the external proxy client, then run \033[1;35mproxy.on\033[0m'
         fi
-        return 0
     fi
-
-    mode="$(_mse_proxy_mode)"
-    proxy_mode="$(_mse_proxy_mode_setting)"
-
-    if [[ "${mode}" == "compute" ]]; then
-        if MSE_PROXY_QUIET=1 _func_proxy_on; then
-            _mse_proxy_print_shell_hint
-            echo -e '\tauto: startup enabled'
-        else
-            echo -e "\tproxy: \033[1;31mfailed\033[0m | role=${mode} | mode=${proxy_mode} | auto=startup"
-            echo -e '\thint: set \033[1;35mMSE_PROXY_UPSTREAM_HOST\033[0m, then run \033[1;35mproxy.on\033[0m'
-        fi
-        return 0
-    fi
-
-    _mse_proxy_print_shell_hint
+    echo -e '\tproxy: \033[1;33moff\033[0m | run \033[1;35mproxy.on\033[0m when needed'
+    return 0
 }
 
 unalias proxy.on proxy.off proxy.status proxy.test proxy.exec 2>/dev/null

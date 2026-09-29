@@ -24,6 +24,7 @@ BIN_PATH="$REPO_PATH/bin"
 REPO_BIN_EZA_PATH="$BIN_PATH/eza"
 REPO_BIN_BAT_PATH="$BIN_PATH/bat"
 REPO_BIN_RG_PATH="$BIN_PATH/rg"
+REPO_BIN_BTOP_PATH="$BIN_PATH/btop"
 REPO_BIN_SQTOP_PATH="$BIN_PATH/sqtop"
 REPO_BIN_AUTOSSH_PATH="$BIN_PATH/autossh"
 REPO_BIN_PROXYCHAINS4_PATH="$BIN_PATH/proxychains4"
@@ -895,6 +896,10 @@ ensure_ripgrep_installed() {
     ensure_repo_cargo_tool_installed "ripgrep" "rg" "$REPO_BIN_RG_PATH" "ripgrep"
 }
 
+ensure_btop_installed() {
+    ensure_repo_cargo_tool_installed "btop" "btop" "$REPO_BIN_BTOP_PATH" "btop"
+}
+
 ensure_sqtop_installed() {
     ensure_repo_cargo_tool_installed "sqtop" "sqtop" "$REPO_BIN_SQTOP_PATH" "sqtop"
 }
@@ -1481,6 +1486,7 @@ ensure_non_windows_zsh_core() {
     ensure_eza_installed || fail "failed to prepare eza"
     ensure_bat_installed || fail "failed to prepare bat"
     ensure_ripgrep_installed || fail "failed to prepare ripgrep"
+    ensure_btop_installed || fail "failed to prepare btop"
     ensure_zshrc_linked || fail "failed to prepare zshrc"
     ensure_default_shell_is_zsh || fail "failed to prepare the default shell"
 }

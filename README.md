@@ -38,7 +38,7 @@ sudo apt install -y git zsh build-essential pkg-config
 - 常用 zsh 插件
 - `micromamba`
 - `vim` / `neovim`
-- repo-managed CLI：`eza`、`bat`、`rg`
+- repo-managed CLI：`eza`、`bat`、`rg`、`btop`
 - 可选的 cluster proxy 工具：`autossh`、`proxychains-ng`
 
 ### Linux / macOS / WSL
@@ -113,6 +113,8 @@ git-bash ./mse update
 - 按 step 安装额外模块
 
 如果启用了 `sqtop` step，`mse` 会通过 `cargo install sqtop` 安装它，并把仓库里的 `bin/sqtop` 接到 `~/.cargo/bin/sqtop`。
+
+Linux / macOS / WSL 默认通过 `cargo install btop --locked` 安装 `btop`，并将 `bin/btop` 链接到 `~/.cargo/bin/btop`；已有 Cargo 安装会直接复用。公共 zsh 配置默认设置 `alias htop="btop"`，输入 `htop` 即启动 `btop`。
 
 部署过程中会尝试 `chsh -s "$(which zsh)"`。如果你不想现在改默认 shell，可以在密码提示时直接回车并跳过。
 

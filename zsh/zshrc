@@ -1619,6 +1619,8 @@ alias rm.trash.clear=func_delclear
 # 函数别名
 
 # 第三方命令别名
+echo -e '\talias \033[1;35mhtop\033[0m=btop'
+alias htop="btop"
 echo -e '\talias \033[1;35mllll\033[0m=/bin/ls -lh'
 alias llll="/bin/ls -lh"
 echo -e '\talias \033[1;35mlll\033[0m=eza -lh --time-style long-iso'

@@ -142,6 +142,17 @@ fi
 
 source $ZSH/oh-my-zsh.sh
 
+# Apple's native _git repeats repository queries across completion matchers.
+# Load Git's bundled completion without changing the existing matching rules.
+if [[ "$OSTYPE" == darwin* \
+    && -r /Library/Developer/CommandLineTools/usr/share/git-core/git-completion.zsh \
+    && -r /Library/Developer/CommandLineTools/usr/share/git-core/git-completion.bash ]]; then
+    autoload -Uz +X /Library/Developer/CommandLineTools/usr/share/git-core/git-completion.zsh
+    functions -c git-completion.zsh _git
+    unfunction git-completion.zsh
+    zstyle ':completion:*:*:git:*' script /Library/Developer/CommandLineTools/usr/share/git-core/git-completion.bash
+fi
+
 # 高亮插件,需要配置在所有插件之后！
 source "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh"
 

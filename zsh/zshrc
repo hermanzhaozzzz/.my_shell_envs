@@ -919,8 +919,8 @@ _mse_proxy_enable_env() {
     export no_proxy="${MSE_PROXY_NO_PROXY:-$(_mse_proxy_default_no_proxy)}"
     export NO_PROXY="${no_proxy}"
 
-    # SSH ignores HTTP proxy variables, so compute-node Git needs a SOCKS ProxyCommand.
-    if _mse_proxy_is_compute_node; then
+    # SSH ignores HTTP proxy variables; both compute and Linux login nodes need SOCKS.
+    if _mse_proxy_is_compute_node || _mse_proxy_requires_clashctl_backend; then
         if git_proxy_command="$(_mse_proxy_git_ssh_proxy_command)"; then
             if (( ! _MSE_PROXY_GIT_SSH_COMMAND_OWNED )); then
                 _MSE_PROXY_GIT_SSH_COMMAND_WAS_SET=${+GIT_SSH_COMMAND}

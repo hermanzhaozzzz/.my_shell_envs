@@ -156,6 +156,75 @@ test_git_ssh_command_is_restored() {
     assert_eq 'ssh -i /tmp/user-key' "$GIT_SSH_COMMAND" "proxy.off should restore the user Git SSH command"
 }
 
+test_login_proxy_on_manages_git_ssh() {
+    make_proxy_fixture
+    trap 'rm -rf "$TEST_TMP"' EXIT
+    export MSE_TEST_HOSTNAME=login05
+    write_runtime $'port: 32201\nsocks-port: 43672'
+    load_proxy_helpers
+    _mse_proxy_required_ports_open() { return 0 }
+    _mse_proxy_git_ssh_proxy_command() {
+        print -r -- "ncat --proxy 127.0.0.1:$(_mse_proxy_socks_port) --proxy-type socks5 %h %p"
+    }
+    _func_proxy_on >/dev/null || fail_test "login proxy.on must succeed"
+    assert_file_contains "${TEST_TMP}/clashctl.calls" "on" "login proxy.on must start the existing backend"
+    assert_contains "${GIT_SSH_COMMAND:-}" "127.0.0.1:43672" "login Git SSH must use the runtime SOCKS port"
+    assert_contains "${GIT_SSH_COMMAND:-}" "ProxyCommand" "login Git SSH must use the proxy"
+    _func_proxy_off >/dev/null || fail_test "login proxy.off must succeed"
+    assert_eq 0 "${+GIT_SSH_COMMAND}" "proxy.off must unset its Git SSH override"
+}
+
+test_login_repeated_proxy_on_restores_git_ssh() {
+    make_proxy_fixture
+    trap 'rm -rf "$TEST_TMP"' EXIT
+    export MSE_TEST_HOSTNAME=login05
+    export GIT_SSH_COMMAND='ssh -o ConnectTimeout=17'
+    write_runtime $'port: 32201\nsocks-port: 43672'
+    load_proxy_helpers
+    _mse_proxy_required_ports_open() { return 0 }
+    _mse_proxy_git_ssh_proxy_command() {
+        print -r -- "ncat --proxy 127.0.0.1:$(_mse_proxy_socks_port) --proxy-type socks5 %h %p"
+    }
+    _func_proxy_on >/dev/null || fail_test "first login proxy.on must succeed"
+    _func_proxy_on >/dev/null || fail_test "repeated login proxy.on must succeed"
+    assert_contains "${GIT_SSH_COMMAND:-}" "ProxyCommand" "repeated proxy.on must keep Git proxied"
+    _func_proxy_off >/dev/null || fail_test "login proxy.off must succeed"
+    assert_eq 'ssh -o ConnectTimeout=17' "${GIT_SSH_COMMAND:-}" "proxy.off must restore the original Git SSH command"
+}
+
+test_login_git_ssh_tracks_changed_runtime_ports() {
+    make_proxy_fixture
+    trap 'rm -rf "$TEST_TMP"' EXIT
+    export MSE_TEST_HOSTNAME=login05
+    write_runtime $'port: 32201\nsocks-port: 43672'
+    print -r -- '#!/bin/sh' > "${TEST_TMP}/commands/nc"
+    print -r -- 'echo "usage: nc without SOCKS options" >&2' >> "${TEST_TMP}/commands/nc"
+    print -r -- '#!/bin/sh' > "${TEST_TMP}/commands/ncat"
+    chmod +x "${TEST_TMP}/commands/nc" "${TEST_TMP}/commands/ncat"
+    load_proxy_helpers
+    _mse_proxy_required_ports_open() { return 0 }
+    clashctl() {
+        if [[ "$1" == on && ! -e "${TEST_TMP}/port-reassigned" ]]; then
+            write_runtime $'port: 45000\nsocks-port: 45001'
+            touch "${TEST_TMP}/port-reassigned"
+        fi
+    }
+    _func_proxy_on >/dev/null || fail_test "proxy.on must accept ports reassigned during startup"
+    assert_eq 'http://127.0.0.1:45000' "$http_proxy" "HTTP must follow the new runtime"
+    assert_eq 'socks5h://127.0.0.1:45001' "$all_proxy" "SOCKS must follow the new runtime"
+    assert_contains "$GIT_SSH_COMMAND" '127.0.0.1:45001' "Git must use the port after clashctl starts"
+    [[ "$GIT_SSH_COMMAND" != *43672* ]] || fail_test "Git must not retain the previous port"
+
+    write_runtime 'mixed-port: 45003'
+    _func_proxy_on >/dev/null || fail_test "repeated proxy.on must refresh externally changed ports"
+    assert_eq 'http://127.0.0.1:45003' "$http_proxy" "HTTP must follow the mixed port"
+    assert_eq 'socks5h://127.0.0.1:45003' "$all_proxy" "SOCKS must follow the mixed port"
+    assert_contains "$GIT_SSH_COMMAND" '127.0.0.1:45003' "Git must follow the mixed port on the next proxy.on"
+    [[ "$GIT_SSH_COMMAND" != *45001* ]] || fail_test "Git must not retain the prior runtime port"
+    _func_proxy_off >/dev/null || fail_test "proxy.off must still succeed after port changes"
+    assert_eq 0 "${+GIT_SSH_COMMAND}" "proxy.off must remove the refreshed Git SSH override"
+}
+
 test_managed_scan_finds_old_ports_but_not_unrelated_autossh() {
     make_proxy_fixture
     trap 'rm -rf "$TEST_TMP"' EXIT
@@ -309,6 +378,9 @@ run_test "direct-egress is compute-only" test_direct_egress_is_compute_only
 run_test "OpenBSD nc supports Slurm Git SSH" test_openbsd_nc_is_supported
 run_test "ncat remains the Slurm Git SSH fallback" test_ncat_fallback_is_supported
 run_test "proxy.off restores user Git SSH command" test_git_ssh_command_is_restored
+run_test "login proxy.on routes Git SSH through its runtime port" test_login_proxy_on_manages_git_ssh
+run_test "repeated login proxy.on preserves the original Git SSH command" test_login_repeated_proxy_on_restores_git_ssh
+run_test "login Git SSH follows startup port changes and refreshed mixed ports" test_login_git_ssh_tracks_changed_runtime_ports
 run_test "managed scan finds old ports only" test_managed_scan_finds_old_ports_but_not_unrelated_autossh
 run_test "stale tunnel state is removed" test_stale_tunnel_state_is_removed
 run_test "new tunnel state is recorded" test_new_tunnel_is_recorded

@@ -136,7 +136,6 @@ MSE_DEPLOY_MODE='fast'
 MSE_USE_ZPROFILE_TEMPLATE='false'
 MSE_STEP_NVIM='true'
 MSE_STEP_SQTOP='true'
-MSE_STEP_CODE_NOTIFY='true'
 MSE_STEP_CLASHCTL='true'
 MSE_STEP_CLUSTER_PROXY_TOOLS='true'
 ```
@@ -282,14 +281,6 @@ macupdatectl status
 Linux 上可选启用 `sqtop` step。它会通过 `cargo install sqtop` 安装一个面向 Slurm 的终端监控工具，使用体验更接近 `htop` / `nvitop` 这一类 TUI 工具，适合快速查看队列、节点和作业占用情况。
 
 如果你执行 `mse deploy --fast`，并且当前平台支持这个 step，那么 `sqtop` 会默认安装；如果你执行 `mse deploy --interactive`，则可以在 step 选择阶段单独决定是否启用。
-
-### code-notify
-
-这是一个 macOS 终端通知工具。参考项目：[code-notify](https://github.com/mylee04/code-notify)
-
-如果你在 macOS 上启用了 `code_notify` step，`mse` 会安装并仅为 Codex 启用 Code-Notify，同时清理旧版本可能从 Claude 配置迁移而来的不兼容 Stop hook；Linux 和 Windows 上会跳过这一步。
-
-Codex 的顶层 `notify` 只能由一个通知命令占用。如果该位置已经属于 Computer Use 等其他集成，`mse` 会保留现有配置、禁用 Code-Notify 的完成通知并给出警告，不会覆盖其他工具。
 
 ## Cluster Proxy
 

@@ -249,8 +249,15 @@ elif [[ $_OS == "macOS" ]]; then
     alias opena="open -a Sublime\ Text"
     alias code="/Applications/Visual\ Studio\ Code.app/Contents/Resources/app/bin/code"
 
-    alias startsc.polaris="ln -sfn /Applications/SafeConnect12_polaris.app /Applications/SafeConnect.app && open -a SafeConnect12_polaris.app 2> /dev/null && open -a Step\ Two.app"
-    alias startsc.alioth="ln -sfn /Applications/SafeConnect10_alioth.app /Applications/SafeConnect.app && open -a SafeConnect10_alioth.app 2> /dev/null && open -a Step\ Two.app"
+    if [[ $_ARCH == "arm64" ]]; then
+        # Apple silicon: one installed client on /Applications/SafeConnect.app
+        alias startsc.polaris="open -a SafeConnect 2> /dev/null && open -a Step\ Two.app"
+        alias startsc.alioth="open -a SafeConnect 2> /dev/null && open -a Step\ Two.app"
+    else
+        # Hackintosh (x86): separate 12_polaris / 10_alioth clients
+        alias startsc.polaris="open -a SafeConnect12_polaris.app 2> /dev/null || open -a SafeConnect 2> /dev/null && open -a Step\ Two.app"
+        alias startsc.alioth="open -a SafeConnect10_alioth.app 2> /dev/null || open -a SafeConnect 2> /dev/null && open -a Step\ Two.app"
+    fi
 
     if [[ $_ARCH == "arm64" ]]; then
         # for arm64

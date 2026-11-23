@@ -57,10 +57,11 @@ this shell. Plain install/update only swaps files while the client keeps
 running, so the tunnel and this session stay up; the new build takes effect on
 the next restart.
 
-start/status (and the update path) also check the client logs for repeated
-"glp/sipstate ... connection refused" failures, which mean the device is
-waiting for re-activation after a network change. They then print the binding
-URL: open it and click 登录激活 (or 解绑 if the account shown is not yours).
+start/status (and the update path) also report how long ago the client last saw
+a peer device. If nothing has been seen for 3 minutes, either the Mac-side
+client is closed or the device needs re-activation after a network change; in
+the latter case run "bind" and click 登录激活 (or 解绑 if that account is not
+yours).
 EOF
 }
 
@@ -193,7 +194,7 @@ install_in_place() {
   if pgrep -f "${APP_DIR}/bin/${APP_NAME}" >/dev/null 2>&1; then
     log "${APP_NAME} is still running the previous build; the tunnel was left up."
     log "Run '${script_name} restart' when a short disconnect is acceptable, to switch builds."
-    warn_if_needs_rebind
+    warn_if_peer_stale
   else
     remove_old_user_unit
     start_app
@@ -225,7 +226,7 @@ start_app() {
     log "Started ${APP_NAME} in tmux session: ${TMUX_SESSION}"
     log "Attach logs with: tmux attach -t ${TMUX_SESSION}"
     sleep 2
-    warn_if_needs_rebind
+    wait_for_peer || warn_if_peer_stale
   else
     warn "${APP_NAME} did not stay running. Attach logs with: tmux attach -t ${TMUX_SESSION}"
     return 1
@@ -357,55 +358,70 @@ status_app() {
   ss -tuln 2>/dev/null | grep -E "[:.]${PORT}[[:space:]]" || true
   pgrep -af "${APP_DIR}/bin/${APP_NAME}" || true
   pgrep -af "NodeBabyLinkService .*${APP_DIR}" || true
-  warn_if_needs_rebind
+  report_peer_state
+  warn_if_peer_stale
 }
 
-# The client spams its local sip-state endpoint with refused connections while
-# the device is waiting for re-activation (e.g. after a network change). Those
-# log lines are the signal; the endpoint being closed alone is not.
-log_unactivated() {
-  local min_hits window log_file line stamp stamp_epoch now age hits
-  min_hits="${1:-4}"
-  window="${2:-120}"
-  now=$(date +%s)
-  for log_file in "${LOG_DIR}"/*.log; do
-    [[ -f "${log_file}" ]] || continue
-    hits=0
-    while IFS= read -r line; do
-      stamp="${line:0:19}"
-      [[ "${stamp}" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}\ [0-9]{2}:[0-9]{2}:[0-9]{2}$ ]] || continue
-      stamp_epoch="$(date -d "${stamp}" +%s 2>/dev/null)" || continue
-      age=$((now - stamp_epoch))
-      if (( age >= 0 && age <= window )); then
-        hits=$((hits + 1))
-        if (( hits >= min_hits )); then
-          return 0
-        fi
-      fi
-    done < <(grep -E 'glp/sipstate.*connection refused' "${log_file}" 2>/dev/null | tail -n 40 || true)
+# The client log is silent until a device attaches, then carries a steady
+# stream of health checks while it stays attached. So its age tells you whether
+# a peer is currently connected; it cannot tell an idle Mac apart from a
+# deactivated device, which is why the hint below is worded as a diagnosis aid.
+peer_last_activity_age() {
+  local log_file line stamp stamp_epoch
+  log_file="${LOG_DIR}/NodeBabyLinkClient.log"
+  [[ -f "${log_file}" ]] || return 1
+  line="$(tail -n 1 "${log_file}" 2>/dev/null | cut -f1)"
+  [[ -n "${line}" ]] || return 1
+  stamp="${line:0:19}"
+  [[ "${stamp}" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}\ [0-9]{2}:[0-9]{2}:[0-9]{2}$ ]] || return 1
+  stamp_epoch="$(date -d "${stamp}" +%s 2>/dev/null)" || return 1
+  printf '%s\n' "$(( $(date +%s) - stamp_epoch ))"
+}
+
+peer_is_fresh() {
+  local age limit
+  limit="${1:-180}"
+  age="$(peer_last_activity_age)" || return 1
+  if (( age <= limit )); then
+    return 0
+  fi
+  return 1
+}
+
+wait_for_peer() {
+  local attempt
+  for attempt in 1 2 3 4 5; do
+    if peer_is_fresh; then
+      return 0
+    fi
+    sleep 2
   done
   return 1
 }
 
-warn_if_needs_rebind() {
-  if ! log_unactivated; then
+report_peer_state() {
+  local age
+  if age="$(peer_last_activity_age)"; then
+    if (( age < 0 )); then
+      age=0
+    fi
+    log "peer: last activity ${age}s ago"
+  else
+    log "peer: no client activity logged yet"
+  fi
+}
+
+warn_if_peer_stale() {
+  if peer_is_fresh 180; then
     return 0
   fi
 
-  local location
-  location="$(curl -sS --max-time 3 -D - -o /dev/null "http://127.0.0.1:${PORT}" 2>/dev/null \
-    | sed -n 's/^[Ll][Oo][Cc][Aa][Tt][Ii][Oo][Nn]:[[:space:]]*//p' | head -n 1 | tr -d '\r' || true)"
-
   log ""
-  warn "设备待激活：本机网络环境发生变化，${APP_NAME} 需要重新登录激活。"
-  warn "日志持续出现: Get \"http://127.0.0.1:16880/glp/sipstate\": connection refused"
-  if [[ -n "${location}" ]]; then
-    warn "在浏览器打开下面的绑定链接，点击“登录激活”："
-    warn "${location}"
-  else
-    warn "运行 '$(basename "$0") bind' 获取绑定链接，然后点击“登录激活”。"
-  fi
-  warn "如果页面显示的账号不是你的，先点“解绑”。"
+  warn "最近 3 分钟没有检测到对端设备的活动。"
+  warn "· Mac 端客户端没开：先打开它，这里应很快重新出现活动。"
+  warn "· 已打开但仍连不上：通常是节点网络环境变化后设备待激活，"
+  warn "  运行 '$(basename "$0") bind' 打开绑定链接，点击“登录激活”。"
+  warn "  如果页面显示的账号不是你的，先点“解绑”。"
 }
 
 show_bind_url() {

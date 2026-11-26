@@ -238,6 +238,21 @@ export MSE_PROXY_HOST_LOOKUP_TIMEOUT="${MSE_PROXY_HOST_LOOKUP_TIMEOUT:-2}"
 export MSE_PROXY_PROCESS_LOOKUP_TIMEOUT="${MSE_PROXY_PROCESS_LOOKUP_TIMEOUT:-2}"
 export MSE_PROXY_SSH_CONNECT_TIMEOUT="${MSE_PROXY_SSH_CONNECT_TIMEOUT:-5}"
 
+_mse_proxy_is_compute_node() {
+    [[ "${_OS}" == Linux ]] || return 1
+    local host_name=""
+    local direct_host=""
+
+    host_name="$(hostname)"
+    [[ "${host_name}" == login* ]] && return 1
+    for direct_host in ${(s: :)MSE_PROXY_DIRECT_HOSTS}; do
+        [[ -n "${direct_host}" && "${host_name}" == "${direct_host}" ]] && return 1
+    done
+    [[ "${host_name}" =~ '^c[0-9]+b[0-9]+n[0-9]+$' ]] && return 0
+    [[ -n "${SLURM_JOB_ID:-}" ]] && return 0
+    return 1
+}
+
 _mse_proxy_login_mode() {
     printf '%s\n' "${MSE_PROXY_MODE%%+*}"
 }
@@ -723,21 +738,6 @@ _mse_proxy_probe_local_proxy() {
     )
 
     [[ -n "${code}" && "${code}" != "000" ]]
-}
-
-_mse_proxy_is_compute_node() {
-    [[ "${_OS}" == Linux ]] || return 1
-    local host_name=""
-    local direct_host=""
-
-    host_name="$(hostname)"
-    [[ "${host_name}" == login* ]] && return 1
-    for direct_host in ${(s: :)MSE_PROXY_DIRECT_HOSTS}; do
-        [[ -n "${direct_host}" && "${host_name}" == "${direct_host}" ]] && return 1
-    done
-    [[ "${host_name}" =~ '^c[0-9]+b[0-9]+n[0-9]+$' ]] && return 0
-    [[ -n "${SLURM_JOB_ID:-}" ]] && return 0
-    return 1
 }
 
 _mse_proxy_resolve_host_by_ip() {

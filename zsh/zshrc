@@ -485,7 +485,8 @@ _mse_proxy_port_available() {
     local port="$1"
     if zmodload -F zsh/net/tcp b:ztcp 2>/dev/null; then
         local fd
-        if ztcp -l 127.0.0.1 "${port}" 2>/dev/null; then
+        # 老版本 zsh 的 ztcp -l 不接受 host 参数，只能监听所有地址
+        if ztcp -l "${port}" 2>/dev/null; then
             fd="${REPLY}"
             ztcp -c "${fd}" 2>/dev/null
             return 0

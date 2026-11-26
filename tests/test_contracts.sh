@@ -6,11 +6,10 @@ REPO_ROOT="$(CDPATH= cd -- "$TEST_DIR/.." && pwd)"
 . "$TEST_DIR/testlib.sh"
 
 test_proxy_test_docs_match_code() {
-    local docs=""
-    docs="$(sed -n '/`proxy.test` 会依次测试/,/每个 URL/p' "$REPO_ROOT/README.md")"
-    case "$docs" in
-        *z.ai*) fail_test "README must not claim proxy.test checks z.ai" ;;
-    esac
+    local doc=""
+    for doc in "$REPO_ROOT/README.md" "$REPO_ROOT/docs/proxy.md"; do
+        grep -Fq 'z.ai' "$doc" && fail_test "$doc must not claim proxy.test checks z.ai"
+    done
     grep -Fq 'https://api.anthropic.com' "$REPO_ROOT/zsh/zshrc" || fail_test "proxy.test URL contract changed"
 }
 

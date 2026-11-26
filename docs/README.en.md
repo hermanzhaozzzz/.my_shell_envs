@@ -1,565 +1,347 @@
 # My Shell Env (MSE)
 
-Do not waste time configuring your environment. Spend ten minutes installing MSE, then get to work.
-> [!TIP]
-> 🚀 Do not waste time configuring your environment. Spend ten minutes installing MSE, then get to work.
-
 [简体中文](../README.md) | [English](README.en.md)
 
-This repository helps me bootstrap a personal shell and development environment quickly, including shell config, editor config, Python-related setup, and a few utility tools.
+Set up a terminal environment in one command: zsh, editors, micromamba, common CLIs, and a Slurm cluster proxy. **The same configuration works on Linux (including WSL) and macOS**, and one command rebuilds it on a new machine.
 
-## Contents
+You only need to remember three things in this document:
 
-- [Overview](#overview)
-- [Getting Started](#getting-started)
-  - [Prerequisites](#prerequisites)
-  - [HTTPS Install for Users](#https-install-for-users)
-  - [SSH Install for Developers](#ssh-install-for-developers)
-  - [Update](#update)
-  - [Conda Environments](#conda-environments)
-  - [Personal Settings](#personal-settings)
-- [Highlights](#highlights)
-  - [1. micromamba](#1-micromamba)
-  - [2. Vim / Neovim](#2-vim--neovim)
-  - [3. Zsh](#3-zsh)
-  - [4. jcat](#4-jcat)
-  - [5. wd](#5-wd)
-  - [6. Other Utilities](#6-other-utilities)
-- [Contributing](#contributing)
-- [License](#license)
+1. **Quick start** — install it and go
+2. **Customize your own configuration** — where your settings live and how they coexist with the repo
+3. **Daily commands** — the commands you will actually use
 
-## Overview
+Everything else (deploy flags, feature details, cluster proxy, tests) is secondary; look it up when needed.
 
-This repo installs my shell / Python / editor environment.
+## Quick Start
 
-Inside the repo, use these two commands:
-
-- `./mse deploy`
-- `./mse update`
-
-## Getting Started
-
-Pick one installation method:
-
-- users: HTTPS `git clone`
-- owner / developers: SSH `git clone`
-
-### Prerequisites
-
-On Linux / macOS / WSL, make sure `zsh` is already installed before you run `./mse deploy`.
-
-Then `./mse deploy` will handle:
-
-- the `Rust` toolchain, installed through `rustup` without letting `rustup` modify PATH
-- repo-managed CLI tools: `eza`, `bat`, `rg`, `btop`
-- `oh-my-zsh`
-- standard Oh My Zsh plugins: `git`, `z`
-- custom plugins: `zsh-syntax-highlighting`, `zsh-autosuggestions`
-
-What you need before running it:
+Install the dependencies first on Linux / macOS:
 
 ```shell
-# required on macOS / Linux / WSL
-git
+# Debian / Ubuntu
+sudo apt install -y git zsh build-essential pkg-config
+
+# macOS
+xcode-select --install      # zsh is already installed
 ```
 
-The script follows these rules:
-
-- macOS / Linux / WSL all follow the same rule: the script checks whether `zsh` exists first
-- if `zsh` is missing, the script stops with an error and tells you to install `zsh` manually
-- if `zsh` already exists, the script installs the default `Rust` toolchain, the repo-managed CLI tools `eza` / `bat` / `rg` / `btop`, and then continues with `oh-my-zsh`, standard plugins `git` / `z`, and custom plugins `zsh-syntax-highlighting` / `zsh-autosuggestions`
-- deployment links `~/.zshrc` and tries to run `chsh -s "$(which zsh)"`
-- before running `chsh`, the script tells you that if you do not want to change the default shell now, you can just press Enter at the password prompt; it will then show retry / skip choices
-- if `chsh` is unavailable, or you do not have permission to change the default shell, deployment does not stop; the script continues and asks whether it should add an auto-enter-zsh block to your current shell config
-- Rust is installed with `rustup --no-modify-path`; the repo `zshrc` adds `~/.cargo/bin` only when it exists
-- `eza`, `bat`, `rg`, and `btop` are deployed as default dependencies and linked into the repo `bin/` directory
-- `btop` uses `cargo install btop --locked`, reusing an existing `~/.cargo/bin/btop`; the shared zsh configuration sets `alias htop="btop"` by default
-- the default Oh My Zsh theme in this repo is `fino`
-- if you use this repo's `zshrc`, you do not need to manually edit the `plugins=(...)` list after deployment
-
-### HTTPS Install for Users
-
-For normal users, run:
+Then:
 
 ```shell
-cd "$HOME"
-git clone https://github.com/hermanzhaozzzz/.my_shell_envs.git
+git clone https://github.com/hermanzhaozzzz/.my_shell_envs.git ~/.my_shell_envs
 cd ~/.my_shell_envs
-
 ./mse deploy
 ```
 
-If you want an interactive deploy, or want to link the demo `zprofile`, run:
+Run `exec zsh` when it finishes. `mse` is on PATH afterwards, so `mse deploy` / `mse update` work directly; the default installs every module — see "Deploy and update" for other protocols or partial installs.
 
-```shell
-./mse deploy --interactive
-./mse deploy --interactive --use-zprofile-template
-```
+## Customize Your Own Configuration
 
-When you run `./mse deploy`:
+**The only file you need to edit is `~/.zprofile`.**
 
-- on Linux / macOS / WSL, MSE checks `zsh` first; if it is missing, it stops and tells you to install `zsh` manually
-- if `zsh` already exists, the script installs `Rust`, `eza`, `bat`, `rg`, and `btop` by default, then installs Oh My Zsh, installs required plugins, links `~/.zshrc`, and tries to switch the default shell to `zsh`
-- before running `chsh`, the script tells you that if you do not want to change the default shell yet, you can press Enter at the password prompt and then choose retry or skip in the next menu
-- if the default shell cannot be changed to `zsh`, the script continues and gives you two choices: retry `chsh`, or skip `chsh` and instead add an auto-enter-zsh block to your current shell config
-- before deployment starts, the script prints the paths it may modify, such as `~/.zshrc`, `~/.oh-my-zsh`, plugin directories, `~/.condarc`, `~/.vim`, and `~/.config/nvim`
-- `~/.zprofile` is only touched when you explicitly pass `--use-zprofile-template`
+| File | What goes there | Update behavior |
+|---|---|---|
+| `~/.zprofile` | Your machine, paths, proxy settings — **personal** configuration | Not updated by MSE; `deploy` / `update` leave it alone by default |
+| `~/.zshrc` | Shared interactive logic managed by the repo (symlinked to `${HOME}/.my_shell_envs/zsh/zshrc`) | Follows the repo; a repo update replaces it wholesale |
 
-Windows installation and update:
+Editing `~/.zshrc` directly loses your changes — the next update overwrites it with the repo version.
 
-```powershell
-# run in PowerShell
-cd $HOME
-git clone https://github.com/hermanzhaozzzz/.my_shell_envs.git
-cd ~/.my_shell_envs
-
-# deploy with git-bash
-git-bash ./mse deploy
-# or
-git-bash ./mse deploy --interactive
-
-# update later
-git-bash ./mse update
-```
-
-On Windows, do this:
-
-- the Windows path uses `PowerShell` + `git-bash`
-- the default user path uses an HTTPS clone
-
-### SSH Install for Developers
-
-For repository developers, run:
-
-```shell
-cd "$HOME"
-git clone git@github.com:hermanzhaozzzz/.my_shell_envs.git
-cd ~/.my_shell_envs
-
-./mse deploy --ssh --use-zprofile-template
-```
-
-When you run `./mse deploy --ssh --use-zprofile-template`:
-
-- this path uses an SSH clone by default
-- on Linux / macOS / WSL, MSE checks `zsh` first; if it is missing, it stops and tells you to install `zsh` manually
-- if `zsh` already exists, the script continues with Oh My Zsh, required plugins, `~/.zshrc`, and a default-shell switch
-- deployment runs in `fast` mode by default, which means non-interactive installation
-- `--ssh` makes secondary Git repositories use SSH as well
-- `--use-zprofile-template` links the repository's demo `zprofile` template to `~/.zprofile`
-- if you want to keep your own login config, drop `--use-zprofile-template`
-
-Read the common flags like this:
-
-- `--interactive`
-  Purpose: enter interactive mode and confirm steps one by one
-  Add it when: you want to choose which modules to install
-- `--ssh`
-  Purpose: make secondary Git repositories use SSH too
-  Add it when: you already configured your GitHub SSH key and want secondary repos to use SSH as well
-- `--use-zprofile-template`
-  Purpose: symlink the repository demo `zprofile` to `~/.zprofile`
-  Add it when: you explicitly want to use that demo file; if you want to keep your own login config, do not add it
-
-Common command combinations:
-
-```shell
-# default developer path: SSH + demo zprofile
-./mse deploy --ssh --use-zprofile-template
-
-# choose steps yourself, but keep your own ~/.zprofile
-./mse deploy --ssh --interactive
-
-# choose steps yourself and also use the demo zprofile
-./mse deploy --ssh --interactive --use-zprofile-template
-```
-
-### Update
-
-To update, run:
-
-```shell
-./mse update
-
-# temporary overrides for the saved deploy settings
-./mse update --interactive
-./mse update --ssh --interactive
-./mse update --interactive --use-zprofile-template
-```
-
-After install or deploy, the repo puts `mse` here:
-
-```shell
-~/.my_shell_envs/bin/mse
-```
-
-The repo `zsh/zshrc` adds this directory to PATH:
-
-```shell
-~/.my_shell_envs/bin
-```
-
-So after you open a new zsh terminal, you can run these commands from any directory:
-
-```shell
-mse update
-mse deploy
-```
-
-When you run `./mse update`:
-
-- `mse update` updates source code first, then redeploys
-- Git installs use `git fetch` + `git pull --rebase`
-- it does not run `chsh` again and does not ask for your default-shell password
-- if your last `deploy` used interactive mode, `update` reuses the saved step selection and does not ask step-by-step again
-- these persisted settings are stored in `~/.my_shell_envs/.mse-install.env`
-- after every successful `mse deploy` or `mse update`, this file is rewritten to match the actual settings used in that run
-
-For repository updates, `--https` and `--ssh` convert a GitHub origin to the requested transport before fetching. A non-GitHub origin that cannot be converted safely fails explicitly instead of silently using another transport.
-
-The MSE repository itself must have a clean worktree before update. If an independent Vim, Neovim, or Wudao repository managed by an optional step has local changes, deploy warns, preserves those changes, and skips that repository's pull; it does not stash, reset, or overwrite them.
-
-`~/.my_shell_envs/.mse-install.env` is a plain text file and you can edit it by hand. Example:
-
-```shell
-MSE_GIT_METHOD='ssh'
-MSE_DEPLOY_MODE='fast'
-MSE_DEFAULT_BRANCH='main'
-MSE_USE_ZPROFILE_TEMPLATE='false'
-MSE_STEP_MICROMAMBA='true'
-MSE_STEP_CONDARC='true'
-MSE_STEP_PIP='true'
-MSE_STEP_VIM='true'
-MSE_STEP_NVIM='true'
-MSE_STEP_JCAT='false'
-MSE_STEP_WD='true'
-```
-
-What these fields mean:
-
-- `MSE_GIT_METHOD`: whether update should default to HTTPS or SSH
-- `MSE_DEPLOY_MODE`: whether update should default to fast or interactive deploy mode
-- `MSE_DEFAULT_BRANCH`: informational default branch for this install
-- `MSE_USE_ZPROFILE_TEMPLATE`: whether update should keep using the repo demo `~/.zprofile`
-- `MSE_STEP_<NAME>`: whether each optional step is enabled; `update` runs directly from these `true/false` values without prompting again
-
-If you want to change the default behavior, you have two options:
-
-- edit `~/.my_shell_envs/.mse-install.env` directly
-- rerun `mse deploy --interactive`
-
-If you edit this file manually, the next `mse update` will use your edited values. You can also pass flags on the command line; if that run succeeds, `.mse-install.env` is updated to match the settings actually used in that run.
-
-If you want your own commands to be globally available too, put them in that directory:
-
-```shell
-ln -s /absolute/path/to/your_tool ~/.my_shell_envs/bin/your_tool
-```
-
-Or copy the executable there:
-
-```shell
-cp /absolute/path/to/your_tool ~/.my_shell_envs/bin/
-chmod +x ~/.my_shell_envs/bin/your_tool
-```
-
-After opening a new zsh terminal, you can then run `your_tool` from any directory.
-
-### Conda Environments
-
-In this repo, `conda` is an alias of `micromamba`.
-
-When you run `./mse deploy`, the script:
-
-- install `micromamba`
-- link the environment files for the current platform from `conda/<platform>/` into `conda_local_env_settings/`
-
-It does not automatically create every Conda environment. After deployment, run `conda` yourself.
-
-The current platform's `base.yml` is linked to:
-
-```shell
-~/.my_shell_envs/conda_local_env_settings/base.yml
-```
-
-To update or install the `base` environment, run:
-
-```shell
-conda activate base && conda install -f ~/.my_shell_envs/conda_local_env_settings/base.yml
-```
-
-For other environments, replace `base.yml` with the corresponding `.yml` file.
-
-### Personal Settings
-
-By default, `./mse deploy` only handles shared config. It does not overwrite your personal login config:
-
-- on Linux / macOS / WSL, `./mse deploy` requires `zsh` to already exist; after that, it configures Oh My Zsh, plugins, and links `~/.zshrc`
-- `./mse deploy` does not modify `~/.zprofile` by default
-- `--use-zprofile-template` only symlinks the repository demo template to `~/.zprofile`
-
-```shell
-./mse deploy --interactive
-
-# optional: also link the demo zprofile template
-./mse deploy --interactive --use-zprofile-template
-```
-
-Here is the practical rule:
-
-- for most users, do not directly symlink my demo `zprofile`
-- `zsh/zprofile_hermanzhaozzzz_demo` is only a demo file for my own usage patterns
-- if you want to DIY your own setup, create your own `~/.zprofile`
-- this repo manages shared interactive config in `zsh/zshrc`; your machine-specific config should go into your own `~/.zprofile`
-
-Zsh loads files in this order:
+zsh load order:
 
 ```text
 .zshenv -> .zprofile -> .zshrc -> .zlogin -> .zlogout
 ```
 
-Use each file like this:
+- `~/.zshenv` — read by every zsh process; it also affects `scp` and other non-login / non-interactive connections, so **keep it minimal**
+- `~/.zprofile` — read by login shells, affects login interactive shells only; **this is where you keep your personal DIY settings** (PATH, proxy ports, host-specific variables)
+- `~/.zshrc` — read by interactive shells; **this is where MSE's shared configuration lives, do not edit it**
+- `~/.zlogin` / `~/.zlogout` — read at login end / logout; usable, but **rarely needed**
 
-- `~/.zshenv`
-  Purpose: loaded by every zsh process, including non-interactive shells
-  Advice: keep it minimal. Do not put proxies, aliases, plugins, or heavy logic here
-- `~/.zprofile`
-  Purpose: loaded by login shells before `~/.zshrc`
-  Advice: put your own PATH, proxies, machine-specific environment variables, private tokens, and host aliases here
-- `~/.zshrc`
-  Purpose: loaded by interactive shells
-  Advice: this repo already manages shared config here, including Oh My Zsh, theme, plugins, aliases, functions, and `~/.my_shell_envs/bin`
-- `~/.zlogin`
-  Purpose: loaded at the end of login-shell startup
-  Advice: most users do not need it
+Do not redefine repo-provided commands in `~/.zprofile`, especially `proxy.on` / `proxy.off`.
 
-For DIY config, put things here:
+### Write your own `~/.zprofile`
 
-- PATH: `~/.zprofile`
-- proxy helpers: `~/.zprofile`
-- private tokens / company-only config: `~/.zprofile`, or a private file sourced from it
-- shared aliases / functions: keep using the repo-managed `zsh/zshrc`
-- if you only want to change the Oh My Zsh theme or plugin list, do not edit the repo `zsh/zshrc`; override them in your own `~/.zprofile`
-
-The most important PATH rule is: do not overwrite the existing `$PATH`. Extend it.
-
-If you want to override the theme or plugins, put these variables in `~/.zprofile`:
+You can leave it completely empty — every default lives in the repo's `zsh/zshrc`. Everything below is **an optional example**; keep or delete as needed:
 
 ```shell
-# optional: override Oh My Zsh theme
-export MSE_ZSH_THEME="robbyrussell"
-
-# optional: override plugin list
-export MSE_ZSH_PLUGINS="git z zsh-syntax-highlighting zsh-autosuggestions"
-```
-
-The rule is simple:
-
-- `MSE_ZSH_THEME`: overrides the repo default theme `fino`
-- `MSE_ZSH_PLUGINS`: replaces the repo default plugin list
-- put these variables in `~/.zprofile`; the repo `zsh/zshrc` will read them
-
-If you do not want to change theme or plugins, do not set these variables.
-
-Use this pattern:
-
-```shell
-# keep existing PATH, then prepend your own paths
-export PATH="$HOME/.local/bin:$PATH"
-
-# add extra toolchain paths only when they exist
-[ -d "/opt/homebrew/bin" ] && export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
-```
-
-If you use the repo-managed `Rust` installation, you do not need to add `~/.cargo/bin` to `~/.zprofile` yourself. The repo `zsh/zshrc` adds it automatically when `cargo` exists.
-
-When editing `PATH`:
-
-- always keep `$PATH`; do not replace it with a hard-coded value such as `export PATH="/some/path"`
-- this keeps system commands, `~/.my_shell_envs/bin`, and the repo-managed `zshrc` additions working
-- keep your own bin directories near the front, for example `~/.local/bin`
-- in this repo, you usually do not need to manually add `micromamba/bin` in `~/.zprofile`, because the repo `zsh/zshrc` already handles `micromamba` / `conda`
-- only add it to `~/.zprofile` if you explicitly want `micromamba` to be available before `zsh/zshrc` runs
-- guard platform-specific paths with existence checks
-- avoid `unset PATH` unless you fully understand the implications
-
-A minimal `~/.zprofile` example:
-
-```shell
-# keep existing PATH
+# Example: personal preferences — omitting these is fine
 export PATH="$HOME/.local/bin:$PATH"
 export EDITOR="nvim"
-export PAGER="less"
-export MSE_MAMBA_AUTO_ACTIVATE_BASE=false
-# Optional on Slurm compute nodes.
-export MSE_PROXY_UPSTREAM_HOST=<login-host>
-export MSE_PROXY_PROCESS_LOOKUP_TIMEOUT=2
+
+# Example: override an MSE default
+# Default is false: the micromamba base environment is not activated, so
+#   conda / python installed in base are not on PATH
+# Set it to true to run `micromamba activate base` in every new shell;
+#   more convenient, but it affects terminal startup time
+export MSE_MAMBA_AUTO_ACTIVATE_BASE=true
 ```
 
-Proxy commands are provided by the repo `zsh/zshrc`. On native Linux in `clash` mode, do not configure `MSE_PROXY_PORT` or `MSE_PROXY_SOCKS_PORT`: both values come exclusively from the repository clashctl `runtime.yaml`, and any environment values are overwritten. A missing or incomplete runtime is an error. Interactive deploy presents `clashctl` as `[Y/n]`, enabled by default; an explicit `n` completes the other deploy steps but leaves Linux `clash` mode unavailable. The native Linux clashctl step installs executables in the repository `bin` and keeps mutable data in Git-ignored `tools/clashctl/state` and `tools/clashctl/cache`. Legacy `$HOME/clashctl` installs are not loaded.
+New terminals pick it up after saving. Cluster proxy variables are covered in "Cluster proxy"; ordinary machines do not need them.
 
-`clashctl add '<subscription-url>'` adds and immediately activates a subscription; when the same URL already exists, it safely updates that profile. `clashctl del <id>` may delete the active subscription: it stops Mihomo and removes the generated runtime first, so no stale proxy remains ready. Subscription downloads default to the `clash-verge/v2.3.1` User-Agent so providers can return modern Mihomo protocols such as AnyTLS. Deploy persists this value in `tools/clashctl/state/env`; set `MSE_CLASHCTL_SUB_UA` during deployment only when a provider requires another client identity.
+### Common variables
 
-If `~/.my_shell_envs` is a symlink or a logical path into shared storage, clashctl canonicalizes it to one physical repository identity before deriving binary, state, and pid paths. This prevents one Mihomo process from being mistaken for two services through different path spellings.
+| Variable | Purpose | Example |
+|---|---|---|
+| `MSE_ZSH_THEME` | Override the default theme; default `fino`; see [Themes](https://github.com/ohmyzsh/ohmyzsh/wiki/Themes) | `export MSE_ZSH_THEME="agnoster"` |
+| `MSE_ZSH_PLUGINS` | Replace the whole plugin list; default `git z zsh-syntax-highlighting zsh-autosuggestions`; see [Plugins](https://github.com/ohmyzsh/ohmyzsh/wiki/Plugins) | `export MSE_ZSH_PLUGINS="git z"` — only these two<br>`export MSE_ZSH_PLUGINS="git z zsh-syntax-highlighting zsh-autosuggestions docker"` — the default four plus docker |
+| `MSE_MAMBA_AUTO_ACTIVATE_BASE` | Whether every new shell activates the micromamba base environment; default `false`; `true` affects startup time | `export MSE_MAMBA_AUTO_ACTIVATE_BASE=true` |
+| `MSE_PROXY_MODE` | Two-part: login side + compute side. Login side is `clash`/`origin`; compute side is `clash`/`via-login`/`origin`; see "Cluster proxy" for common combinations | `export MSE_PROXY_MODE=clash+via-login` |
 
-On native Linux, deploy installs clashctl before network-dependent Git and Rust setup. If a valid runtime already exists, deploy enables it before refreshing clashctl itself and uses it for the remaining steps; a complete local archive cache also permits an offline reinstall. On a true first install with no runtime, no complete cache, and no direct external access, interactive deploy pauses before any download and asks for temporary network access in the current terminal; non-interactive deploy stops immediately. After installation, a second check gives the repository `bin/clashctl add '<subscription-url>'` recovery command when no subscription or external network is available. Neither check silently falls back to a different Linux proxy implementation.
+`MSE_ZSH_PLUGINS` is a **full replacement**, not an append.
 
-macOS and WSL automatically discover external proxy endpoints without `clashctl` or manual host/port variables. Native Windows PowerShell retains its existing configuration behavior. Linux Slurm compute nodes read the shared clashctl runtime and forward those exact ports to the login node with an MSE-managed autossh tunnel; they never execute `clashctl on/off`. The separate compute-only `direct-egress` mode still takes an explicit local SOCKS port because it does not use Clash.
+### Maintainer's personal profile (`--maintainer-personal-zprofile`)
 
-On Slurm compute nodes, a manual `proxy.on` tries upstream hosts in this order: `MSE_PROXY_UPSTREAM_HOST`, `SLURM_SUBMIT_HOST`, reverse lookup from `SSH_CONNECTION` / `SSH_CLIENT`, then `MSE_PROXY_DIRECT_HOSTS`. Host lookup is capped by `MSE_PROXY_HOST_LOOKUP_TIMEOUT`; autossh process lookup reads `/proc` directly and is capped by `MSE_PROXY_PROCESS_LOOKUP_TIMEOUT`; the autossh connection is capped by `MSE_PROXY_SSH_CONNECT_TIMEOUT` with non-interactive SSH. A bad upstream or a slow process table should fail quickly instead of leaving `proxy.on` waiting. Set `MSE_PROXY_DEBUG=1` before running `proxy.on` if you need to inspect upstream detection.
-
-MSE stores one host-specific tunnel PID and full command record under the Git-ignored `tools/clashctl/state/proxy-tunnels`. `proxy.on` and `proxy.off` remove stale state, old-port tunnels, and tunnels created by pre-state MSE versions while leaving autossh/SSH processes that do not match the complete MSE signature untouched.
-
-Some compute nodes can hang before reaching user dotfiles because the system login bash reads `/etc/profile` first. In interactive zsh, the repo wraps only bare `ssh -p 32985 cXXbYYnZZ` Slurm compute-node logins and runs remote `zsh -l` directly. SSH calls with an explicit remote command are left unchanged.
-
-New terminals use these defaults:
-
-- macOS enables the explicitly configured HTTP / HTTPS / SOCKS system proxies from `scutil --proxy`, using local `lsof` listener ownership to avoid combining different clients. Startup sets both uppercase and lowercase variables without curl or network probes. If no usable system proxy is configured, it stays off; a manual `proxy.on` can still discover and validate client listeners.
-- Linux login/direct and Slurm compute shells start with proxy variables cleared, including inherited uppercase and lowercase values. Startup calls neither `clashctl` nor `autossh`; run `proxy.on` when needed to use the existing Clash or Slurm tunnel path.
-- WSL requires manual `proxy.on` and does not inspect Windows or local proxies at startup.
-
-On macOS / WSL, run `proxy.on` after changing clients or ports, or when manual activation is needed; `proxy.status` shows the discovery source and endpoints. Full discovery works as follows:
-
-- macOS reads enabled `scutil --proxy` settings first, then uses `lsof` to find Surge, ClashX, FlClash and supported proxy-core listeners (including mihomo and sing-box).
-- WSL reads Windows user proxy settings and proxy-process listeners through PowerShell, and also checks proxy cores running inside WSL. Windows loopback endpoints are tried through localhost and the WSL default gateway for mirrored/NAT networking.
-- Candidates must pass HTTP CONNECT or SOCKS5h probes. HTTP-only, SOCKS-only, separate and mixed ports are supported. macOS system endpoints are grouped by listener process and completed with the same process's other listeners. Endpoints without a known owner are checked separately.
-- Protocol probes run on `proxy.on`, `proxy.status`, `proxy.test` and `proxy.exec`, not shell startup. `proxy.status` refreshes both uppercase and lowercase proxy variables when already enabled, and leaves a disabled shell disabled. On macOS / WSL, `proxy.test` explicitly checks HTTP and HTTPS requests through each discovered HTTP/SOCKS protocol, ignoring curl configuration and bypass rules. `proxy.off` only clears shell variables and leaves the external client running. Existing manual host/port values are replaced by discovery results.
-
-Probes use `curl` through the candidate proxy to `example.com` (2 seconds per probe, with duplicate endpoints skipped), so that site must be reachable. macOS discovery uses `scutil`/`lsof`; Windows discovery from WSL requires PowerShell interop and `wslpath`. PAC scripts and authenticated proxies are not automatically handled; a PAC/TUN client can still be found if it exposes a supported local proxy listener. Detection failures produce diagnostics rather than requesting manual port overrides. In WSL NAT mode, a Windows listener bound only to Windows localhost or blocked by the firewall must be made reachable from WSL in the client/network settings, or mirrored networking used.
-
-Keep machine-specific or organization-specific values in your own `~/.zprofile`. Do not add them to the shared repo-managed `zshrc`.
-
-## Highlights
-
-### 1. micromamba
-
-I use micromamba instead of conda / miniconda / mamba because:
-
-- conda / miniconda can feel slow
-- mamba is not always ideal for updating an existing base environment
-
-In this repo, you can just type `conda` in daily use, because `conda` is already aliased to `micromamba`.
-
-If you want to keep your own conda setup and skip micromamba, use:
+This deploy switch uses the maintainer's own `zsh/zprofile_hermanzhaozzzz_demo` as `~/.zprofile`; it backs up any existing `~/.zprofile` first. It is equivalent to:
 
 ```shell
-./mse deploy --interactive
+ln -s ~/.my_shell_envs/zsh/zprofile_hermanzhaozzzz_demo ~/.zprofile
 ```
 
-![](https://pic3.zhimg.com/v2-9b990548c624931878c88dbc65154bea_b.jpg)
+- Maintainer: use it freely
+- Everyone else: **do not use it directly**; treat it as a reference for style (PATH, proxy mode, directory conventions) and write your own `~/.zprofile`
+- Without the flag, `deploy` **never** touches your `~/.zprofile`
+- That file hardcodes the maintainer's machine paths, cluster hostnames, and proxy settings
 
-### 2. Vim / Neovim
+## Daily Commands
 
-- Vim config references [vim-for-coding](https://github.com/Leptune/vim-for-coding)
-- Neovim config references my [MyLazyVim](https://github.com/hermanzhaozzzz/MyLazyVim)
+| What you want | Command |
+|---|---|
+| Deploy / update | `mse deploy` / `mse update` |
+| Turn proxy on / off / show status | `proxy.on` / `proxy.off` / `proxy.status` |
+| Test proxy connectivity | `proxy.test` |
+| Force a command through the proxy | `proxy.exec <command>` |
+| Delete a file (to trash) | `rm <path>` |
+| Really delete | `rrm <path>` |
+| Show / restore / empty trash | `rm.trash.show` / `rm.trash.back` / `rm.trash.clear` |
+| Manage Conda environments | `conda` (aliased to `micromamba`) |
+| Inspect Slurm (Linux) | `sqtop` |
 
-![](https://pic4.zhimg.com/v2-9587f7dca82dc9b6e700b661e96207db_b.jpg)
+## Deploy and Update
 
-### 3. Zsh
+### `mse deploy`
 
-The repo includes a practical Zsh setup with:
+Default: **`fast` mode + `https`** — installs every supported module.
 
-- Oh My Zsh theme: `fino`
-- standard Oh My Zsh plugins: `git`, `z`
-- [zsh-syntax-highlighting](https://github.com/zsh-users/zsh-syntax-highlighting.git)
-- [zsh-autosuggestions](https://github.com/zsh-users/zsh-autosuggestions)
-- [z](https://github.com/rupa/z)
+| What you want to change | Flag to add |
+|---|---|
+| Install only part of the modules | `--interactive` |
+| Clone with SSH | `--ssh` |
+| Both | `--ssh --interactive` |
 
-What the default plugins do and how to use them:
+Flags combine freely and order does not matter; if both `--fast` and `--interactive` are given, the last one wins. The maintainer-only `--maintainer-personal-zprofile` is described in "Customize your own configuration".
 
-- `git`
-  Purpose: provides common git aliases
-  Examples: `gst` shows status, `gco <branch>` switches branches, `gaa` stages all changes
-- `z`
-  Purpose: remembers directories you visit often, then jumps to them quickly
-  Examples: after using `cd` normally for a while, run `z project` or `z Downloads`
-- `zsh-syntax-highlighting`
-  Purpose: highlights command syntax directly in the shell
-  Usage: valid commands are usually highlighted while mistyped commands are not
-- `zsh-autosuggestions`
-  Purpose: suggests completions from your shell history
-  Usage: the shell shows a gray suggestion; usually you can accept it with the Right Arrow key
+Linux and macOS use the same command. Windows uses PowerShell + git-bash:
 
-If you do not change personal config, these plugins work right after deployment.
+```powershell
+git clone https://github.com/hermanzhaozzzz/.my_shell_envs.git $HOME/.my_shell_envs
+cd $HOME/.my_shell_envs
+git-bash ./mse deploy
+```
 
-![](https://pic2.zhimg.com/v2-1d5b7cade272ec46c293bf80353d36e5_b.jpg)
+Deploy tries `chsh -s "$(which zsh)"`; press Enter at the password prompt to skip changing your default shell.
 
-### 4. jcat
+What it does:
 
-Quickly inspect `ipynb` files in the terminal. Reference:
+- Links `~/.zshrc` to `${HOME}/.my_shell_envs/zsh/zshrc`
+- Installs or wires up `oh-my-zsh` and plugins
+- Installs `micromamba`
+- Handles `vim` / `neovim`
+- Builds repo-managed CLI tools
+- Installs extra modules per step
 
-- [jcat](https://github.com/zhifanzhu/jcat)
+Existing files are backed up as `<name>_bak` before being replaced; an older backup with the same name is overwritten, and the log says so.
 
-![](https://pic1.zhimg.com/v2-cc31145bcbe6d57e78dbf90db7b78f10_b.jpg)
-![](https://pic4.zhimg.com/v2-42f94f107405490e83cef241d413ca97_b.jpg)
+### `mse update`
 
-### 5. wd
+```shell
+mse update
+```
 
-A terminal dictionary tool. Reference:
+Flow:
 
-- [Wudao-dict](https://github.com/ChestnutHeng/Wudao-dict)
+1. Fetch upstream
+2. If there are uncommitted changes or local commits not on upstream, ask whether upstream should win
+3. `y`: discard local content and `reset --hard` to upstream
+4. `n`: exit so you can inspect the repo yourself
+5. Non-interactive shell: exit without changing anything
 
-If you choose the `wd` step in interactive mode, MSE will:
+It then redeploys with the settings saved from the last deploy, and never asks about the default shell again.
 
-- clone or update `~/.Wudao-dict`
-- create the executable `~/.my_shell_envs/bin/wd` directly
-- make that `wd` command enter `~/.Wudao-dict/wudao-dict` and run the dictionary program
+`--https` / `--ssh` convert the GitHub origin to that protocol before fetching — they do not just affect future clones. A non-GitHub origin that cannot be converted safely fails with an error instead of silently switching.
 
-If you do not choose `wd` in interactive mode, MSE removes `~/.my_shell_envs/bin/wd` so your PATH does not keep a command you decided not to manage.
+If the standalone Git repos for Vim, Neovim, or Wudao have local changes, deploy only warns and skips their pull; it never stashes, reverts, or overwrites them.
 
-![](https://pic1.zhimg.com/v2-4941f3b7b7c83780d50bcfb36b6dbad8_b.jpg)
+### `.mse-install.env`
 
-### 6. Other Utilities
+Records the parameters and step switches of the last successful deploy:
 
-The repo also includes a few convenience helpers:
+```shell
+MSE_GIT_METHOD='ssh'
+MSE_DEPLOY_MODE='fast'
+MSE_MAINTAINER_PERSONAL_ZPROFILE='false'
+MSE_STEP_NVIM='true'
+MSE_STEP_SQTOP='true'
+MSE_STEP_CLASHCTL='true'
+MSE_STEP_CLUSTER_PROXY_TOOLS='true'
+```
 
-- a trash-style deletion workflow to reduce `rm -rf` mistakes
-- `l` / `ll` / `lll` / `llll` shortcuts
-- aliases such as `open`
-- `conda/micromamba-pycharm`: a small compatibility bridge for PyCharm so it can use micromamba as a conda executable
-- an easy way to expose your own commands by linking them into `~/.my_shell_envs/bin`
+`mse update` reuses it, so the result can differ from a fresh `mse deploy --fast`. To change defaults, rerun `mse deploy --interactive` or edit this file.
+
+## Features
+
+### Zsh
+
+Enabled by default: Oh My Zsh, `git`, `z`, `zsh-syntax-highlighting`, `zsh-autosuggestions`.
+
+`htop` is aliased to `btop`; `eza` provides `ll` / `lll` and similar listing aliases.
+
+### micromamba
+
+`conda` / `mamba` are aliased to `micromamba`, so use `conda` in daily work.
+
+Linux and macOS both install under `$HOME/0.apps/micromamba`:
+
+| Item | Path |
+|---|---|
+| Executable | `$HOME/0.apps/micromamba/bin/micromamba` |
+| Base environment | `$HOME/0.apps/micromamba` itself |
+| Named environment | `$HOME/0.apps/micromamba/envs/<name>` |
+| Root prefix | `MAMBA_ROOT_PREFIX=$HOME/0.apps/micromamba` |
+
+### Vim / Neovim
+
+- Vim configuration based on [vim-for-coding](https://github.com/Leptune/vim-for-coding)
+- Neovim configuration based on [MyLazyVim](https://github.com/hermanzhaozzzz/MyLazyVim)
+
+### Trash (`rm` wrapper)
+
+In an interactive zsh, `rm` does not delete — it moves files to the trash:
+
+```shell
+rm <path>          # move to trash; flags like -rf are ignored
+rrm <path>         # real deletion (/bin/rm)
+rm.trash.show      # list every trash directory
+rm.trash.back      # restore into the current directory (pick one when there are several)
+rm.trash.clear     # empty every trash directory (asks first)
+```
+
+Trash is per disk: a same-device `mv` is just a rename, while a cross-device move is a real copy. The default is only `$HOME/.mytrash`; to keep one trash per disk, declare them in `~/.zprofile`:
+
+```shell
+TRASH_DIRS=(
+    "${HOME}/.mytrash"               # local machine
+    /lustre1/cqyi/hnzhao/.mytrash    # cluster A /lustre1
+    /lustre2/cqyi/hnzhao/.mytrash    # cluster A /lustre2
+)
+```
+
+Deletion picks the first trash directory on the same device as the target; with no match it falls back to `$HOME/.mytrash` and warns about the cross-device copy.
+
+**Note**: these are interactive zsh aliases. In scripts, cron, and `sbatch --wrap`, `rm` still deletes for real.
+
+### jcat
+
+View `ipynb` files in the terminal. See [jcat](https://github.com/zhifanzhu/jcat).
+
+### wd
+
+Terminal dictionary. See [Wudao-dict](https://github.com/ChestnutHeng/Wudao-dict).
+
+### macupdatectl
+
+macOS system update control tool (macOS 12+):
+
+```shell
+macupdatectl          # open the graphical menu
+macupdatectl status   # show current state
+```
+
+The menu can block system updates, restore update checks and manual updates (recommended for Hackintosh), and clear the update badge. "Block" disables the software update service and related automatic options and blocks Apple update servers in a managed block of `/etc/hosts`; the file is backed up to `/var/backups/macupdatectl/` first.
+
+### sqtop
+
+Optional Slurm terminal monitor on Linux, similar to `htop` / `nvitop`. Installed by default with `deploy --fast`; choose it individually with `--interactive`.
+
+## Cluster Proxy (Quick Reference)
+
+Compute nodes usually have no internet. Start with how traffic flows:
+
+### Prerequisites
+
+`proxy.on` / `proxy.test` / `proxy.exec` require:
+
+- The `cluster_proxy_tools` step during deploy (provides `autossh`, `proxychains`)
+- If either side uses `clash`: `clashctl` deployed, **at least one subscription added**, and HTTP + SOCKS ports present in the runtime
+- `via-login` only: no Clash or subscription needed, but the login node itself must have internet
+- macOS / WSL: a local proxy client running
+
+`proxy.test` / `proxy.exec` additionally need a proxy on the current node: a login node requires the login side to be `clash`; a compute node requires the compute side to be `clash` or `via-login`. Compute side `origin`, and login side `origin` on a login node, have no proxy.
+
+### Choose by scenario
+
+| Scenario | Login node | Compute node | Configuration |
+|---|---|---|---|
+| Mainland China, Clash on the login node | Clash, rule-based routing | SSH tunnel to the login node's Clash ports | `MSE_PROXY_MODE=clash+via-login` (default), run `proxy.on` |
+| Clash on the login node, compute node has its own internet | Clash | Its own network | `MSE_PROXY_MODE=clash+origin`, run `proxy.on` |
+| Compute node has internet and should run Clash locally | As needed for the login side | Local Clash | `MSE_PROXY_MODE=clash+clash` or `origin+clash` |
+| Login node has internet, compute node does not | Its own network | SSH tunnel to the login node, then its direct egress | `MSE_PROXY_MODE=origin+via-login`, run `proxy.on` (port chosen automatically) |
+| Compute node has internet | Its own network | Its own network | `MSE_PROXY_MODE=origin+origin`, no `proxy.on` needed |
+
+### Behavior of each value
+
+| `MSE_PROXY_MODE` | Login node | Compute node |
+|---|---|---|
+| `clash+via-login` (default) | Clash | SSH tunnel to the login node's Clash ports |
+| `clash+clash` | Clash | Local Clash on the compute node (needs its own internet) |
+| `clash+origin` | Clash | Its own network |
+| `origin+via-login` | Its own network | SSH tunnel to the login node, then its direct egress |
+| `origin+clash` | Its own network | Local Clash on the compute node (needs its own internet) |
+| `origin+origin` | Its own network | Its own network |
+
+When the compute side is `clash`, Clash starts on the compute node itself (the node must have internet); with `via-login`, no Clash runs there and traffic borrows the login node's egress through a tunnel.
+
+macOS has no login / compute split: start your proxy client and run `proxy.on`; ports are discovered automatically. WSL follows the Linux logic; only Windows-side endpoint discovery depends on PowerShell interop.
+
+Shortest flow:
+
+```shell
+proxy.status                 # node role and current state
+proxy.on                     # enable; a compute node builds the autossh tunnel
+proxy.test                   # test common sites
+proxy.exec codex             # force programs that ignore env vars through the proxy
+proxy.off                    # clear this shell only; the Clash service keeps running
+```
+
+Three common pitfalls:
+
+- "`proxy.on` ran but nothing works" — check `proxy upstream` in `proxy.status` first
+- VSCode Remote into a compute node can defeat upstream detection; fix it with `MSE_PROXY_UPSTREAM_HOST=login03` in `~/.zprofile`
+- Go programs such as `frp-panel` bypass system DNS, so `proxychains` cannot intercept them; use IPs instead of hostnames
+
+Full details (clashctl install, subscriptions, runtime, endpoint discovery, upstream detection, limits, troubleshooting) are in **[proxy.md](proxy.md)**.
 
 ## Tests
 
-The shell unit tests do not require a real subscription, Mihomo service, or external network. They use temporary directories to cover deploy selection, port synchronization, Slurm role routing, and the clashctl lifecycle:
+No real subscription, Mihomo service, or external network is needed; tests use temporary directories:
 
 ```shell
 ./tests/run.sh
 ```
 
+They cover deploy selection, update behavior, port sync, Slurm role routing, clashctl lifecycle, and trash handling.
+
 ## Contributing
 
-Issues and pull requests are welcome.
-
-If you find a bug, hit a compatibility problem, notice missing documentation, or want to improve a module in this repo, feel free to open an issue or submit a PR.
-
-A minimal contribution workflow looks like this:
-
-1. Fork this repository to your own GitHub account.
-2. Clone your own fork locally.
+Issues and PRs are welcome. Workflow:
 
 ```shell
 cd "$HOME"
 git clone git@github.com:<your-github-name>/.my_shell_envs.git
 cd ~/.my_shell_envs
-```
-
-3. Deploy your fork locally and make sure your changes actually work.
-
-```shell
 ./mse deploy
 ```
 
-4. Edit code or docs, and test locally until the result works as expected.
-5. Commit and push the changes to your own fork.
-6. Open a PR from your fork and request merging into this repository.
-
-Documentation-only PRs are also very welcome.
-
-If you are not sure about the direction of a change, open an Issue first.
-
-Contributions are very welcome. This repo is much better when people maintain it together.
+Confirm it works locally, then submit your changes.
 
 ## License
 
-Free to use and adapt.
+Free to use and modify.

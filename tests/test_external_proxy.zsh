@@ -5,6 +5,8 @@ source "${TEST_DIR}/testlib.sh"
 source "${TEST_DIR}/proxy_fixture.zsh"
 
 external_fixture() {
+    # 隔离调用者环境：大小写两套代理变量都可能存在
+    unset http_proxy https_proxy all_proxy HTTP_PROXY HTTPS_PROXY ALL_PROXY
     make_proxy_fixture
     load_proxy_helpers
     export _OS=macOS

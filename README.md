@@ -2,660 +2,333 @@
 
 [简体中文](README.md) | [English](docs/README.en.md)
 
-这个仓库用来快速搭一套顺手的终端环境，主要包括：
+一条命令搭好终端环境：zsh、编辑器、micromamba、常用 CLI，以及 Slurm 集群代理。**Linux（含 WSL）与 macOS 共用同一套配置**，换机器一条命令重建。
 
-- 部署一套可直接用的 `zsh` / `vim` / `neovim` / `micromamba` 环境
-- 管理常用 CLI 工具和若干辅助脚本
-- 在 Slurm 集群上提供一套可复用的代理工作流
+这篇文档只需要记住三件事：
 
-平时最常用的命令只有两个：
+1. **快速开始**：装好就能用
+2. **定制自己的配置**：个人设置写在哪，怎么和仓库的公共配置共存
+3. **日常命令速查**：最常用的命令
 
-```shell
-./mse deploy
-./mse update
-```
+其余（部署参数、功能细节、集群代理、测试）都是次要信息，需要时再查。
 
 ## 快速开始
 
-### 前置依赖
-
-在 Linux / macOS / WSL 上，运行 `./mse deploy` 之前请先确认系统里已经有：
-
-- `git`
-- `zsh`
-- 基本的 C 编译环境
-
-例如在常见 Debian / Ubuntu 环境中：
+Linux / macOS 先装依赖：
 
 ```shell
-sudo apt update
+# Debian / Ubuntu
 sudo apt install -y git zsh build-essential pkg-config
+
+# macOS
+xcode-select --install      # zsh 系统自带
 ```
 
-`mse deploy` 会继续处理这些内容：
-
-- `oh-my-zsh`
-- 常用 zsh 插件
-- `micromamba`
-- `vim` / `neovim`
-- repo-managed CLI：`eza`、`bat`、`rg`、`btop`
-- 可选的 cluster proxy 工具：`autossh`、`proxychains-ng`
-
-### Linux / macOS / WSL
-
-普通使用：
+然后：
 
 ```shell
-cd "$HOME"
-git clone https://github.com/hermanzhaozzzz/.my_shell_envs.git
+git clone https://github.com/hermanzhaozzzz/.my_shell_envs.git ~/.my_shell_envs
 cd ~/.my_shell_envs
 ./mse deploy
 ```
 
-如果你要交互式选择步骤：
+装完执行 `exec zsh`。之后 `mse` 已在 PATH，可直接运行 `mse deploy` / `mse update`；默认安装全部模块，换协议或只装一部分见「部署与更新」。
 
-```shell
-./mse deploy --interactive
+## 定制自己的配置
+
+**你只需要改 `~/.zprofile`。**
+
+| 文件 | 放什么 | 更新行为 |
+|---|---|---|
+| `~/.zprofile` | 你的机器、路径、代理参数等**个人**配置 | 不随 MSE 更新，`deploy` / `update` 默认不改动它 |
+| `~/.zshrc` | 仓库统一管理的公共交互逻辑（软链到 `${HOME}/.my_shell_envs/zsh/zshrc`） | 随 MSE 更新，仓库一变它就跟着变，等于强制覆盖 |
+
+直接改 `~/.zshrc` 会丢——下次更新就被仓库内容覆盖了。
+
+zsh 加载顺序：
+
+```text
+.zshenv -> .zprofile -> .zshrc -> .zlogin -> .zlogout
 ```
 
-如果你就是想直接用仓库里的 demo `zprofile`：
+- `~/.zshenv`：所有 zsh 进程都读；会影响 `scp` 等非登录 / 非交互连接的行为，**尽量少放**
+- `~/.zprofile`：登录 shell 先读，只影响登录交互式 shell；**推荐在这里维护你的个人 DIY 配置**（PATH、代理端口、主机相关变量）
+- `~/.zshrc`：交互式 shell 读；**这是 MSE 通用配置的实现位置，不要修改**
+- `~/.zlogin` / `~/.zlogout`：登录收尾 / 退出时读；可以用，按场景选择，**一般很少使用**
+
+不要在 `~/.zprofile` 里重新定义仓库提供的命令，尤其是 `proxy.on` / `proxy.off`。
+
+### 写自己的 `~/.zprofile`
+
+可以什么都不写——所有默认值都在仓库的 `zsh/zshrc` 里。下面**全部是可选的示例**，按需保留或删掉：
 
 ```shell
-./mse deploy --use-zprofile-template
+# 示例：个人偏好，不加也完全没问题
+export PATH="$HOME/.local/bin:$PATH"
+export EDITOR="nvim"
+
+# 示例：覆盖 MSE 默认行为
+# 默认为 false：不自动激活 micromamba 的 base 环境，
+#   base 里装的 conda / python 等命令不会出现在 PATH 上
+# 改成 true：每个新 shell 自动执行 micromamba activate base，命令更方便但会影响终端启动速度
+export MSE_MAMBA_AUTO_ACTIVATE_BASE=true
 ```
 
-如果你是仓库维护者，或者希望相关仓库都走 SSH：
+保存后新开的终端就会生效。集群代理相关变量见「集群代理」一节，普通机器不用配。
+
+### 常用变量
+
+| 变量 | 作用 | 示例 |
+|---|---|---|
+| `MSE_ZSH_THEME` | 覆盖默认主题；默认 `fino`，可用主题见 [Themes](https://github.com/ohmyzsh/ohmyzsh/wiki/Themes) | `export MSE_ZSH_THEME="agnoster"` |
+| `MSE_ZSH_PLUGINS` | 整体替换默认插件列表；默认 `git z zsh-syntax-highlighting zsh-autosuggestions`，可用插件见 [Plugins](https://github.com/ohmyzsh/ohmyzsh/wiki/Plugins) | `export MSE_ZSH_PLUGINS="git z"`：只用这两个<br>`export MSE_ZSH_PLUGINS="git z zsh-syntax-highlighting zsh-autosuggestions docker"`：默认四个 + docker |
+| `MSE_MAMBA_AUTO_ACTIVATE_BASE` | 新 shell 是否自动激活 micromamba 的 base 环境；默认 `false`，设为 `true` 会影响终端启动速度 | `export MSE_MAMBA_AUTO_ACTIVATE_BASE=true` |
+| `MSE_PROXY_MODE` | 两段式：登录端+计算端。登录端可选 `clash`/`origin`，计算端可选 `clash`/`via-login`/`origin`；常用组合见「集群代理」 | `export MSE_PROXY_MODE=clash+via-login` |
+
+### 维护者的个人配置（`--maintainer-personal-zprofile`）
+
+`deploy` 的这个开关会把维护者本人的 `zsh/zprofile_hermanzhaozzzz_demo` 直接当作 `~/.zprofile` 使用；启用前会先备份已有的 `~/.zprofile`。等价于：
 
 ```shell
-cd "$HOME"
-git clone git@github.com:hermanzhaozzzz/.my_shell_envs.git
-cd ~/.my_shell_envs
-./mse deploy --ssh
+ln -s ~/.my_shell_envs/zsh/zprofile_hermanzhaozzzz_demo ~/.zprofile
 ```
 
-`fast` 和 `interactive` 的区别很简单：
+- 维护者本人：可以用
+- 其他用户：**不要直接用**，只当写法的参考（PATH、代理模式、目录约定），自己写 `~/.zprofile`
+- 不加这个参数时，`deploy` **不会**改动你的 `~/.zprofile`
+- 这个文件写死了维护者的机器路径、集群主机名和代理参数
 
-- `fast`：按默认 step 直接部署，适合新机器或你已经接受默认配置
-- `interactive`：逐步选择模块，适合你只想装一部分内容
+## 日常命令速查
 
-`--use-zprofile-template` 只在你明确想直接使用仓库里的 demo `zprofile` 时再加。`mse` 默认不会改你的 `~/.zprofile`。
+| 想做的事 | 命令 |
+|---|---|
+| 部署 / 更新 | `mse deploy` / `mse update` |
+| 开代理 / 关代理 / 看状态 | `proxy.on` / `proxy.off` / `proxy.status` |
+| 测代理连通性 | `proxy.test` |
+| 强制命令走代理 | `proxy.exec <命令>` |
+| 删除文件（进回收站） | `rm <路径>` |
+| 真删除 | `rrm <路径>` |
+| 看 / 恢复 / 清空回收站 | `rm.trash.show` / `rm.trash.back` / `rm.trash.clear` |
+| 管理 Conda 环境 | `conda`（已别名到 `micromamba`） |
+| 查看 Slurm（Linux） | `sqtop` |
 
-在 Linux 上，`fast` 模式会默认启用所有受支持的可选 step，其中包括 `sqtop`。它是一个类似 `htop` / `nvitop` 的 Slurm 终端查看工具。
+## 部署与更新
 
-### Windows
+### `mse deploy`
 
-Windows 的主路径是 PowerShell 配合 `git-bash`：
+默认：**`fast` 模式 + `https`**，安装所有支持的模块。
+
+| 想改变什么 | 加什么参数 |
+|---|---|
+| 只装一部分模块 | `--interactive` |
+| 用 SSH 拉仓库 | `--ssh` |
+| 两个都改 | `--ssh --interactive` |
+
+参数可自由组合、顺序无关；`--fast` 与 `--interactive` 同时出现时，最后一个生效。维护者专用的 `--maintainer-personal-zprofile` 见「定制自己的配置」。
+
+Linux 和 macOS 命令相同。Windows 用 PowerShell + git-bash：
 
 ```powershell
-cd $HOME
-git clone https://github.com/hermanzhaozzzz/.my_shell_envs.git
-cd ~/.my_shell_envs
+git clone https://github.com/hermanzhaozzzz/.my_shell_envs.git $HOME/.my_shell_envs
+cd $HOME/.my_shell_envs
 git-bash ./mse deploy
 ```
 
-后续更新：
+部署会尝试 `chsh -s "$(which zsh)"`；不想改默认 shell 就在密码提示时回车。
 
-```powershell
-git-bash ./mse update
-```
+做这些事：
 
-## `mse` 怎么工作
-
-### `deploy`
-
-`./mse deploy` 会在当前机器上安装或接入默认工具，并把公共 shell 配置链接到这个仓库。常见动作包括：
-
-- 链接 `~/.zshrc`
+- 把 `~/.zshrc` 链接到 `${HOME}/.my_shell_envs/zsh/zshrc`
 - 安装或接入 `oh-my-zsh` 和插件
 - 安装 `micromamba`
 - 处理 `vim` / `neovim`
-- 构建 repo-managed CLI 工具
+- 构建仓库托管的 CLI 工具
 - 按 step 安装额外模块
 
-如果启用了 `sqtop` step，`mse` 会通过 `cargo install sqtop` 安装它，并把仓库里的 `bin/sqtop` 接到 `~/.cargo/bin/sqtop`。
+覆盖已有文件前会备份成 `<原名>_bak`；如果旧备份已存在，会被覆盖，日志里会提示。
 
-Linux / macOS / WSL 默认通过 `cargo install btop --locked` 安装 `btop`，并将 `bin/btop` 链接到 `~/.cargo/bin/btop`；已有 Cargo 安装会直接复用。公共 zsh 配置默认设置 `alias htop="btop"`，输入 `htop` 即启动 `btop`。
+### `mse update`
 
-部署过程中会尝试 `chsh -s "$(which zsh)"`。如果你不想现在改默认 shell，可以在密码提示时直接回车并跳过。
+```shell
+mse update
+```
 
-### `update`
+流程：
 
-`./mse update` 会先更新仓库，再按你上一次保存的配置重新执行部署。它不会再次要求你修改默认 shell。
+1. 先 fetch 上游
+2. 如果本地有未提交的改动，或有本地提交不在上游，询问你是否以上游为准
+3. 输入 `y`：丢弃本地内容，`reset --hard` 到上游
+4. 输入 `n`：退出，让你自己检查仓库
+5. 非交互环境：直接退出，不做任何改动
 
-更新仓库时，`--https` / `--ssh` 会把 GitHub origin 转换为对应协议后再 fetch；它们不是只影响后续 clone 的显示选项。无法安全转换协议的非 GitHub origin 会直接报错，不会悄悄退回另一种协议。
+更新完成后会按上次保存的配置重新部署，但不会再要求你改默认 shell。
 
-MSE 主仓库必须是干净工作树才能 update。Vim、Neovim、Wudao 这些由可选 step 管理的独立 Git 仓库如果含有本地修改，deploy 会明确警告、保留修改并跳过该独立仓库的 pull；不会替你 stash、回滚或覆盖。
+`--https` / `--ssh` 会把 GitHub origin 转成对应协议再 fetch，不是只影响后续 clone。无法安全转换的非 GitHub origin 会直接报错，不会悄悄换协议。
+
+Vim、Neovim、Wudao 这些独立 Git 仓库如有本地修改，deploy 只警告并跳过它的 pull，不会 stash、回滚或覆盖。
 
 ### `.mse-install.env`
 
-仓库根目录下的 `.mse-install.env` 会记录最近一次成功执行的部署参数和 step 开关，例如：
+记录最近一次成功部署的参数和 step 开关：
 
 ```shell
 MSE_GIT_METHOD='ssh'
 MSE_DEPLOY_MODE='fast'
-MSE_USE_ZPROFILE_TEMPLATE='false'
+MSE_MAINTAINER_PERSONAL_ZPROFILE='false'
 MSE_STEP_NVIM='true'
 MSE_STEP_SQTOP='true'
 MSE_STEP_CLASHCTL='true'
 MSE_STEP_CLUSTER_PROXY_TOOLS='true'
 ```
 
-`mse update` 会优先复用 `.mse-install.env` 里已经保存的选择，所以它和一次全新的 `mse deploy --fast` 可能不完全一样。
+`mse update` 会复用它，所以结果可能和一次全新的 `mse deploy --fast` 不同。改默认行为有两种方式：重新跑 `mse deploy --interactive`，或直接编辑这个文件。
 
-你有两种方式改默认行为：
+## 功能
 
-- 重新执行 `mse deploy --interactive`
-- 直接修改 `.mse-install.env`
+### Zsh
 
-## 个人配置
+默认启用 Oh My Zsh、`git`、`z`、`zsh-syntax-highlighting`、`zsh-autosuggestions`。
 
-### `~/.zprofile` 和 `~/.zshrc`
-
-这两个文件分工如下：
-
-- `~/.zprofile`：放你自己的机器相关变量、PATH、代理参数
-- `~/.zshrc`：由本仓库统一管理公共交互逻辑；`mse deploy` 时会把仓库里的 `zshrc` 软链接到 `~/.zshrc`
-
-不要在自己的 `~/.zprofile` 里重新定义仓库已经提供的命令，尤其是 `proxy.on` / `proxy.off`。这些命令现在统一由仓库里的 `zsh/zshrc` 提供。
-
-zsh 常见加载顺序：
-
-```text
-.zshenv -> .zprofile -> .zshrc -> .zlogin -> .zlogout
-```
-
-各文件职责：
-
-- `~/.zshenv`：所有 zsh 进程都会读，尽量少放东西
-- `~/.zprofile`：登录 shell 会先读，适合放 PATH、代理端口、主机相关变量
-- `~/.zshrc`：交互式 shell 会读，你平时开终端最常接触的是它；这个文件在 deploy 时会链接到仓库里的 `zsh/zshrc`
-- `~/.zlogin`：登录 shell 的收尾阶段才读，大多数时候用不上
-- `~/.zlogout`：退出登录 shell 时才读
-
-- 机器相关、个人相关的设置放 `~/.zprofile`
-- 公共 alias、函数、插件和交互逻辑放仓库里的 `zsh/zshrc`
-
-不推荐直接改 `~/.zshrc` 或仓库里的 `zsh/zshrc` 来做个人定制。这套工作流好用的前提，就是把个人配置和公共配置分开。
-
-如果你觉得某个改动通用性很强，值得长期保留，比较合适的做法是提一个 PR，把它加进本仓库。
-
-### 可选变量示例
-
-下面这些都不是必须项。只有在你想覆盖默认行为时，才需要写进 `~/.zprofile`。
-
-如果你什么都不写，大多数功能也能正常工作，默认值已经在仓库里的 `zsh/zshrc` 中提供。
-
-```shell
-export MSE_ZSH_THEME="fino"
-export MSE_ZSH_PLUGINS="git z zsh-syntax-highlighting zsh-autosuggestions"
-export MSE_MAMBA_AUTO_ACTIVATE_BASE=false
-export MSE_PROXY_MODE=clash
-```
-
-变量说明：
-
-- `MSE_ZSH_THEME`：覆盖默认 Oh My Zsh 主题
-- `MSE_ZSH_PLUGINS`：整体覆盖默认插件列表
-- `MSE_MAMBA_AUTO_ACTIVATE_BASE=true|false`：是否在新 shell 中自动 `micromamba activate base`
-- `MSE_PROXY_MODE=clash|direct-egress`：代理工作模式；默认 `clash`。`direct-egress` 只用于 Slurm compute 节点，原生 Linux direct/login 节点强制由仓库内 `clashctl` 管理
-- `MSE_PROXY_PORT=<port>`：仅 compute-only `direct-egress` 需要显式设置本地 SOCKS 端口。Linux `clash` 模式从 `runtime.yaml` 读取；macOS/WSL 自动识别外部代理，不使用手动端口覆盖。Windows PowerShell 保持原有配置方式。
-- `MSE_PROXY_HOST=<host>`：默认 `127.0.0.1`
-- `MSE_PROXY_DIRECT_HOSTS="<host1> <host2>"`：额外按 login/direct 处理的主机名
-- `MSE_PROXY_UPSTREAM_HOST=<host>`：在计算节点无法自动推断上游 login 节点时手动指定
-
-### 一个最小可用的 `~/.zprofile`
-
-```shell
-# 自己补充的 PATH
-export PATH="$HOME/.local/bin:$PATH"
-
-# 默认编辑器
-export EDITOR="nvim"
-
-# 新 shell 不自动 activate base
-export MSE_MAMBA_AUTO_ACTIVATE_BASE=false
-
-# 代理模式：原生 Linux login/direct 固定使用 clashctl；direct-egress 仅供 Slurm compute 节点
-export MSE_PROXY_MODE=clash
-
-# 这些主机按 login/direct 处理
-export MSE_PROXY_DIRECT_HOSTS="c55b01n08"
-```
-
-macOS / WSL 不需要填写代理端口。启动外部代理客户端后执行 `proxy.on` 即自动识别，`proxy.status` 显示识别来源和端点。原生 Windows PowerShell 保持原有配置方式。
-
-## 主要功能
+`htop` 已别名到 `btop`；`eza` 提供 `ll` / `lll` 等列表别名。
 
 ### micromamba
 
-这个仓库默认使用 `micromamba`，并把 `conda` / `mamba` alias 到 `micromamba`。部署完成后，你可以直接使用 `conda` 命令管理环境。
+`conda` / `mamba` 都别名到 `micromamba`，日常直接用 `conda`。
+
+Linux 和 macOS 统一安装在 `$HOME/0.apps/micromamba`：
+
+| 项目 | 路径 |
+|---|---|
+| 可执行文件 | `$HOME/0.apps/micromamba/bin/micromamba` |
+| base 环境 | `$HOME/0.apps/micromamba` 本身 |
+| 命名环境 | `$HOME/0.apps/micromamba/envs/<name>` |
+| 根前缀 | `MAMBA_ROOT_PREFIX=$HOME/0.apps/micromamba` |
 
 ### Vim / Neovim
 
 - Vim 配置参考 [vim-for-coding](https://github.com/Leptune/vim-for-coding)
 - Neovim 配置参考 [MyLazyVim](https://github.com/hermanzhaozzzz/MyLazyVim)
 
-### Zsh
+### 回收站（`rm` 包装）
 
-默认会配置：
+交互式 zsh 里 `rm` 不真删，而是移动到回收站：
 
-- Oh My Zsh
-- `git`
-- `z`
-- `zsh-syntax-highlighting`
-- `zsh-autosuggestions`
+```shell
+rm <路径>          # 移入回收站；-rf 等选项会被忽略
+rrm <路径>         # 真正的删除（/bin/rm）
+rm.trash.show      # 查看所有回收站
+rm.trash.back      # 恢复到当前目录（多个回收站时先选编号）
+rm.trash.clear     # 清空所有回收站（会先确认）
+```
+
+回收站按磁盘分开：同盘 `mv` 只是 rename，跨盘才会真的复制。默认只有 `$HOME/.mytrash`；要多盘各放一个，在 `~/.zprofile` 里声明：
+
+```shell
+TRASH_DIRS=(
+    "${HOME}/.mytrash"               # 本机
+    /lustre1/cqyi/hnzhao/.mytrash    # 集群 A /lustre1
+    /lustre2/cqyi/hnzhao/.mytrash    # 集群 A /lustre2
+)
+```
+
+删除时选择与目标同一设备上的第一个回收站；都不匹配就回退 `$HOME/.mytrash`，并提示跨盘复制。
+
+**注意**：这是交互式 zsh 别名。脚本、cron、`sbatch --wrap` 里 `rm` 仍然是真删除。
 
 ### jcat
 
-用于在终端中快速查看 `ipynb` 内容。参考项目：[jcat](https://github.com/zhifanzhu/jcat)
+终端里快速查看 `ipynb`。参考 [jcat](https://github.com/zhifanzhu/jcat)。
 
 ### wd
 
-终端词典工具。参考项目：[Wudao-dict](https://github.com/ChestnutHeng/Wudao-dict)
+终端词典工具。参考 [Wudao-dict](https://github.com/ChestnutHeng/Wudao-dict)。
 
 ### macupdatectl
 
-`macupdatectl` 是 macOS 系统更新控制工具，支持 macOS 12 及更新版本。直接运行命令会打开原生图形菜单；只有执行需要系统权限的操作时才会请求管理员密码：
+macOS 系统更新控制工具（macOS 12+）：
 
 ```shell
-macupdatectl
+macupdatectl          # 打开图形菜单
+macupdatectl status   # 查看状态
 ```
 
-菜单提供以下操作：
-
-- 屏蔽所有系统更新
-- 恢复检查与手动更新（黑苹果推荐）
-- 清除系统更新小红点
-- 查看当前状态
-
-“屏蔽所有系统更新”会关闭软件更新服务、相关自动更新选项，并在 `/etc/hosts` 的受管标记区块中阻断 Apple 更新服务器；期间系统安全数据更新也会暂停。修改 hosts 前会备份到 `/var/backups/macupdatectl/`，重复屏蔽不会追加重复条目。
-
-需要检查或安装更新时，请重新运行 `macupdatectl` 并选择“恢复检查与手动更新（黑苹果推荐）”。恢复会同时清理新版受管区块和旧版脚本遗留的无标记 hosts 条目，允许检查更新、配置数据更新和关键安全更新，但不会开启自动下载或自动安装 macOS，适合黑苹果在确认 EFI 兼容后手动更新。也可以使用命令行查看状态：
-
-```shell
-macupdatectl status
-```
+菜单可以屏蔽系统更新、恢复检查与手动更新（黑苹果推荐）、清除更新小红点。“屏蔽”会关闭软件更新服务、相关自动更新选项，并在 `/etc/hosts` 的受管区块阻断 Apple 更新服务器；修改前会备份到 `/var/backups/macupdatectl/`。
 
 ### sqtop
 
-Linux 上可选启用 `sqtop` step。它会通过 `cargo install sqtop` 安装一个面向 Slurm 的终端监控工具，使用体验更接近 `htop` / `nvitop` 这一类 TUI 工具，适合快速查看队列、节点和作业占用情况。
+Linux 上可选的 Slurm 终端监控工具，类似 `htop` / `nvitop`。`deploy --fast` 默认安装；`--interactive` 时可单独决定。
 
-如果你执行 `mse deploy --fast`，并且当前平台支持这个 step，那么 `sqtop` 会默认安装；如果你执行 `mse deploy --interactive`，则可以在 step 选择阶段单独决定是否启用。
+## 集群代理（速查）
 
-## Cluster Proxy
+compute 节点通常不联网。先看流量怎么走：
 
-这一节是给 Slurm 集群用户准备的一个小 trick：compute 节点本身不联网，但你还想继续用 `curl`、`git`、`codex`、`claude` 这些需要网络的工具。
+### 前置条件
 
-`cluster_proxy_tools` step 会接入：
+`proxy.on` / `proxy.test` / `proxy.exec` 需要：
 
-- `autossh`
-- `proxychains-ng`
-- `proxy.on`
-- `proxy.off`
-- `proxy.status`
-- `proxy.test`
-- `proxy.exec`
+- 部署时启用 `cluster_proxy_tools`（提供 `autossh`、`proxychains`）
+- 选了 `clash`（任意一端）：`clashctl` 已部署，**至少添加了一个订阅**，runtime 里有 HTTP 和 SOCKS 端口
+- 只选 `via-login`：不需要 Clash 和订阅，但 login 节点本身必须能上网
+- macOS / WSL：本地代理客户端在运行
 
-`mse deploy --fast` 默认会启用这个 step。原生 Linux 的 `mse deploy --interactive` 会以 `[Y/n]` 询问是否部署 `clashctl`，按 Enter 默认启用；明确选择 `n` 后仍可完成其它部署，但 Linux `clash` 模式的 `proxy.*` 会直接失败。interactive 不询问或保存代理端口；Linux `clash` 模式的 HTTP/SOCKS 端口唯一来自 `clashctl` 的 `runtime.yaml`。
+其中 `proxy.test` / `proxy.exec` 还要求当前节点有代理：登录节点要求登录端为 `clash`；计算节点要求计算端为 `clash` 或 `via-login`。计算端为 `origin`、以及登录端为 `origin` 的登录节点都没有代理。
 
-### 中国用户
+### 按场景选择
 
-前提：
+| 场景 | login 节点 | 计算节点 | 配置 |
+|---|---|---|---|
+| 中国大陆，login 跑 Clash | 走 Clash，按规则分流 | 经 SSH 隧道到 login 的 Clash 端口 | `MSE_PROXY_MODE=clash+via-login`（默认），执行 `proxy.on` |
+| 登录端跑 Clash，计算节点自己有外网 | 走 Clash | 走自己的网络 | `MSE_PROXY_MODE=clash+origin`，执行 `proxy.on` |
+| 计算节点自己有外网，想在本节点跑 Clash | 按登录端需要 | 本地 Clash | `MSE_PROXY_MODE=clash+clash` 或 `origin+clash` |
+| login 能直接上网，计算节点不能 | 走自己的网络 | 经 SSH 隧道到 login，再由 login 直接出网 | `MSE_PROXY_MODE=origin+via-login`，执行 `proxy.on`（端口自动选） |
+| 计算节点本身就有外网 | 走自己的网络 | 走自己的网络 | `MSE_PROXY_MODE=origin+origin`，不需要执行 `proxy.on` |
 
-- login 节点本身能联网
-- login 节点上已经打开 Clash
-- `clashctl runtime.yaml` 中同时存在有效的 HTTP 和 SOCKS 端口
+### 每种取值的行为
 
-仓库只负责把请求接到 login 节点上的 Clash。`baidu`、`google`、`gpt`、`claude` 这些请求最后怎么走，全部由 Clash 的规则决定；这个仓库不负责流量分流。
+| `MSE_PROXY_MODE` | 登录节点 | 计算节点 |
+|---|---|---|
+| `clash+via-login`（默认） | 走 Clash，按规则分流 | 经 SSH 隧道到 login 的 Clash 端口 |
+| `clash+clash` | 走 Clash | 在计算节点本地跑 Clash（需节点自己上网） |
+| `clash+origin` | 走 Clash | 走自己的网络 |
+| `origin+via-login` | 走自己的网络 | 经 SSH 隧道到 login，再由 login 直接出网 |
+| `origin+clash` | 走自己的网络 | 在计算节点本地跑 Clash（需节点自己上网） |
+| `origin+origin` | 走自己的网络 | 走自己的网络 |
 
-原生 Linux 上，`mse deploy --fast` 会执行 `clashctl` step。控制脚本、Web UI 和基础资源放在仓库的 `tools/clashctl` 中；`mihomo` 和 `subconverter` 会按当前 CPU 架构安装到仓库的 `bin` 中：
+计算节点选 `clash` 时会在本节点启动 Clash（前提是节点本身能上网）；选 `via-login` 则不跑 Clash，只经隧道借用 login 的出口。
 
-```shell
-~/.my_shell_envs/bin/mihomo
-~/.my_shell_envs/bin/subconverter/subconverter
-```
+macOS 不区分 login / compute：启动代理客户端后 `proxy.on`，自动识别端口。WSL 按 Linux 逻辑处理；只有 Windows 侧的端点发现依赖 PowerShell interop。
 
-`yq` 只是 clashctl 的私有运行依赖，默认安装到不进入 `PATH` 的 `libexec` 目录，避免平时整理仓库 `bin` 时误删：
-
-```shell
-~/.local/libexec/mse-clashctl/yq
-```
-
-如需改到其它位置，可在部署时设置 `MSE_CLASHCTL_YQ_BIN`；deploy 会把最终路径写入 `tools/clashctl/state/env`。
-
-订阅、token、生成的 `runtime.yaml`、日志和下载缓存同样留在仓库目录内，但被 Git 忽略：
+最短流程：
 
 ```shell
-~/.my_shell_envs/tools/clashctl/state
-~/.my_shell_envs/tools/clashctl/cache
+proxy.status                 # 看当前状态和节点角色
+proxy.on                     # 开代理（compute 节点会建 autossh 隧道）
+proxy.test                   # 测常见站点
+proxy.exec codex             # 让不认环境变量的程序也走代理
+proxy.off                    # 只清当前 shell，不停 Clash 服务
 ```
 
-deploy 不读取或兼容 `$HOME/clashctl` 等旧安装路径，也不会覆盖已经生成的 state。
+三个常见坑：
 
-如果 `~/.my_shell_envs` 本身是指向共享文件系统的符号链接或逻辑路径，clashctl 会先解析为同一个物理仓库路径，再派生 binary、state 与 pid 身份，避免同一 Mihomo 被逻辑路径和物理路径误判为两个服务。
+- 「开了 `proxy.on` 但不通」先看 `proxy.status` 里的 `proxy upstream` 对不对
+- VSCode Remote 进 compute 节点时 upstream 推断会失效，在 `~/.zprofile` 固定 `MSE_PROXY_UPSTREAM_HOST=login03`
+- Go 程序（如 `frp-panel`）绕过系统 DNS，`proxychains` 拦不住，用 IP 代替域名
 
-Linux deploy 会先完成 clashctl，再执行需要 GitHub/Rust 网络的公共安装。已有有效 runtime 时，deploy 会先自动启用它，再更新 clashctl 程序并把代理用于后续步骤；本地安装归档完整时也可以离线重装。真正的首次部署既没有 runtime、没有完整归档、又无法直连外网时，交互模式会在任何下载之前暂停，提示你临时打开当前终端可用的外网；非交互模式会立即停止。clashctl 安装完成后，如果仍无订阅且无法访问外网，交互模式会再提示你在另一终端执行仓库 `bin/clashctl add '<subscription-url>'`。这两道预检都不会悄悄回退到其它 Linux 代理实现。
-
-首次部署完成后添加订阅：
-
-```shell
-exec zsh
-clashctl sub add --use '<subscription-url>'
-proxy.on
-```
-
-`clashctl add '<subscription-url>'` 是“添加并立即使用”的快捷命令；同一 URL 已存在时会安全更新现有订阅。`clashctl del <id>` 可删除当前订阅，删除前会停止 Mihomo 并清理 runtime，不保留旧端口或配置 fallback。
-
-订阅下载默认使用 `clash-verge/v2.3.1` User-Agent，以便服务商下发 AnyTLS 等现代 Mihomo 协议。deploy 会把该值写入 `tools/clashctl/state/env`；如服务商有特殊要求，可在部署时设置 `MSE_CLASHCTL_SUB_UA` 覆盖它。
-
-macOS / WSL 不安装或控制 `clashctl`，也不要求设置 `MSE_PROXY_HOST`、`MSE_PROXY_PORT` 或 `MSE_PROXY_SOCKS_PORT`。macOS 新终端自动采用已启用的系统代理；WSL 按需手动开启。客户端切换、端口变化，或 macOS 客户端未开启系统代理时，运行：
-
-```shell
-proxy.on
-proxy.status
-```
-
-手动执行 `proxy.on` 时的自动识别顺序：
-
-- macOS：先读取 `scutil --proxy` 中启用的系统代理；不可用时，通过 `lsof` 查找 Surge、ClashX、FlClash 及 mihomo、sing-box 等内核的 TCP 监听端口。
-- WSL：通过 Windows PowerShell 读取当前用户的系统代理和代理进程监听端口，也支持 WSL 内运行的代理内核。Windows loopback 地址会依次尝试本地 loopback 和 WSL 默认网关，以兼容 mirrored / NAT 网络。
-- 对候选端口分别验证 HTTP CONNECT 和 SOCKS5h；不会仅因端口开放就认为它是代理，也不会把 HTTP-only 端口当成 SOCKS。HTTP-only、SOCKS-only、分离端口和混合端口均可使用；macOS 系统端点按监听进程分组，并补充同一进程的其他代理端口，不拼接两个无关客户端；无法确认所属进程的系统端点分别验证。
-
-`proxy.on`、`proxy.status`、`proxy.test` 和 `proxy.exec` 执行时重新识别；打开终端时不进行网络探测。代理已开启时，`proxy.status` 会同步刷新大小写环境变量；关闭状态下只显示发现结果。macOS / WSL 的 `proxy.test` 对每个已识别的 HTTP、SOCKS 协议分别请求 `example.com` 的 HTTP 和 HTTPS 地址，忽略 curl 配置和绕过规则。`proxy.off` 只清除当前 shell 代理，不停止外部客户端。Linux 仍使用 clashctl runtime，原生 Windows PowerShell profile 保持原有配置方式。
-
-协议验证通过 `curl` 访问 `example.com`，需要代理能连通该站点；单次探测最多 2 秒，候选端点去重后逐一检查。macOS 需要系统的 `scutil` / `lsof`；WSL 的 Windows 发现需要 PowerShell interop 和 `wslpath`。不执行 PAC 脚本，也不自动处理需要账号密码的代理；PAC/TUN 客户端若同时提供可识别的本地代理监听，仍可使用进程发现。没有可用候选时给出诊断，不要求填写覆盖变量。WSL NAT 下如果 Windows 客户端只监听 Windows localhost 或被防火墙阻挡，需要在客户端允许 WSL 访问，或使用 mirrored 网络；端口识别不能绕过这个网络限制。
-
-原生 Linux `clash` 模式下，`zsh/zshrc` 会从 `clashctl` 的 `runtime.yaml` 分别读取 HTTP 和 SOCKS 端口，并无条件覆盖同名环境变量。runtime 缺失、端口不完整或不可读时，`proxy.*` 直接失败，不使用手工端口。Slurm compute 节点读取共享仓库里的同一份 runtime，只把本地对应端口转发到 login 节点，不执行 `clashctl on/off`。
-
-常用命令：
-
-```shell
-clashctl status   # 查看 Clash 内核状态
-clashctl on       # 开启 Clash
-clashctl off      # 关闭 Clash
-clashctl ui       # 查看 Web 面板地址
-```
-
-`clashctl on` 会覆盖当前 shell 里的 `http_proxy`、`https_proxy`、`all_proxy`、`no_proxy` 及其大写版本。仓库的 `proxy.on` / `proxy.off` 管理同一组变量：`http_proxy` / `https_proxy` 指向 HTTP 端口，`all_proxy` 指向 SOCKS 端口。
-
-`proxy.on` / `proxy.off` / `proxy.status` 是低门槛入口：
-
-- direct/login 节点：`proxy.on` 等价于 `clashctl on` 加仓库自己的端口同步和环境变量整理
-- direct/login 节点：`proxy.off` 等价于 `clashctl off -e` 加仓库自己的环境变量清理，不停止 Clash 服务
-- compute 节点：`proxy.on` / `proxy.off` 仍然负责 autossh 隧道，不直接控制 Clash 服务
-- `proxy.status` 保留仓库状态信息，并在 direct/login 节点附带 `clashctl status`
-
-MSE 不读写全局 Git 代理配置。compute 节点的 `proxy.on` 只在当前 shell 临时设置 `GIT_SSH_COMMAND`；`proxy.off` 会恢复原值，而不是无条件删除用户已有配置。
-
-`clashctl` 只负责在原生 Linux login/direct 节点上管理 Clash 本身；`proxy.on` / `proxy.off` / `proxy.status` 负责把当前 shell 或 compute 节点的流量接到这个 Clash 端口。Slurm compute 节点不会执行 `clashctl on/off`，仍然只管理到 login 节点的 autossh 隧道。
-
-不要在原生 Linux `clash` 模式下配置 `MSE_PROXY_PORT` 或 `MSE_PROXY_SOCKS_PORT`；需要改变端口时修改 clashctl 配置并重新生成 runtime。macOS / WSL 自动识别外部客户端端点，不加载 `clashctl`；Windows PowerShell 保持原有配置方式。
-
-最短例子：
-
-```shell
-# login 节点：先看状态
-proxy.status
-
-# login 节点：按需手动开启代理；原生 Linux 强制走仓库内 clashctl on
-proxy.on
-
-# login 节点：测国内外站点
-proxy.test
-
-# login 节点：关掉当前 shell 的代理变量；不停止 Clash 服务
-proxy.off
-```
-
-```shell
-# compute 节点：默认关闭，按需手动建立代理隧道
-proxy.on
-
-# compute 节点：测网络
-proxy.test
-```
-
-Linux 的 `proxy.test` 会依次测试 `baidu.com`、`google.com.hk`、`api.openai.com`、`api.anthropic.com`，每个 URL 显示 OK 或 FAIL：
-
-```text
-== curl via env proxy ==
-  OK              baidu.com (HTTP 200)
-  OK              google.com.hk (HTTP 200)
-  OK              openai (HTTP 421)
-  OK              claude (HTTP 403)
-```
-
-流量路径是：
-
-```text
-compute 上的命令
--> compute 本地 127.0.0.1:${MSE_PROXY_PORT} / 127.0.0.1:${MSE_PROXY_SOCKS_PORT}
--> autossh 隧道
--> login 本地 127.0.0.1:${MSE_PROXY_PORT} / 127.0.0.1:${MSE_PROXY_SOCKS_PORT}
--> Clash
--> Clash 规则决定直连还是代理
-```
-
-### 国外用户
-
-前提：
-
-- login 节点本身能联网
-- 你不需要 Clash
-
-这时把模式切到 `direct-egress`。compute 节点会用 `autossh -D` 在本地开一个 SOCKS5 端口，然后直接借 login 节点出网。
-
-长期设置必须写进 `~/.zprofile`，因为 `direct-egress` 不依赖 `clashctl runtime.yaml`：
-
-```shell
-export MSE_PROXY_MODE=direct-egress
-export MSE_PROXY_PORT=<local-socks-port>
-```
-
-最短例子：
-
-```shell
-# compute 节点：看当前模式和节点角色
-proxy.status
-
-# compute 节点：开动态 SOCKS 隧道
-proxy.on
-
-# compute 节点：测常见外网服务
-proxy.test
-proxy.exec curl -I https://www.google.com
-```
-
-在这个模式下，`proxy.exec` 会更稳一些，因为它直接用 `proxychains-ng` 套住命令。
-
-### `proxy.exec` 怎么用
-
-很多程序在 `proxy.on` 之后就能直接用，因为它们会读：
-
-- `http_proxy`
-- `https_proxy`
-- `all_proxy`
-- `HTTP_PROXY`
-- `HTTPS_PROXY`
-- `ALL_PROXY`
-
-有些程序不认这些环境变量，或者你只是想强制它走代理，这时就用 `proxy.exec`。
-
-这里有一个关键点：仓库现在会把 `all_proxy` / `ALL_PROXY` 设成 `socks5h://127.0.0.1:${MSE_PROXY_SOCKS_PORT}`，优先让支持 SOCKS5h 的客户端把域名解析交给代理端，而不是让 compute 节点本地先做 DNS。这样解决的不只是 `git`，而是尽量把 `curl`、`pip`、`conda`、Python HTTP 客户端等一批常见 CLI 的 DNS 行为统一到“远端解析”。
-
-```shell
-# curl
-proxy.exec curl -I https://www.google.com
-
-# git
-proxy.exec git ls-remote https://github.com/rofl0r/proxychains-ng.git
-
-# codex
-proxy.exec codex
-
-# claude
-proxy.exec claude
-```
-
-### 常用变量
-
-```shell
-# 代理模式：clash（Linux direct/login 由 clashctl 管理）或 compute-only direct-egress
-export MSE_PROXY_MODE=clash
-
-# Linux clash 模式不配置端口；HTTP/SOCKS 都从 clashctl runtime.yaml 读取
-
-# 本地代理 host
-export MSE_PROXY_HOST=127.0.0.1
-
-# 这些主机按 login/direct 处理
-export MSE_PROXY_DIRECT_HOSTS="c55b01n08"
-
-# 手动指定 compute 节点回连到哪个 login 节点
-export MSE_PROXY_UPSTREAM_HOST=login03
-
-# 可选：限制 compute 节点启动代理时的反查和 SSH 连接等待时间
-export MSE_PROXY_HOST_LOOKUP_TIMEOUT=2
-export MSE_PROXY_PROCESS_LOOKUP_TIMEOUT=2
-export MSE_PROXY_SSH_CONNECT_TIMEOUT=5
-```
-
-如果你是在 VSCode Remote SSH 里再打开 compute 节点上的 Terminal，常见情况是 `SSH_CONNECTION` 只会显示 `127.0.0.1 -> 127.0.0.1` 的本地转发，而不是真正的 login 节点地址。这时自动推断上游主机会失效，需要在 `~/.zprofile` 里手动设置 `MSE_PROXY_UPSTREAM_HOST=login03` 这类真实 login 主机名。
-
-一个常见用法是先在 `~/.zprofile` 里固定写：
-
-```shell
-export MSE_PROXY_UPSTREAM_HOST=login03
-```
-
-之后每次用 VSCode Remote 打开 compute 节点上的 Terminal，直接执行：
-
-```shell
-proxy.on
-proxy.status
-git fetch
-```
-
-只要 `proxy.status` 里显示的 `proxy upstream` 是你期望的 login 节点，后面的 `git fetch` / `git pull` / `git push` 就应该沿着同一条代理链路工作。
-
-当前自动判断规则：
-
-- `login*` 按 login/direct 处理
-- 其他 `c*b*n*` 按 compute 处理
-- `MSE_PROXY_DIRECT_HOSTS` 里的主机名也按 login/direct 处理
-
-compute 节点上的 `proxy.on` 现在不再只看本地端口是否在监听，还会额外做一次真实代理探测。也就是说：
-
-- 如果旧的 autossh 进程还在，但它连到的上游主机 `127.0.0.1:${MSE_PROXY_PORT}` 实际不可用，`proxy.on` 会把它判定为坏隧道并重建
-- 如果自动猜出来的第一个上游主机不可用，`proxy.on` 会继续尝试后续候选
-
-当前上游候选顺序是：
-
-- `MSE_PROXY_UPSTREAM_HOST`
-- `SLURM_SUBMIT_HOST`
-- `SSH_CONNECTION` / `SSH_CLIENT` 反查到的主机
-- `MSE_PROXY_DIRECT_HOSTS` 里的主机
-
-反查 `SSH_CONNECTION` / `SSH_CLIENT` 时会受 `MSE_PROXY_HOST_LOOKUP_TIMEOUT` 限制；查找旧 autossh 隧道时会直接读取 `/proc`，并受 `MSE_PROXY_PROCESS_LOOKUP_TIMEOUT` 限制；启动 autossh 隧道时会受 `MSE_PROXY_SSH_CONNECT_TIMEOUT` 限制，并使用非交互 SSH，避免手动执行 `proxy.on` 时因为上游不可达、进程枚举异常或密码提示长时间等待。
-
-每个 compute 主机的 MSE 隧道 PID 和完整命令记录在仓库内 Git 忽略的 `tools/clashctl/state/proxy-tunnels`。`proxy.on` 启动前与 `proxy.off` 关闭时都会清理当前主机的 stale state、旧端口隧道和旧版 MSE 隧道；匹配不到 MSE 完整特征的其它 autossh/SSH 隧道不会被处理。
-
-如果这些候选都不对，建议在 `~/.zprofile` 里显式设置正确的 login 主机：
-
-```shell
-export MSE_PROXY_UPSTREAM_HOST=login05
-```
-
-在部分 compute 节点上，裸 `ssh -p 32985 cXXbYYnZZ` 会先进入系统默认登录 shell `/bin/bash`，而系统 `/etc/profile` 里的进程枚举命令可能卡住。交互式 zsh 中的 `ssh` 包装函数会只针对 `-p 32985` 的 Slurm compute 节点裸登录自动改写为远程执行 `zsh -l`，绕过这段 bash 登录初始化；带远程命令的 `ssh host command` 不会被改写。
-
-补充说明：
-
-- 代理端口不再由 `.mse-install.env` 接管
-- 原生 Linux `clash` 模式只读取 `clashctl runtime.yaml` 的 HTTP 和 SOCKS 端口；环境端口会被覆盖，runtime 不完整则失败
-- Slurm compute 的 `clash` 模式消费共享 runtime 并管理本机 MSE autossh 状态，不调用 `clashctl on/off`
-- macOS / WSL 自动识别系统代理或代理进程监听端口，无需在 `~/.zprofile` 设置代理主机或端口
-- Windows PowerShell profile 会读取 `MSE_PROXY_PORT`，未设置时使用 PowerShell profile 自己的默认值
-- `MSE_PROXY_DIRECT_HOSTS` 用空格分隔多个主机名
-
-临时覆盖时，直接在命令前带变量：
-
-```shell
-# 只对这一次把 c55b01n08 当成 direct
-MSE_PROXY_DIRECT_HOSTS="c55b01n08" proxy.status
-MSE_PROXY_DIRECT_HOSTS="c55b01n08" proxy.on
-
-# 只对这一次手动指定上游 login 节点
-MSE_PROXY_UPSTREAM_HOST=login03 proxy.on
-```
-
-这里要区分两个变量：
-
-- `MSE_PROXY_UPSTREAM_HOST=login03 proxy.on`
-  这是在说：这一次 `proxy.on` 不要自动猜上游，而是明确回连 `login03`
-- `MSE_PROXY_DIRECT_HOSTS="c55b01n08" proxy.on`
-  这是在说：这一次把 `c55b01n08` 当成 direct/login-like 主机，不把它识别成 compute 节点
-
-所以 `MSE_PROXY_UPSTREAM_HOST=c55b01n08 proxy.on` 这种写法本身也有语义，但它表示的是：
-
-- 当前这个 shell 所在节点要把代理隧道回连到 `c55b01n08`
-- 只有当 `c55b01n08` 真的就是你想借出的那台上游主机，并且它本地确实有可用代理时，这样写才合理
-
-大多数情况下，如果 `c55b01n08` 只是另一台 compute 节点，而不是登录入口或 direct 节点，那么这条命令通常不是你真正想要的配置。VSCode Remote 的典型正确写法仍然是把 `MSE_PROXY_UPSTREAM_HOST` 设成真实的 `login03` / `login04` 这类 login 主机名。
-
-### 自动启用
-
-- **macOS**：新终端读取 `scutil --proxy` 中已启用的 HTTP / HTTPS / SOCKS 配置，结合本地 `lsof` 监听进程归属设置大小写代理变量，避免混用不同客户端。启动不运行 curl、不联网探测；没有可用系统配置时保持 off，手动执行 `proxy.on` 仍可通过客户端监听端口发现并验证代理。
-- **Linux（login/direct/Slurm compute）**：新终端一律保持 off，并清除继承的大小写代理环境变量。启动不调用 `clashctl` 或 `autossh`；需要时手动执行 `proxy.on`，原有 Clash 和 Slurm 隧道功能保留。
-- **WSL**：保持手动启用，启动时不探测 Windows 或本地代理。
-
-如果 compute 节点手动执行 `proxy.on` 失败，优先检查：
-
-- login 节点上是否已经执行过 `proxy.on`
-- `proxy.status` 里的 `proxy upstream` 是否真的是你想借出的那台 login 节点
-- 是否需要在 `~/.zprofile` 里显式设置 `MSE_PROXY_UPSTREAM_HOST=loginXX`
-- 是否需要临时设置 `MSE_PROXY_DEBUG=1` 后重新执行 `proxy.on` 查看上游推断过程
-
-### compute 节点上的 git
-
-compute 节点 DNS 无法解析外网域名（如 `ssh.github.com`），SSH 不走 `http_proxy`。`proxy.on` 会在 compute 节点自动设置 `GIT_SSH_COMMAND`，通过 SOCKS5 代理路由 git SSH 流量，`git push` / `git pull` 可以直接使用。它优先使用支持 `-X 5 -x` 的 OpenBSD `nc`，不可用时再使用 `ncat`。
-
-如果你还想把这套 SSH 代理能力扩展到不止 `git` 的其它 SSH 命令，可以在自己的 `~/.ssh/config` 里额外放一个 Host 段，例如：
-
-```sshconfig
-Host github.com ssh.github.com
-    ProxyCommand ncat --proxy 127.0.0.1:<clash-socks-port> --proxy-type socks5 %h %p
-```
-
-只有 OpenBSD `nc` 时，对应写法是：
-
-```sshconfig
-Host github.com ssh.github.com
-    ProxyCommand nc -x 127.0.0.1:<clash-socks-port> -X 5 %h %p
-```
-
-这样 `ssh` 本身也会直接走 SOCKS5，而不是只靠 `GIT_SSH_COMMAND` 给 git 单独兜底。
-
-### 限制
-
-- `proxychains-ng` 只适用于 TCP，不覆盖 UDP / ICMP
-- `scancel` 掉 compute 节点后，节点上的 `autossh`、`sshd`、shell 和代理状态会一起结束
-- 换新节点后，要重新进入节点，再重新执行 `proxy.on`
-- Go 程序（如 `frp-panel`）绕过 libc 做 DNS，`proxychains` 无法拦截；compute 节点上需要用 IP 替代域名
-- 如果你希望“几乎所有程序都无脑可用”，那已经不是 shell 环境变量层面能彻底解决的问题，而是需要 TUN / 透明代理，或者集群管理员直接提供可用 DNS
+完整说明（clashctl 安装、订阅、runtime、端点发现、upstream 推断、限制与排错）见 **[docs/proxy.md](docs/proxy.md)**。
 
 ## 测试
 
-仓库自带的 shell 单元测试不需要真实订阅、Mihomo 服务或外网，会使用临时目录验证 deploy 选择、端口同步、Slurm 角色分流和 clashctl 生命周期：
+不需要真实订阅、Mihomo 服务或外网，测试用临时目录：
 
 ```shell
 ./tests/run.sh
 ```
 
+覆盖部署选择、更新行为、端口同步、Slurm 角色分流、clashctl 生命周期和回收站。
+
 ## 贡献
 
-欢迎提交 Issue 和 Pull Request。
-
-如果你想贡献代码，最简单的路径是：
+欢迎 Issue 和 PR。流程：
 
 ```shell
 cd "$HOME"
@@ -664,7 +337,7 @@ cd ~/.my_shell_envs
 ./mse deploy
 ```
 
-确认本地能正常使用后，再提交你的修改。
+确认本地可用后提交修改。
 
 ## 许可证
 

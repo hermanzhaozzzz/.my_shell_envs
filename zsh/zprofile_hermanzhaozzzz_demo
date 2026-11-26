@@ -28,7 +28,14 @@ echo '>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>'
 # ------------------------------------------------------------------->>>>>>>>>>
 # TRASH DIRCTORY
 # ------------------------------------------------------------------->>>>>>>>>>
-export TRASH=${HOME}/.mytrash
+# 每块盘上属于我的回收站目录（同盘 mv 只是 rename）
+TRASH_DIRS=(
+    "${HOME}/.mytrash"                                      # 本机
+    /lustre1/cqyi/hnzhao/.mytrash                           # Alioth /lustre1
+    /lustre2/cqyi/hnzhao/.mytrash                           # Alioth /lustre2
+    /lustre3/chengqiyi_pkuhpc/folder_for_learning/zhaohn/.mytrash   # Polars /lustre3
+    /lustre1/chengqiyi_pkuhpc/zhaohn/.mytrash               # Polars /lustre1
+)
 
 
 # ------------------------------------------------------------------->>>>>>>>>>

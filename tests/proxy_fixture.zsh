@@ -9,7 +9,7 @@ make_proxy_fixture() {
     export CLASHCTL_BIN_DIR="${MSE_REPO_ROOT}/bin"
     export PATH="${TEST_TMP}/commands:/usr/bin:/bin"
     export _OS="Linux"
-    export MSE_PROXY_MODE="clash"
+    export MSE_PROXY_MODE="clash+via-login"
     export MSE_PROXY_HOST="127.0.0.1"
     export MSE_PROXY_DIRECT_HOSTS=""
     unset MSE_PROXY_PORT MSE_PROXY_SOCKS_PORT CLASH_CONFIG_RUNTIME

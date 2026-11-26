@@ -82,27 +82,108 @@ test_direct_egress_keeps_its_independent_port() {
     make_proxy_fixture
     trap 'rm -rf "$TEST_TMP"' EXIT
     export SLURM_JOB_ID=123
-    export MSE_PROXY_MODE=direct-egress
+    export MSE_PROXY_MODE=origin+via-login
     export MSE_PROXY_PORT=7788
     load_proxy_helpers
-    _mse_proxy_require_clashctl_runtime || fail_test "direct-egress must not require clashctl runtime"
-    _mse_proxy_require_port || fail_test "direct-egress must accept its explicit local SOCKS port"
-    assert_eq "7788" "$(_mse_proxy_socks_port)" "direct-egress must use its configured SOCKS port"
+    _mse_proxy_require_clashctl_runtime || fail_test "origin+via-login must not require clashctl runtime"
+    _mse_proxy_require_port || fail_test "origin+via-login must accept its explicit local SOCKS port"
+    assert_eq "7788" "$(_mse_proxy_socks_port)" "origin+via-login must use its configured SOCKS port"
 }
 
-test_direct_egress_is_compute_only() {
+test_origin_via_login_is_noop_on_direct_node() {
     make_proxy_fixture
     trap 'rm -rf "$TEST_TMP"' EXIT
-    export MSE_PROXY_MODE=direct-egress
+    export MSE_PROXY_MODE=origin+via-login
     export MSE_PROXY_PORT=7788
     load_proxy_helpers
-    _mse_proxy_required_ports_open() { return 0 }
     local output=""
-    if output="$(_func_proxy_on 2>&1)"; then
-        fail_test "native Linux must reject direct-egress even when its local port is listening"
-        return 1
+    output="$(_func_proxy_on 2>&1)" || fail_test "origin+via-login on a direct node should be a no-op"
+    assert_contains "${output}" "无需代理" "no-op should explain the login side uses its own network"
+}
+
+test_upstream_uses_slurm_submit_host() {
+    make_proxy_fixture
+    trap 'rm -rf "$TEST_TMP"' EXIT
+    unset MSE_PROXY_UPSTREAM_HOST SLURM_SUBMIT_HOST SSH_CONNECTION SSH_CLIENT MSE_PROXY_DIRECT_HOSTS
+    export SLURM_JOB_ID=123
+    load_proxy_helpers
+    scontrol() { print -r -- "JobId=123 JobName=x SubmitHost=login09 Partition=cn" }
+
+    local out
+    out="$(_mse_proxy_upstream_candidates)"
+    unset -f scontrol
+
+    assert_contains "$out" "login09" "upstream should fall back to the Slurm job SubmitHost"
+}
+
+test_via_login_assigns_free_port() {
+    make_proxy_fixture
+    trap 'rm -rf "$TEST_TMP"' EXIT
+    export SLURM_JOB_ID=123
+    export MSE_PROXY_MODE=origin+via-login
+    unset MSE_PROXY_PORT
+    load_proxy_helpers
+
+    _mse_proxy_assign_port_if_needed || fail_test "via-login should assign a free port when unset"
+    [[ -n "${MSE_PROXY_PORT}" ]] || fail_test "MSE_PROXY_PORT should be set after assignment"
+    [[ "${MSE_PROXY_PORT}" -gt 10000 ]] || fail_test "assigned port should be above 10000"
+}
+
+test_proxy_mode_combinations() {
+    make_proxy_fixture
+    load_proxy_helpers
+
+    # 登录/direct 节点：只看登录端
+    export MSE_PROXY_MODE=clash+via-login
+    assert_eq "clash" "$(_mse_proxy_mode_setting)" "clash+via-login on direct maps to clash"
+
+    export MSE_PROXY_MODE=clash+clash
+    assert_eq "clash" "$(_mse_proxy_mode_setting)" "clash+clash on direct maps to clash"
+
+    export MSE_PROXY_MODE=clash+origin
+    assert_eq "clash" "$(_mse_proxy_mode_setting)" "clash+origin on direct maps to clash"
+
+    export MSE_PROXY_MODE=origin+via-login
+    assert_eq "origin" "$(_mse_proxy_mode_setting)" "origin+via-login on direct maps to origin"
+
+    export MSE_PROXY_MODE=origin+clash
+    assert_eq "origin" "$(_mse_proxy_mode_setting)" "origin+clash on direct maps to origin"
+
+    export MSE_PROXY_MODE=origin+origin
+    assert_eq "origin" "$(_mse_proxy_mode_setting)" "origin+origin on direct maps to origin"
+
+    # 计算节点：只看计算端
+    export SLURM_JOB_ID=123
+
+    export MSE_PROXY_MODE=clash+via-login
+    assert_eq "clash" "$(_mse_proxy_mode_setting)" "clash+via-login on compute maps to clash"
+
+    export MSE_PROXY_MODE=origin+via-login
+    assert_eq "via-login" "$(_mse_proxy_mode_setting)" "origin+via-login on compute maps to via-login"
+
+    export MSE_PROXY_MODE=clash+clash
+    assert_eq "clash-local" "$(_mse_proxy_mode_setting)" "clash+clash on compute maps to clash-local"
+
+    export MSE_PROXY_MODE=origin+clash
+    assert_eq "clash-local" "$(_mse_proxy_mode_setting)" "origin+clash on compute maps to clash-local"
+
+    export MSE_PROXY_MODE=clash+origin
+    assert_eq "origin" "$(_mse_proxy_mode_setting)" "clash+origin on compute maps to origin"
+
+    export MSE_PROXY_MODE=origin+origin
+    assert_eq "origin" "$(_mse_proxy_mode_setting)" "origin+origin on compute maps to origin"
+
+    unset SLURM_JOB_ID
+
+    export MSE_PROXY_MODE=clash
+    if _mse_proxy_mode_setting >/dev/null 2>&1; then
+        fail_test "legacy clash value must be rejected"
     fi
-    assert_contains "${output}" "only supported on Slurm compute nodes" "direct-egress rejection should explain its compute-only scope"
+
+    export MSE_PROXY_MODE=via-login
+    if _mse_proxy_mode_setting >/dev/null 2>&1; then
+        fail_test "legacy via-login value must be rejected"
+    fi
 }
 
 test_openbsd_nc_is_supported() {
@@ -373,8 +454,11 @@ run_test "compute clash mode has no manual port fallback" test_compute_rejects_m
 run_test "direct Linux requires clashctl runtime" test_direct_linux_requires_runtime
 run_test "direct Linux proxy.off explains service state" test_direct_linux_proxy_off_explains_service_state
 run_test "login hostname stays direct in Slurm context" test_login_hostname_stays_direct_in_slurm_context
-run_test "direct-egress keeps its independent port" test_direct_egress_keeps_its_independent_port
-run_test "direct-egress is compute-only" test_direct_egress_is_compute_only
+run_test "origin+via-login keeps its independent port" test_direct_egress_keeps_its_independent_port
+run_test "origin+via-login is a no-op on direct nodes" test_origin_via_login_is_noop_on_direct_node
+run_test "proxy mode combinations parse correctly" test_proxy_mode_combinations
+run_test "via-login assigns a free port when unset" test_via_login_assigns_free_port
+run_test "upstream falls back to Slurm SubmitHost" test_upstream_uses_slurm_submit_host
 run_test "OpenBSD nc supports Slurm Git SSH" test_openbsd_nc_is_supported
 run_test "ncat remains the Slurm Git SSH fallback" test_ncat_fallback_is_supported
 run_test "proxy.off restores user Git SSH command" test_git_ssh_command_is_restored

@@ -165,6 +165,55 @@ test_dirty_external_repo_is_preserved_without_pull() {
     fi
 }
 
+write_metadata_fixture() {
+    local dir="$1"
+    mkdir -p "$dir"
+    cat >"$dir/.mse-install.env" <<'EOF'
+MSE_GIT_METHOD='ssh'
+MSE_DEPLOY_MODE='interactive'
+MSE_MAINTAINER_PERSONAL_ZPROFILE='true'
+EOF
+}
+
+test_deploy_defaults_follow_install_env() {
+    load_mse
+    MSE_META_TMP="$(mktemp -d "${TMPDIR:-/tmp}/mse-meta.XXXXXX")" || return 1
+    trap '/bin/rm -rf "$MSE_META_TMP"' EXIT
+    write_metadata_fixture "$MSE_META_TMP"
+    METADATA_FILE="$MSE_META_TMP/.mse-install.env"
+
+    parse_deploy_args
+
+    assert_eq "ssh" "$git_method" "git method should come from .mse-install.env"
+    assert_eq "interactive" "$deploy_mode" "deploy mode should come from .mse-install.env"
+    assert_eq "1" "$maintainer_personal_zprofile" "zprofile flag should come from .mse-install.env"
+}
+
+test_deploy_args_override_install_env() {
+    load_mse
+    MSE_META_TMP="$(mktemp -d "${TMPDIR:-/tmp}/mse-meta.XXXXXX")" || return 1
+    trap '/bin/rm -rf "$MSE_META_TMP"' EXIT
+    write_metadata_fixture "$MSE_META_TMP"
+    METADATA_FILE="$MSE_META_TMP/.mse-install.env"
+
+    parse_deploy_args --https --fast
+
+    assert_eq "https" "$git_method" "explicit --https must override metadata"
+    assert_eq "fast" "$deploy_mode" "explicit --fast must override metadata"
+    assert_eq "1" "$maintainer_personal_zprofile" "metadata zprofile flag must stay enabled"
+}
+
+test_deploy_without_metadata_defaults_off() {
+    load_mse
+    METADATA_FILE="/nonexistent/.mse-install.env"
+
+    parse_deploy_args
+
+    assert_eq "https" "$git_method" "fresh deploy should default to https"
+    assert_eq "fast" "$deploy_mode" "fresh deploy should default to fast"
+    assert_eq "0" "$maintainer_personal_zprofile" "fresh deploy must not enable the maintainer zprofile"
+}
+
 run_test "interactive Enter defaults clashctl to enabled" test_interactive_enter_enables_clashctl
 run_test "interactive n skips clashctl" test_interactive_n_skips_clashctl
 run_test "fast deploy enables clashctl" test_fast_enables_clashctl
@@ -179,4 +228,7 @@ run_test "offline cold start stops before network setup" test_offline_cold_start
 run_test "offline first install stops before downloads" test_offline_first_install_stops_before_clashctl_download
 run_test "complete clashctl cache installs offline" test_complete_clashctl_cache_allows_offline_install
 run_test "dirty external repo is preserved" test_dirty_external_repo_is_preserved_without_pull
+run_test "deploy defaults follow .mse-install.env" test_deploy_defaults_follow_install_env
+run_test "deploy flags override .mse-install.env" test_deploy_args_override_install_env
+run_test "fresh deploy keeps maintainer zprofile off" test_deploy_without_metadata_defaults_off
 finish_tests

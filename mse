@@ -33,7 +33,7 @@ CLASHCTL_YQ_BIN_PATH="${MSE_CLASHCTL_YQ_BIN:-$HOME/.local/libexec/mse-clashctl/y
 CONDA_ENVS="$REPO_PATH/conda_local_env_settings"
 METADATA_FILE="$REPO_PATH/.mse-install.env"
 REPO_BIN_MSE_PATH="$BIN_PATH/mse"
-ZPROFILE_TEMPLATE_PATH="$REPO_PATH/zsh/zprofile_hermanzhaozzzz_demo"
+MAINTAINER_ZPROFILE_PATH="$REPO_PATH/zsh/zprofile_hermanzhaozzzz_demo"
 DEFAULT_REPO_URL="https://github.com/hermanzhaozzzz/.my_shell_envs.git"
 DEFAULT_REPO_SSH_URL="git@github.com:hermanzhaozzzz/.my_shell_envs.git"
 DEFAULT_BRANCH="main"
@@ -58,13 +58,13 @@ git_method="https"
 deploy_mode="fast"
 list_steps=0
 SELECTED_STEPS=""
-use_zprofile_template=0
+maintainer_personal_zprofile=0
 internal_update_mode="${MSE_INTERNAL_UPDATE:-0}"
 skip_default_shell_change="${MSE_INTERNAL_SKIP_DEFAULT_SHELL_CHANGE:-0}"
 selected_steps_override="${MSE_INTERNAL_SELECTED_STEPS:-}"
 persisted_git_method="https"
 persisted_deploy_mode="fast"
-persisted_use_zprofile_template=0
+persisted_maintainer_personal_zprofile=0
 persisted_selected_steps=""
 persisted_default_branch="$DEFAULT_BRANCH"
 update_git_method=""
@@ -83,7 +83,7 @@ Commands:
 Examples:
   ./mse deploy
   ./mse deploy --ssh --interactive
-  ./mse deploy --use-zprofile-template
+  ./mse deploy --maintainer-personal-zprofile
   ./mse update
   ./mse update --interactive
 EOF
@@ -92,8 +92,7 @@ EOF
 print_deploy_usage() {
     cat <<'EOF'
 Usage:
-  ./mse deploy [--ssh|--https] [--interactive|--fast] [--use-zprofile-template]
-  ./mse deploy --git-method https --mode fast
+  ./mse deploy [--ssh|--https] [--interactive|--fast] [--maintainer-personal-zprofile]
   ./mse deploy --list-steps
   ./mse deploy -h|--help
 
@@ -109,15 +108,21 @@ Examples:
   ./mse deploy --ssh
   ./mse deploy --interactive
   ./mse deploy --ssh --interactive
-  ./mse deploy --interactive --use-zprofile-template
+  ./mse deploy --interactive --maintainer-personal-zprofile
+
+Notes:
+  Options can be combined in any order, e.g. --ssh --interactive.
+  If both --fast and --interactive are given, the last one wins.
+  --maintainer-personal-zprofile links the maintainer's personal ~/.zprofile, which contains
+  machine-specific paths and cluster hosts. It is for the maintainer only; other
+  users should read it as a reference and write their own ~/.zprofile.
 EOF
 }
 
 print_update_usage() {
     cat <<'EOF'
 Usage:
-  ./mse update [--ssh|--https] [--interactive|--fast] [--use-zprofile-template]
-  ./mse update --git-method https --mode fast
+  ./mse update [--ssh|--https] [--interactive|--fast] [--maintainer-personal-zprofile]
   ./mse update -h|--help
 
 Behavior:
@@ -129,7 +134,7 @@ Examples:
   ./mse update
   ./mse update --interactive
   ./mse update --ssh --interactive
-  ./mse update --interactive --use-zprofile-template
+  ./mse update --interactive --maintainer-personal-zprofile
 EOF
 }
 
@@ -310,7 +315,7 @@ offer_zsh_handoff_setup() {
 
         while :; do
             printf '%s add zsh handoff to %s? [y/N]: ' "$(badge "$COLOR_BLUE" "ASK")" "$(fmt_path "$rc_path")"
-            read answer || break
+            read -r answer || break
             case "$answer" in
                 y|Y|yes|YES)
                     write_zsh_handoff_block "$rc_path" "$zsh_path"
@@ -523,7 +528,7 @@ load_persisted_deploy_settings() {
 
     persisted_git_method="https"
     persisted_deploy_mode="fast"
-    persisted_use_zprofile_template=0
+    persisted_maintainer_personal_zprofile=0
     persisted_selected_steps=""
     persisted_default_branch="$DEFAULT_BRANCH"
 
@@ -544,11 +549,11 @@ load_persisted_deploy_settings() {
             MSE_DEPLOY_MODE)
                 persisted_deploy_mode="$value"
                 ;;
-            MSE_USE_ZPROFILE_TEMPLATE)
+            MSE_MAINTAINER_PERSONAL_ZPROFILE)
                 if bool_value="$(normalize_bool_value "$value" 2>/dev/null)"; then
-                    persisted_use_zprofile_template="$bool_value"
+                    persisted_maintainer_personal_zprofile="$bool_value"
                 else
-                    persisted_use_zprofile_template="$value"
+                    persisted_maintainer_personal_zprofile="$value"
                 fi
                 ;;
             MSE_SELECTED_STEPS)
@@ -588,11 +593,11 @@ load_persisted_deploy_settings() {
             ;;
     esac
 
-    case "$persisted_use_zprofile_template" in
+    case "$persisted_maintainer_personal_zprofile" in
         0|1) ;;
         *)
-            log_warn "invalid MSE_USE_ZPROFILE_TEMPLATE in $(fmt_path "$METADATA_FILE"), falling back to 0"
-            persisted_use_zprofile_template=0
+            log_warn "invalid MSE_MAINTAINER_PERSONAL_ZPROFILE in $(fmt_path "$METADATA_FILE"), falling back to 0"
+            persisted_maintainer_personal_zprofile=0
             ;;
     esac
 
@@ -619,7 +624,7 @@ persist_deploy_settings() {
 # Allowed values:
 #   MSE_GIT_METHOD=https|ssh
 #   MSE_DEPLOY_MODE=fast|interactive
-#   MSE_USE_ZPROFILE_TEMPLATE=true|false
+#   MSE_MAINTAINER_PERSONAL_ZPROFILE=true|false
 #   MSE_STEP_<NAME>=true|false
 #
 # Change any MSE_STEP_<NAME> line directly if you want to enable or disable
@@ -629,7 +634,7 @@ persist_deploy_settings() {
 MSE_GIT_METHOD='$git_method'
 MSE_DEPLOY_MODE='$deploy_mode'
 MSE_DEFAULT_BRANCH='$current_branch'
-MSE_USE_ZPROFILE_TEMPLATE='$(bool_string "$use_zprofile_template")'
+MSE_MAINTAINER_PERSONAL_ZPROFILE='$(bool_string "$maintainer_personal_zprofile")'
 EOF
     [ -s "$METADATA_FILE" ] || fail "failed to write deploy preferences: $METADATA_FILE"
 
@@ -727,7 +732,7 @@ print_deploy_warnings() {
     if step_selected "powershell"; then
         print_path_item "$HOME/Documents/PowerShell/Microsoft.PowerShell_profile.ps1"
     fi
-    if [ "$use_zprofile_template" -eq 1 ] && [ "$platform" != "Windows" ]; then
+    if [ "$maintainer_personal_zprofile" -eq 1 ] && [ "$platform" != "Windows" ]; then
         print_path_item "$HOME/.zprofile"
         print_path_item "$HOME/.zprofile_bak"
     fi
@@ -742,6 +747,9 @@ backup_existing_path() {
     if [ -L "$target" ]; then
         /bin/rm -rf "$target" 2>/dev/null
     elif [ -e "$target" ]; then
+        if [ -e "$backup_path" ] || [ -L "$backup_path" ]; then
+            log_warn "replacing existing backup: $(fmt_path "$backup_path")"
+        fi
         /bin/rm -rf "$backup_path" 2>/dev/null
         mv "$target" "$backup_path"
     fi
@@ -972,11 +980,11 @@ detect_platform_settings() {
         if [ "$arch" = "x86_64" ] || [ "$arch" = "i386" ]; then
             platform="MacOS/x86_64"
             MICROMAMBA_URL="https://micro.mamba.pm/api/micromamba/osx-64/latest"
-            ROOT_PATH="$HOME/micromamba"
+            ROOT_PATH="$HOME/0.apps/micromamba"
         elif [ "$arch" = "arm64" ] || [ "$arch" = "arm" ]; then
             platform="MacOS/arm64"
             MICROMAMBA_URL="https://micro.mamba.pm/api/micromamba/osx-arm64/latest"
-            ROOT_PATH="$HOME/micromamba"
+            ROOT_PATH="$HOME/0.apps/micromamba"
         else
             fail "unsupported MacOS arch: $arch"
         fi
@@ -1034,7 +1042,7 @@ choose_steps() {
         else
             printf '  %s %-2s %-12b %s [y/N]: ' "$(badge "$COLOR_BLUE" "STEP")" "$step_no" "$(fmt_step "$step")" "$(describe_step "$step")"
         fi
-        read answer
+        read -r answer
         case "$answer" in
             y|Y|yes|YES)
                 append_selected_step "$step"
@@ -1099,10 +1107,13 @@ sync_optional_bin_entries() {
 }
 
 parse_deploy_args() {
-    git_method="https"
-    deploy_mode="fast"
+    # 有 .mse-install.env 时，默认值跟随上次部署的设置；显式参数覆盖它
+    load_persisted_deploy_settings
+
+    git_method="$persisted_git_method"
+    deploy_mode="$persisted_deploy_mode"
     list_steps=0
-    use_zprofile_template=0
+    maintainer_personal_zprofile="$persisted_maintainer_personal_zprofile"
 
     while [ $# -gt 0 ]; do
         case "$1" in
@@ -1118,32 +1129,8 @@ parse_deploy_args() {
             --interactive)
                 deploy_mode="interactive"
                 ;;
-            --use-zprofile-template)
-                use_zprofile_template=1
-                ;;
-            --git-method)
-                shift
-                [ $# -gt 0 ] || fail "--git-method requires a value: https or ssh"
-                case "$1" in
-                    https|ssh)
-                        git_method="$1"
-                        ;;
-                    *)
-                        fail "unsupported git method: $1"
-                        ;;
-                esac
-                ;;
-            --mode)
-                shift
-                [ $# -gt 0 ] || fail "--mode requires a value: fast or interactive"
-                case "$1" in
-                    fast|interactive)
-                        deploy_mode="$1"
-                        ;;
-                    *)
-                        fail "unsupported deploy mode: $1"
-                        ;;
-                esac
+            --maintainer-personal-zprofile)
+                maintainer_personal_zprofile=1
                 ;;
             --list-steps)
                 list_steps=1
@@ -1163,14 +1150,14 @@ parse_deploy_args() {
 parse_update_args() {
     local opt_name
     local update_deploy_mode=""
-    local update_use_zprofile_template=0
+    local update_maintainer_personal_zprofile=0
     local update_list_steps=0
 
     load_persisted_deploy_settings
 
     update_git_method="$persisted_git_method"
     update_deploy_mode="$persisted_deploy_mode"
-    update_use_zprofile_template="$persisted_use_zprofile_template"
+    update_maintainer_personal_zprofile="$persisted_maintainer_personal_zprofile"
 
     UPDATE_DEPLOY_ARGS=()
 
@@ -1188,35 +1175,8 @@ parse_update_args() {
             --interactive)
                 update_deploy_mode="interactive"
                 ;;
-            --use-zprofile-template)
-                update_use_zprofile_template=1
-                ;;
-            --git-method|--mode)
-                opt_name="$1"
-                shift
-                [ $# -gt 0 ] || fail "$opt_name requires a value"
-                case "$opt_name" in
-                    --git-method)
-                        case "$1" in
-                            https|ssh)
-                                update_git_method="$1"
-                                ;;
-                            *)
-                                fail "unsupported git method: $1"
-                                ;;
-                        esac
-                        ;;
-                    --mode)
-                        case "$1" in
-                            fast|interactive)
-                                update_deploy_mode="$1"
-                                ;;
-                            *)
-                                fail "unsupported deploy mode: $1"
-                                ;;
-                        esac
-                        ;;
-                esac
+            --maintainer-personal-zprofile)
+                update_maintainer_personal_zprofile=1
                 ;;
             --list-steps)
                 update_list_steps=1
@@ -1232,10 +1192,10 @@ parse_update_args() {
         shift
     done
 
-    UPDATE_DEPLOY_ARGS+=(--git-method "$update_git_method")
-    UPDATE_DEPLOY_ARGS+=(--mode "$update_deploy_mode")
-    if [ "$update_use_zprofile_template" -eq 1 ]; then
-        UPDATE_DEPLOY_ARGS+=(--use-zprofile-template)
+    UPDATE_DEPLOY_ARGS+=("--$update_git_method")
+    UPDATE_DEPLOY_ARGS+=("--$update_deploy_mode")
+    if [ "$update_maintainer_personal_zprofile" -eq 1 ]; then
+        UPDATE_DEPLOY_ARGS+=(--maintainer-personal-zprofile)
     fi
     if [ "$update_list_steps" -eq 1 ]; then
         UPDATE_DEPLOY_ARGS+=(--list-steps)
@@ -1284,13 +1244,36 @@ resolve_update_fetch_url() {
     esac
 }
 
+confirm_upstream_reset() {
+    local dirty="$1"
+    local ahead="$2"
+    local detail=""
+
+    [ "$dirty" -eq 1 ] && detail="工作树有未提交的改动"
+    [ "${ahead:-0}" -gt 0 ] && detail="${detail:+$detail；}有 $ahead 个本地提交不在上游"
+
+    log_warn "本地状态与上游不一致：$detail"
+    log_warn "继续会把本地内容丢弃，以上游为准。"
+
+    if ! can_prompt_user; then
+        log_warn "当前不是交互式会话，未做任何改动；请先自行检查仓库。"
+        return 1
+    fi
+
+    local answer=""
+    printf '直接以上游为准更新（丢弃本地改动）？[y/N]: '
+    read -r answer || return 1
+    case "$answer" in
+        y|Y|yes|YES) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
 update_source_from_git() {
     local fetch_url=""
     local current_branch=""
-
-    if [ -n "$(git -C "$REPO_PATH" status --porcelain)" ]; then
-        fail "git working tree is not clean. Please commit, stash, or remove local changes before running './mse update'."
-    fi
+    local dirty=0
+    local ahead=0
 
     fetch_url="$(resolve_update_fetch_url "$update_git_method")" \
         || fail "cannot convert origin URL to the requested git method: $update_git_method"
@@ -1299,7 +1282,17 @@ update_source_from_git() {
 
     log_info "update fetch method: $update_git_method"
     git -C "$REPO_PATH" fetch "$fetch_url" "$current_branch" || fail "git fetch failed via $update_git_method"
-    git -C "$REPO_PATH" rebase FETCH_HEAD || fail "git rebase onto fetched $current_branch failed"
+
+    [ -n "$(git -C "$REPO_PATH" status --porcelain --untracked-files=no)" ] && dirty=1
+    ahead="$(git -C "$REPO_PATH" rev-list --count HEAD ^FETCH_HEAD 2>/dev/null || echo 0)"
+
+    if [ "$dirty" -eq 1 ] || [ "${ahead:-0}" -gt 0 ]; then
+        confirm_upstream_reset "$dirty" "$ahead" \
+            || fail "update cancelled; inspect the repository yourself"
+    fi
+
+    git -C "$REPO_PATH" reset --hard FETCH_HEAD || fail "git reset to fetched $current_branch failed"
+    log_ok "repository updated to $current_branch from upstream"
 }
 
 apply_zprofile_template() {
@@ -1309,11 +1302,14 @@ apply_zprofile_template() {
     fi
 
     print_section "apply personal zprofile template"
+    if [ -e "$HOME/.zprofile_bak" ] || [ -L "$HOME/.zprofile_bak" ]; then
+        log_warn "replacing existing zprofile backup: $(fmt_path "$HOME/.zprofile_bak")"
+    fi
     /bin/rm "$HOME/.zprofile_bak" 2>/dev/null
     mv "$HOME/.zprofile" "$HOME/.zprofile_bak" 2>/dev/null || true
     /bin/rm -f "$HOME/.zprofile" 2>/dev/null
-    ln -s "$ZPROFILE_TEMPLATE_PATH" "$HOME/.zprofile" || fail "failed to link $HOME/.zprofile to $ZPROFILE_TEMPLATE_PATH"
-    log_ok "zprofile template linked: $(fmt_path "$HOME/.zprofile") -> $(fmt_path "$ZPROFILE_TEMPLATE_PATH")"
+    ln -s "$MAINTAINER_ZPROFILE_PATH" "$HOME/.zprofile" || fail "failed to link $HOME/.zprofile to $MAINTAINER_ZPROFILE_PATH"
+    log_ok "zprofile template linked: $(fmt_path "$HOME/.zprofile") -> $(fmt_path "$MAINTAINER_ZPROFILE_PATH")"
 }
 
 ensure_zsh_installed() {
@@ -1455,7 +1451,7 @@ ensure_default_shell_is_zsh() {
 
         while :; do
             printf '%s choose [r]etry or [s]kip: ' "$(badge "$COLOR_BLUE" "ASK")"
-            read answer || break
+            read -r answer || break
             case "$answer" in
                 r|R|retry|RETRY)
                     break
@@ -2025,7 +2021,7 @@ command_deploy() {
 
     choose_steps
 
-    if [ "$platform" = "Windows" ] && [ -z "$SELECTED_STEPS" ] && [ "$use_zprofile_template" -eq 0 ]; then
+    if [ "$platform" = "Windows" ] && [ -z "$SELECTED_STEPS" ] && [ "$maintainer_personal_zprofile" -eq 0 ]; then
         log_warn "no steps selected, nothing to do"
         exit 0
     fi
@@ -2053,7 +2049,7 @@ command_deploy() {
     run_step "powershell" step_powershell
     run_step "cluster_proxy_tools" step_cluster_proxy_tools
 
-    if [ "$use_zprofile_template" -eq 1 ]; then
+    if [ "$maintainer_personal_zprofile" -eq 1 ]; then
         apply_zprofile_template
     fi
 
@@ -2082,7 +2078,7 @@ command_deploy() {
         fi
     else
         print_list_item "open a new zsh session or run: exec zsh"
-        if [ "$use_zprofile_template" -eq 1 ]; then
+        if [ "$maintainer_personal_zprofile" -eq 1 ]; then
             print_list_item "review ~/.zprofile and replace personal values before long-term use"
         else
             print_list_item "create your own ~/.zprofile for PATH, proxy, tokens, and host-specific aliases"

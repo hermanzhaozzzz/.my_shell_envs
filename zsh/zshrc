@@ -224,7 +224,7 @@ if [[ "${_OS}" == "Linux" ]]; then
     fi
 fi
 
-export MSE_PROXY_MODE="${MSE_PROXY_MODE:-clash}"
+export MSE_PROXY_MODE="${MSE_PROXY_MODE:-clash+via-login}"
 export MSE_PROXY_HOST="${MSE_PROXY_HOST:-127.0.0.1}"
 # Child shells need the existing ownership information to start with proxy off
 # while restoring the user's original Git SSH command.
@@ -238,26 +238,73 @@ export MSE_PROXY_HOST_LOOKUP_TIMEOUT="${MSE_PROXY_HOST_LOOKUP_TIMEOUT:-2}"
 export MSE_PROXY_PROCESS_LOOKUP_TIMEOUT="${MSE_PROXY_PROCESS_LOOKUP_TIMEOUT:-2}"
 export MSE_PROXY_SSH_CONNECT_TIMEOUT="${MSE_PROXY_SSH_CONNECT_TIMEOUT:-5}"
 
+_mse_proxy_login_mode() {
+    printf '%s\n' "${MSE_PROXY_MODE%%+*}"
+}
+
+_mse_proxy_compute_mode() {
+    printf '%s\n' "${MSE_PROXY_MODE#*+}"
+}
+
+# 解析“登录端+计算端”组合。合法值：
+#   clash+via-login   登录端走 Clash，计算节点经隧道到 login 的 Clash
+#   clash+clash       两端各跑自己的 Clash（计算节点自己也能上网）
+#   clash+origin      登录端走 Clash，计算节点走自己的网络
+#   origin+clash      登录端直连，计算节点自己跑 Clash
+#   origin+via-login  登录端直接出网，计算节点经隧道借 login 出网
+#   origin+origin     两边各走自己的网络，不启用代理
+# 按当前节点角色返回内部等价模式：clash | clash-local | via-login | origin
 _mse_proxy_mode_setting() {
-    case "${MSE_PROXY_MODE}" in
-        clash|direct-egress)
-            printf '%s\n' "${MSE_PROXY_MODE}"
-            ;;
-        *)
-            return 1
-            ;;
+    local raw="${MSE_PROXY_MODE}"
+    local login_mode="${raw%%+*}"
+    local compute_mode="${raw#*+}"
+
+    [[ "${raw}" == *"+"* ]] || return 1
+    case "${login_mode}" in
+        clash|origin) ;;
+        *) return 1 ;;
     esac
+    case "${compute_mode}" in
+        clash|via-login|origin) ;;
+        *) return 1 ;;
+    esac
+
+    if _mse_proxy_is_compute_node; then
+        case "${compute_mode}" in
+            clash)
+                printf 'clash-local\n'
+                ;;
+            origin)
+                printf 'origin\n'
+                ;;
+            via-login)
+                if [[ "${login_mode}" == "clash" ]]; then
+                    printf 'clash\n'
+                else
+                    printf 'via-login\n'
+                fi
+                ;;
+        esac
+    else
+        case "${login_mode}" in
+            clash) printf 'clash\n' ;;
+            origin) printf 'origin\n' ;;
+        esac
+    fi
 }
 
 _mse_proxy_require_mode() {
     _mse_proxy_mode_setting >/dev/null 2>&1 && return 0
-    echo "proxy: unsupported MSE_PROXY_MODE=${MSE_PROXY_MODE}; expected clash or direct-egress"
+    echo "proxy: unsupported MSE_PROXY_MODE=${MSE_PROXY_MODE}; expected <clash|origin>+<clash|via-login|origin>"
     return 1
 }
 
 _mse_proxy_requires_clashctl_runtime() {
     [[ "${_OS}" == "Linux" ]] || return 1
-    [[ "$(_mse_proxy_mode_setting)" == "clash" ]]
+    case "$(_mse_proxy_mode_setting)" in
+        clash|clash-local) return 0 ;;
+        *) return 1 ;;
+    esac
 }
 
 _mse_clashctl_loaded() {
@@ -434,7 +481,43 @@ _mse_proxy_default_no_proxy() {
     printf '%s\n' "localhost,127.0.0.1,::1"
 }
 
+_mse_proxy_port_available() {
+    local port="$1"
+    if zmodload -F zsh/net/tcp b:ztcp 2>/dev/null; then
+        local fd
+        if ztcp -l 127.0.0.1 "${port}" 2>/dev/null; then
+            fd="${REPLY}"
+            ztcp -c "${fd}" 2>/dev/null
+            return 0
+        fi
+        return 1
+    fi
+    command -v nc >/dev/null 2>&1 || return 0
+    ! nc -z 127.0.0.1 "${port}" >/dev/null 2>&1
+}
+
+# origin+via-login 未设置端口时，自动挑一个 10001-60000 的空闲端口（仅当前会话）
+_mse_proxy_assign_port_if_needed() {
+    [[ "$(_mse_proxy_mode_setting)" == "via-login" ]] || return 0
+    [[ -z "${MSE_PROXY_PORT:-}" ]] || return 0
+
+    local i port
+    for i in {1..50}; do
+        port=$(( RANDOM % 50000 + 10001 ))
+        if _mse_proxy_port_available "${port}"; then
+            export MSE_PROXY_PORT="${port}"
+            _mse_proxy_alias_log "proxy: 未设置 MSE_PROXY_PORT，自动选用空闲端口 ${port}"
+            return 0
+        fi
+    done
+    echo "proxy: failed to find a free local port; set MSE_PROXY_PORT manually" >&2
+    return 1
+}
+
 _mse_proxy_require_port() {
+    if [[ "$(_mse_proxy_mode_setting)" == "origin" ]]; then
+        return 0
+    fi
     if _mse_proxy_is_external && [[ -n "${MSE_PROXY_SOCKS_PORT:-}" ]]; then
         return 0
     fi
@@ -453,7 +536,11 @@ _mse_proxy_require_port() {
 _mse_proxy_socks_port() {
     local socks_port=""
 
-    if [[ "$(_mse_proxy_mode_setting)" == "direct-egress" ]]; then
+    if [[ "$(_mse_proxy_mode_setting)" == "origin" ]]; then
+        return 1
+    fi
+
+    if [[ "$(_mse_proxy_mode_setting)" == "via-login" ]]; then
         socks_port="${MSE_PROXY_PORT:-}"
     elif _mse_proxy_requires_clashctl_runtime || _mse_proxy_is_external; then
         socks_port="${MSE_PROXY_SOCKS_PORT:-}"
@@ -481,7 +568,7 @@ _mse_proxy_http_url() {
     local auth_prefix="$(_mse_proxy_auth_prefix)"
     if _mse_proxy_is_external && [[ -z "${MSE_PROXY_PORT:-}" ]]; then
         _mse_proxy_socks_remote_dns_url
-    elif [[ "$(_mse_proxy_mode_setting)" == "direct-egress" ]]; then
+    elif [[ "$(_mse_proxy_mode_setting)" == "via-login" ]]; then
         printf 'socks5://%s%s:%s\n' "${auth_prefix}" "${MSE_PROXY_HOST}" "$(_mse_proxy_socks_port)"
     else
         printf 'http://%s%s:%s\n' "${auth_prefix}" "${MSE_PROXY_HOST}" "${MSE_PROXY_PORT}"
@@ -551,8 +638,12 @@ _mse_proxy_uses_clashctl_backend() {
 }
 
 _mse_proxy_requires_clashctl_backend() {
-    _mse_proxy_requires_clashctl_runtime || return 1
-    ! _mse_proxy_is_compute_node
+    [[ "${_OS}" == "Linux" ]] || return 1
+    case "$(_mse_proxy_mode_setting)" in
+        clash-local) return 0 ;;
+        clash) ! _mse_proxy_is_compute_node ;;
+        *) return 1 ;;
+    esac
 }
 
 _mse_proxy_require_clashctl_backend() {
@@ -602,7 +693,7 @@ _mse_proxy_required_ports_open() {
 }
 
 _mse_proxy_probe_url() {
-    if [[ "$(_mse_proxy_mode_setting)" == "direct-egress" ]]; then
+    if [[ "$(_mse_proxy_mode_setting)" == "via-login" ]]; then
         printf '%s\n' "https://www.google.com.hk"
     else
         printf '%s\n' "https://www.baidu.com"
@@ -619,7 +710,7 @@ _mse_proxy_probe_local_proxy() {
 
     probe_url="$(_mse_proxy_probe_url)"
     proxy_mode="$(_mse_proxy_mode_setting)"
-    if [[ "${proxy_mode}" == "direct-egress" ]]; then
+    if [[ "${proxy_mode}" == "via-login" ]]; then
         proxy_url="$(_mse_proxy_socks_remote_dns_url)"
     else
         proxy_url="$(_mse_proxy_http_url)"
@@ -673,6 +764,14 @@ _mse_proxy_resolve_host_by_ip() {
     fi
 }
 
+_mse_proxy_job_submit_host() {
+    [[ -n "${SLURM_JOB_ID:-}" ]] || return 1
+    command -v scontrol >/dev/null 2>&1 || return 1
+    scontrol show job "${SLURM_JOB_ID}" -o 2>/dev/null \
+        | sed -n 's/.*SubmitHost=\([^ ]*\).*/\1/p' \
+        | head -1
+}
+
 _mse_proxy_upstream_candidates() {
     local client_ip=""
     local candidate=""
@@ -688,6 +787,15 @@ _mse_proxy_upstream_candidates() {
     if [[ -n "${SLURM_SUBMIT_HOST:-}" && -z "${seen[${SLURM_SUBMIT_HOST}]:-}" ]]; then
         candidates+=("${SLURM_SUBMIT_HOST}")
         seen["${SLURM_SUBMIT_HOST}"]=1
+    fi
+
+    if [[ -z "${SLURM_SUBMIT_HOST:-}" ]]; then
+        candidate="$(_mse_proxy_job_submit_host 2>/dev/null || true)"
+        if [[ -n "${candidate}" && -z "${seen[${candidate}]:-}" ]]; then
+            _mse_proxy_debug_log "upstream candidate from Slurm SubmitHost: ${candidate}"
+            candidates+=("${candidate}")
+            seen["${candidate}"]=1
+        fi
     fi
 
     if [[ -n "${SSH_CONNECTION:-}" ]]; then
@@ -729,7 +837,7 @@ _mse_proxy_upstream_host() {
 
 _mse_proxy_tunnel_pattern() {
     local upstream_host="$1"
-    if [[ "$(_mse_proxy_mode_setting)" == "direct-egress" ]]; then
+    if [[ "$(_mse_proxy_mode_setting)" == "via-login" ]]; then
         printf 'autossh .* -D 127.0.0.1:%s.* %s' "${MSE_PROXY_PORT}" "${upstream_host}"
     else
         printf 'autossh .* -L 127.0.0.1:%s:127.0.0.1:%s.* %s' "${MSE_PROXY_PORT}" "${MSE_PROXY_PORT}" "${upstream_host}"
@@ -1036,7 +1144,7 @@ _mse_proxy_start_tunnel() {
         return 1
     fi
 
-    if [[ "${proxy_mode}" == "direct-egress" ]]; then
+    if [[ "${proxy_mode}" == "via-login" ]]; then
         forward_args=(-D "127.0.0.1:${MSE_PROXY_PORT}")
     else
         forward_args=(-L "127.0.0.1:${MSE_PROXY_PORT}:127.0.0.1:${MSE_PROXY_PORT}")
@@ -1139,17 +1247,41 @@ _func_proxy_on() {
     typeset -a upstream_candidates=()
 
     _mse_proxy_require_mode || return 1
+    mode="$(_mse_proxy_mode)"
+    proxy_mode="$(_mse_proxy_mode_setting)"
+
+    if [[ "${proxy_mode}" == "origin" ]]; then
+        _mse_proxy_disable_env
+        _mse_proxy_alias_log "proxy.on: ${MSE_PROXY_MODE}，本节点直接使用自己的网络，无需代理"
+        return 0
+    fi
+
     if _mse_proxy_is_external; then
         _mse_proxy_sync_ports || return 1
     fi
-    mode="$(_mse_proxy_mode)"
-    proxy_mode="$(_mse_proxy_mode_setting)"
+
+    if [[ "${proxy_mode}" == "clash-local" ]]; then
+        _mse_proxy_require_clashctl_backend || return 1
+        _mse_proxy_require_clashctl_runtime || return 1
+        _mse_proxy_sync_clashctl_ports || return 1
+        _mse_proxy_alias_log "proxy.on: linux backend -> clashctl on"
+        clashctl on || return
+        _mse_proxy_sync_clashctl_ports || return 1
+        _mse_proxy_require_port || return 1
+        if ! _mse_proxy_required_ports_open; then
+            echo "proxy.on: required local proxy ports are not all listening"
+            return 1
+        fi
+        _mse_proxy_enable_env
+        return 0
+    fi
 
     if [[ "${mode}" == "compute" ]]; then
         if [[ "${proxy_mode}" == "clash" ]]; then
             _mse_proxy_require_clashctl_runtime || return 1
             _mse_proxy_sync_clashctl_ports || return 1
         fi
+        _mse_proxy_assign_port_if_needed || return 1
         _mse_proxy_require_port || return 1
         upstream_candidates=("${(@f)$(_mse_proxy_upstream_candidates 2>/dev/null)}")
         [[ ${#upstream_candidates[@]} -gt 0 ]] || {
@@ -1171,7 +1303,7 @@ _func_proxy_on() {
         }
         if ! _mse_proxy_is_quiet; then
             echo "proxy mode: ${proxy_mode}"
-            if [[ "${proxy_mode}" == "direct-egress" ]]; then
+            if [[ "${proxy_mode}" == "via-login" ]]; then
                 echo "proxy tunnel type: dynamic-socks"
             else
                 echo "proxy tunnel type: local-forward"
@@ -1186,9 +1318,10 @@ _func_proxy_on() {
             echo "proxy mode: ${proxy_mode}"
             echo "proxy node role: direct"
         fi
-        if [[ "${proxy_mode}" == "direct-egress" ]]; then
-            echo "proxy.on: direct-egress is only supported on Slurm compute nodes"
-            return 1
+        if [[ "${proxy_mode}" == "via-login" ]]; then
+            _mse_proxy_disable_env
+            _mse_proxy_alias_log "proxy.on: 登录端为 origin，本节点直接使用自己的网络，无需代理"
+            return 0
         fi
         if _mse_proxy_uses_clashctl_backend; then
             _mse_proxy_require_clashctl_backend || return 1
@@ -1232,6 +1365,11 @@ _func_proxy_off() {
 
     _mse_proxy_disable_env
 
+    if [[ "${proxy_mode}" == "origin" ]]; then
+        _mse_proxy_alias_log "proxy.off: 已清理代理环境变量（${MSE_PROXY_MODE}，本节点不使用代理）"
+        return 0
+    fi
+
     if [[ "${mode}" == "compute" ]]; then
         if ! _mse_proxy_is_quiet; then
             echo "proxy.off: stopping autossh tunnels for compute node"
@@ -1266,6 +1404,15 @@ _func_proxy_status() {
     local runtime_conf=""
 
     _mse_proxy_require_mode || return 1
+
+    if [[ "$(_mse_proxy_mode_setting)" == "origin" ]]; then
+        echo "proxy node role: $(_mse_proxy_mode)"
+        echo "proxy mode: ${MSE_PROXY_MODE} (本节点不使用代理)"
+        echo "proxy env http: ${http_proxy:-<unset>}"
+        echo "proxy env socks: ${all_proxy:-<unset>}"
+        return 0
+    fi
+
     if _mse_proxy_is_external; then
         _mse_proxy_sync_ports || return 1
         if [[ -n "${http_proxy:-}${https_proxy:-}${all_proxy:-}${HTTP_PROXY:-}${HTTPS_PROXY:-}${ALL_PROXY:-}" ]]; then
@@ -1328,10 +1475,10 @@ _func_proxy_status() {
         echo "proxy alias off: clear env + stop compute tunnel"
     fi
 
-    if _mse_proxy_is_compute_node; then
+    if _mse_proxy_is_compute_node && [[ "${proxy_mode}" != "clash-local" ]]; then
         upstream_host="$(_mse_proxy_upstream_host 2>/dev/null || true)"
         echo "proxy upstream: ${upstream_host:-<unknown>}"
-        if [[ "${proxy_mode}" == "direct-egress" ]]; then
+        if [[ "${proxy_mode}" == "via-login" ]]; then
             echo "proxy tunnel type: dynamic-socks"
         else
             echo "proxy tunnel type: local-forward"
@@ -1379,6 +1526,10 @@ _func_proxy_test() {
         return 1
     }
     _mse_proxy_require_mode || return 1
+    if [[ "$(_mse_proxy_mode_setting)" == "origin" ]]; then
+        echo "proxy.test: 当前为 origin+origin，未启用代理"
+        return 1
+    fi
     _mse_proxy_require_clashctl_runtime || return 1
     _mse_proxy_sync_ports || return 1
     if _mse_proxy_is_external; then
@@ -1407,7 +1558,7 @@ _func_proxy_test() {
     runtime_conf="$(_mse_proxy_runtime_proxychains_conf)"
     proxy_mode="$(_mse_proxy_mode_setting)"
 
-    if [[ "${proxy_mode}" == "direct-egress" ]]; then
+    if [[ "${proxy_mode}" == "via-login" ]]; then
         urls=(
             "https://www.google.com.hk|google.com.hk"
             "https://www.baidu.com|baidu.com"
@@ -1465,6 +1616,15 @@ _func_proxy_exec() {
     local runtime_conf=""
 
     _mse_proxy_require_mode || return 1
+    if [[ "$(_mse_proxy_mode_setting)" == "origin" ]]; then
+        [[ $# -gt 0 ]] || {
+            echo "usage: proxy.exec <command> [args...]"
+            return 1
+        }
+        _mse_proxy_disable_env
+        "$@"
+        return $?
+    fi
     _mse_proxy_require_clashctl_runtime || return 1
     _mse_proxy_sync_ports || return 1
     proxychains_bin="$(_mse_proxy_proxychains_bin)"
@@ -1573,82 +1733,8 @@ ssh() {
 # ------------------------------------------------------------------->>>>>>>>>>
 # 自定义函数命令
 # ------------------------------------------------------------------->>>>>>>>>>
-if [ -z "${TRASH+x}" ]; then  
-    TRASH=${HOME}/.mytrash
-    if [ ! -d "$TRASH" ] && [ ! -L "$TRASH" ]; then
-        echo -e '\t!!!!!ATTENTION!!!!!'
-        echo -e '\tnot found var: TRASH in ~/.zprofile'
-        echo -e '\tautomatically set TRASH @ '$TRASH
-        mkdir -p $TRASH
-        echo -e '\tyou can override it by adding `export TRASH=your_trash_path`, the trash folder will be create'
-        echo -e '\tOR you need to do nothing if you want to use ~/.mytrash as your default trash folder'
-        echo -e '\tthis warning will be shown ONLY ONCE.'
-        echo -e '\t!!!!/ATTENTION!!!!!\n\n'
-    fi
-else
-    mkdir -p $TRASH
-    echo -e '\t\033[1;35mTRASH\033[0m @ '$TRASH
-fi
-# mv命令覆盖rm命令（时间戳避免）
-func_delfile(){
-    local timestamp=$(date +%Y%m%d_%H%M%S)
-    for item in "$@"; do
-        # 跳过 -rf 等选项参数
-        if [[ "$item" == -* ]]; then
-            continue
-        fi
-        # 检查文件/文件夹是否存在
-        if [ -e "$item" ]; then
-            local basename=$(basename "$item")
-            local newname="${timestamp}_${basename}"
-            mv "$item" "$TRASH/$newname"
-            echo "✓ 已移动: $item → $newname"
-        else
-            echo "✗ 不存在: $item" >&2
-        fi
-    done
-}
-
-# 保存原始rm命令的路径
-echo -e '\talias \033[1;35mrrm\033[0m=/bin/rm'
-alias rrm=/bin/rm
- 
-# 定义一个新的rm命令，它调用_del函数
-echo -e '\talias \033[1;35mrm\033[0m=func_delfile'
-alias rm=func_delfile
-
-# 显示回收站中垃圾清单
-func_dellist(){
-    eza --no-permissions --time-style long-iso -lh --tree -L 1 --no-user "$TRASH/"
-}
-
-echo -e '\talias \033[1;35mrm.trash.show\033[0m=func_dellist'
-alias rm.trash.show=func_dellist
-# 找回回收站相应文件
-func_delback(){
-    echo "将执行 mv -i $TRASH/* ./"
-    echo "你可以自己写mv命令来恢复文件"
-    echo "在那之前，建议执行rm.trash.show来检查垃圾箱的文件"
-    echo "是否继续执行 [y/n]"
-    read confirm
-    if [ ${confirm} = "y" ]; then
-        mv -i $TRASH/* ./
-    fi
-}
-echo -e '\talias \033[1;35mrm.trash.back\033[0m=func_delback'
-alias rm.trash.back=func_delback
-# 清空回收站
-func_delclear(){
-    echo "确认删除回收站所有文件？？？ $TRASH [y/n]"
-    read confirm
-    if [ ${confirm} = "y"  ] ;then
-        /bin/rm -rf $TRASH/* 
-        /bin/rm -rf $TRASH/.* 2> /dev/null
-        echo "完成"
-    fi
-}
-echo -e '\talias \033[1;35mrm.trash.clear\033[0m=func_delclear'
-alias rm.trash.clear=func_delclear
+# 回收站：rm 包装、按盘选择、恢复与清空
+source "${MSE_REPO_ROOT}/zsh/trash.zsh"
 # ------------------------------------------------------------------->>>>>>>>>>
 # 自定义alias
 # ------------------------------------------------------------------->>>>>>>>>>
@@ -1704,8 +1790,8 @@ if command -v direnv >/dev/null 2>&1; then
 fi
 
 if [[ "$platform" == "Darwin" ]]; then
-    export MAMBA_EXE="$HOME/micromamba/bin/micromamba";
-    export MAMBA_ROOT_PREFIX="$HOME/micromamba";
+    export MAMBA_EXE="$HOME/0.apps/micromamba/bin/micromamba";
+    export MAMBA_ROOT_PREFIX="$HOME/0.apps/micromamba";
 elif [[ "$platform" == "Linux" ]]; then
     export MAMBA_EXE="$HOME/0.apps/micromamba/bin/micromamba";
     export MAMBA_ROOT_PREFIX="$HOME/0.apps/micromamba";
@@ -1719,10 +1805,10 @@ if [ $? -eq 0 ]; then
 else
     echo $platform
     if [[ "$platform" == "Darwin" ]]; then
-       if [ -f "$HOME/micromamba/etc/profile.d/micromamba.sh" ]; then
-           . "$HOME/micromamba/etc/profile.d/micromamba.sh"
+       if [ -f "$HOME/0.apps/micromamba/etc/profile.d/micromamba.sh" ]; then
+           . "$HOME/0.apps/micromamba/etc/profile.d/micromamba.sh"
        else
-           export  PATH="$HOME/micromamba/bin:$PATH"
+           export  PATH="$HOME/0.apps/micromamba/bin:$PATH"
        fi
    elif [[ "$platform" == "Linux" ]]; then
        if [ -f "$HOME/0.apps/micromamba/etc/profile.d/micromamba.sh" ]; then
